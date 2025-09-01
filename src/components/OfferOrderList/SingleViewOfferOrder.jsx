@@ -4,7 +4,7 @@ import { BASE_URL } from "../../utils/baseURL";
 import { LoaderOverlay } from "../common/loader/LoderOverley";
 import { DateFormate } from "../../utils/DateFormate/DateFormate";
 
-const ViewSingleOfferOrder = () => {
+const SingleViewOfferOrder = () => {
   const { id } = useParams();
 
   const { data: offerOrders, isLoading } = useQuery({
@@ -170,7 +170,6 @@ const ViewSingleOfferOrder = () => {
               {" "}
               ৳ {offerOrders?.data?.shipping_cost}
             </p>
-           
 
             <p className=" font-medium uppercase">Grand Total Amount</p>
             <p className=" font-medium">
@@ -186,4 +185,4 @@ const ViewSingleOfferOrder = () => {
   );
 };
 
-export default ViewSingleOfferOrder;
+export default SingleViewOfferOrder;

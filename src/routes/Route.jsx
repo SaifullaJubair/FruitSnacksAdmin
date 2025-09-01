@@ -38,7 +38,6 @@ import AddOfferPage from "../pages/OfferPage/AddOfferPage/AddOfferPage";
 import QuestionPage from "../pages/QuestionPage/QuestionPage";
 
 import OfferOrderListPage from "../pages/OfferOrderListPage/OfferOrderListPage";
-import ViewSingleOfferOrder from "../components/OfferOrderList/viewSingleOfferOrder";
 import CustomerPage from "../pages/AllCustomerPage/CustomerPage";
 import DashBoard from "../pages/DashBoardPage/DashBoard";
 import ProfilePage from "../pages/MyProfilePage/ProfilePage";
@@ -46,6 +45,7 @@ import PathaoOrderPage from "../pages/PathaoOrderPage/PathaoOrderPage";
 import CancelOrderPage from "../pages/CancelOrderPage/CancelOrderPage";
 import ReturnOrderPage from "../pages/ReturnOrderPage/ReturnOrderPage";
 import DeliveryOrderPage from "../pages/DeliveryOrderPage/DeliveryOrderPage";
+import SingleViewOfferOrder from "../components/OfferOrderList/SingleViewOfferOrder";
 
 const route = createBrowserRouter([
   {
@@ -191,7 +191,7 @@ const route = createBrowserRouter([
       },
       {
         path: "/all-offerOrder-info/:id",
-        element: <ViewSingleOfferOrder />,
+        element: <SingleViewOfferOrder />,
       },
 
       // ......Order.......//
