@@ -136,118 +136,16 @@ const OrderTable = ({
       toast.error(error?.message, {
         autoClose: 1000,
       });
-      refetch();
+      refetch();  
     } finally {
       refetch();
     }
   };
 
-  const handleOrderSendSteadFast = async (order) => {
+  const handleOrderSendToCourier = async (order) => {
     Swal.fire({
       title: "Are you sure?",
-      text: `You want to send this order to SteadFast?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, send it!",
-    }).then(async (result) => {
-      if (!result.isConfirmed) return;
-
-      try {
-        setButtonLoading(true);
-
-        // Prepare order data
-        const data = {
-          invoice: order?.invoice_id,
-          recipient_name: order?.customer_id?.user_name || "N/A",
-          recipient_address: `${order?.billing_address}, ${order?.billing_district}, ${order?.billing_division}, ${order?.billing_country}`,
-          recipient_phone: order?.customer_phone || "",
-          cod_amount: order?.grand_total_amount,
-          note: "",
-        };
-
-        // Send order to SteadFast API
-        const response = await fetch(
-          `https://portal.packzy.com/api/v1/create_order`,
-          {
-            method: "POST",
-            headers: {
-              "Api-Key": "13nfu8inrh0mzqw2yigimse8wqkwzuuj",
-              "Secret-Key": "xgi86dhwxql3taju5f3kmpui",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(data),
-          }
-        );
-        // dada garments
-        // api-key: tc9iiq867dde8fnf4vjutvrbnpan5jfx
-        // secret-key: sfecxdfb3epe74fbu8v4pokf
-        // Maheya garments
-        // api-key: bsnadn4lsrdhuhjilbx04cgyj2srqrsa
-        // secret-key: uhyoxpeacu8r2pxdgak3eb60
-        // Aiman garments
-        // api-key: imb5c4ev2itixc7hrjmoqnkfu7hehkpx
-        // secret-key: alqvzcx6pwzytla4sehgubev
-
-        // Parse API response
-        const result = await response.json();
-
-        if (result?.status !== 200 || !result?.consignment?.tracking_code) {
-          throw new Error("Failed to send order to SteadFast.");
-        }
-
-        // Prepare order update data
-        const sendData = {
-          _id: order?._id,
-          order_status: "processing",
-          order_updated_by: user?._id,
-          tracking_code: result?.consignment?.tracking_code,
-          consignment_id: result?.consignment?.consignment_id,
-        };
-
-        // Update order status
-        const updateResponse = await fetch(`${BASE_URL}/order`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(sendData),
-        });
-
-        const updateResult = await updateResponse.json();
-
-        if (
-          updateResult?.statusCode === 200 &&
-          updateResult?.success === true
-        ) {
-          Swal.fire({
-            title: "Sent!",
-            text: "Order has been sent to SteadFast.",
-            icon: "success",
-          });
-        } else {
-          throw new Error("Failed to update order status.");
-        }
-      } catch (error) {
-        Swal.fire({
-          title: "Error!",
-          text: error.message || "Something went wrong.",
-          icon: "error",
-        });
-        toast.error(error.message, { autoClose: 1000 });
-      } finally {
-        setButtonLoading(false);
-        refetch();
-      }
-    });
-  };
-
-  const handleOrderSendPathao = async (order) => {
-    Swal.fire({
-      title: "Are you sure?",
-      text: `You want to send this order to Pathao?`,
+      text: `You want to send this order to Courier?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
@@ -285,7 +183,7 @@ const OrderTable = ({
         ) {
           Swal.fire({
             title: "Sent!",
-            text: "Order has been sent to Pathao.",
+            text: "Order has been sent to SteadFast.",
             icon: "success",
           });
         } else {
@@ -387,75 +285,111 @@ const OrderTable = ({
                       {order?.order_status}
                     </td> */}
                     {user?.role_id?.order_update === true &&
-                      order?.order_status == "pending" && (
-                        <td className="whitespace-nowrap p-1">
-                          <select
-                            onChange={(e) =>
-                              handleOrderStatus(
-                                e.target.value,
-                                order?._id,
-                                order?.order_products
-                              )
-                            }
-                            id="order_status"
-                            className="block w-full px-1 py-1 text-gray-700 bg-white border border-gray-200 rounded-xl cursor-pointer"
-                          >
-                            <option selected value={order?.order_status}>
-                              {order?.order_status}
-                            </option>
-                            {order?.order_status !== "pending" &&
-                              order?.order_status !== "processing" &&
-                              order?.order_status !== "shipped" &&
-                              order?.order_status !== "delivered" &&
-                              order?.order_status !== "cancel" &&
-                              order?.order_status !== "return" && (
-                                <option value="pending">Pending</option>
-                              )}
-                            {/* {order?.order_status == "pending" && (
+                    order?.order_status !== "shipped" ? (
+                      <td className="whitespace-nowrap p-1">
+                        <select
+                          onChange={(e) =>
+                            handleOrderStatus(
+                              e.target.value,
+                              order?._id,
+                              order?.order_products
+                            )
+                          }
+                          id="order_status"
+                          className="block w-full px-1 py-1 text-gray-700 bg-white border border-gray-200 rounded-xl cursor-pointer"
+                        >
+                          <option selected value={order?.order_status}>
+                            {order?.order_status}
+                          </option>
+                          {order?.order_status !== "pending" &&
+                            order?.order_status !== "processing" &&
+                            order?.order_status !== "shipped" &&
+                            order?.order_status !== "delivered" &&
+                            order?.order_status !== "cancel" &&
+                            order?.order_status !== "return" && (
+                              <option value="pending">Pending</option>
+                            )}
+                          {/* {order?.order_status == "pending" && (
                             <option value="processing">Processing</option>
                           )} */}
-                            {/* {order?.order_status == "processing" && (
+                          {/* {order?.order_status == "processing" && (
                             <option value="shipped">Shipped</option>
                           )} */}
-                            {(order?.order_status == "shipped" ||
-                              order?.order_status == "pending") && (
-                              <option value="delivered">Delivered</option>
+                          {(order?.order_status == "shipped" ||
+                            order?.order_status == "pending") && (
+                            <option value="delivered">Delivered</option>
+                          )}
+                          {order?.order_status !== "cancel" &&
+                            order?.order_status !== "return" &&
+                            order?.order_status !== "delivered" && (
+                              <option value="cancel">Cancel</option>
                             )}
-                            {order?.order_status !== "cancel" &&
-                              order?.order_status !== "return" &&
-                              order?.order_status !== "delivered" && (
-                                <option value="cancel">Cancel</option>
-                              )}
-                            {/* {(order?.order_status == "pending" ||
+                          {/* {(order?.order_status == "pending" ||
                             order?.order_status == "processing") && (
                             <option value="return">Return</option>
                           )} */}
-                            {/* {order?.order_status == "delivered" && (
+                          {/* {order?.order_status == "delivered" && (
                             <option value="return">Return</option>
                           )} */}
-                          </select>
-                        </td>
-                      )}
+                        </select>
+                      </td>
+                    ) : (
+                      <td className="whitespace-nowrap p-1">
+                        <select
+                          onChange={(e) =>
+                            handleOrderStatus(
+                              e.target.value,
+                              order?._id,
+                              order?.order_products
+                            )
+                          }
+                          id="order_status"
+                          className="block w-full px-1 py-1 text-gray-700 bg-white border border-gray-200 rounded-xl cursor-pointer"
+                        >
+                          <option selected value={order?.order_status}>
+                            {order?.order_status}
+                          </option>
+                          <option value="delivered">Delivered</option>
+                          <option value="return">Return</option>
+                        </select>
+                      </td>
+                    )}
                     <td className="whitespace-nowrap p-4">
                       {buttonloading ? (
                         <MiniSpinner />
+                      ) : user?.role_id?.order_update === true &&
+                        order?.order_status == "pending" ? (
+                        <div>
+                          <button
+                            className="h-[40px] rounded-[8px] py-[10px] px-[14px] bg-red-500 hover:bg-red-400 duration-200  text-white text-sm"
+                            onClick={() => handleOrderSendSteadFast(order)}
+                          >
+                            Send Courier
+                          </button>
+                        </div>
                       ) : (
-                        user?.role_id?.order_update === true &&
-                        order?.order_status == "pending" && (
-                          <div className="flex gap-2 justify-center">
-                            <button
-                              className="h-[40px] rounded-[8px] py-[10px] px-[14px] bg-blue-500 hover:bg-blue-400 duration-200 text-white text-sm"
-                              onClick={() => handleOrderSendPathao(order)}
-                            >
-                              Send Pathao
-                            </button>
+                        order?.order_status === "shipped" && (
+                          <div>
+                            {/* <button onClick={() => handleorderStatusValue(order)}>
+                            <GoEye
+                              size={22}
+                              className="cursor-pointer text-gray-500 hover:text-gray-300"
+                            />
+                          </button> */}
 
-                            <button
-                              className="h-[40px] rounded-[8px] py-[10px] px-[14px] bg-red-500 hover:bg-red-400 duration-200 text-white text-sm"
-                              onClick={() => handleOrderSendSteadFast(order)}
+                            <a
+                              href={`https://merchant.pathao.com/tracking?consignment_id=${
+                                order?.consignment_id
+                              }&phone=${order?.customer_id?.user_phone?.slice(
+                                3
+                              )}`}
+                              target="_blank"
                             >
-                              Send SteadFast
-                            </button>
+                              <GoEye
+                                size={22}
+                                className="cursor-pointer text-gray-500 hover:text-gray-300"
+                              />
+                            </a>
                           </div>
                         )
                       )}
