@@ -4,6 +4,7 @@ import useDebounced from "../../hooks/useDebounced";
 import OrderTable from "../../components/Order/OrderTable";
 import { useQuery } from "@tanstack/react-query";
 import { BASE_URL } from "../../utils/baseURL";
+import { data } from "autoprefixer";
 
 const OrderPage = () => {
   const [limit, setLimit] = useState(10);
@@ -37,13 +38,14 @@ const OrderPage = () => {
         `${BASE_URL}/order/dashboard?order_status=pending&page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
         {
           credentials: "include",
-        }
+        },
       );
       const data = await res.json();
       return data;
     },
   });
 
+  console.log(ordersData);
   return (
     <>
       {user?.role_id?.order_show === true && (

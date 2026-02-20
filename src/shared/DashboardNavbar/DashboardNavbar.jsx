@@ -150,7 +150,7 @@ const DashBoardNavbar = ({
                       <p
                         onClick={() => {
                           document.cookie =
-                            "fashion_for_you_token=; Max-Age=0; path=/;";
+                            "artisan_lather_token=; Max-Age=0; path=/;";
                           setTimeout(() => {
                             toggleDropdown;
                             window.location.reload();

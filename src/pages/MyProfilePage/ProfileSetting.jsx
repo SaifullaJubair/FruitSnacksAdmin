@@ -86,7 +86,7 @@ const ProfileSetting = ({ setUserupdateModalOpen, user }) => {
         );
         setLoading(false);
         if (data?.admin_password) {
-          document.cookie = "sm_auto_mobile_token=; Max-Age=0; path=/;";
+          document.cookie = "artisan_lather_token=; Max-Age=0; path=/;";
         }
         window.location.reload();
       } else {
