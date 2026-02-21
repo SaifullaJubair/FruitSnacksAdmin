@@ -13,6 +13,10 @@ const PATHAO_STATUS_COLOR = {
   Return: "bg-red-50 text-red-500",
   "Delivery Failed": "bg-red-50 text-red-500",
   "On Hold": "bg-purple-50 text-purple-500",
+  "Pickup Cancel": "bg-red-100 text-red-600",
+  "Pickup Cancelled": "bg-red-100 text-red-600",
+  "Pickup Failed": "bg-orange-100 text-orange-600",
+  "Paid Return": "bg-yellow-100 text-yellow-700",
 };
 
 const PathaoRow = ({
@@ -30,7 +34,6 @@ const PathaoRow = ({
   const isLoading = loadingOrderId === order._id;
   const rowClass = index % 2 === 0 ? "bg-white" : "bg-tableRowBGColor";
 
-  // Pathao এ delivered/return/cancelled হলে cancel block করো
   const cancelBlocked = [
     "Delivered",
     "Partial Delivery",
@@ -43,6 +46,7 @@ const PathaoRow = ({
       <td className="whitespace-nowrap p-4">
         {(page - 1) * limit + index + 1}
       </td>
+
       <td className="whitespace-nowrap p-4">
         <Link
           to={`/all-order-info/${order._id}`}
@@ -51,16 +55,19 @@ const PathaoRow = ({
           {order.invoice_id}
         </Link>
       </td>
+
       <td className="whitespace-nowrap p-4">
         {order?.customer_id?.user_name || "N/A"}
       </td>
       <td className="whitespace-nowrap p-4">{order.customer_phone}</td>
+
       <td className="whitespace-nowrap p-4 font-mono text-xs">
         {order.tracking_code || "-"}
       </td>
       <td className="whitespace-nowrap p-4 text-xs">
         {order.consignment_id || "-"}
       </td>
+
       <td className="whitespace-nowrap p-4">
         {order.pathao_status ? (
           <span
@@ -72,12 +79,14 @@ const PathaoRow = ({
           <span className="text-xs text-gray-400">-</span>
         )}
       </td>
+
       <td className="whitespace-nowrap p-4">৳{order.grand_total_amount}</td>
+
       <td className="whitespace-nowrap p-4 text-xs text-gray-500">
         {new Date(order.createdAt).toLocaleDateString("en-BD")}
       </td>
 
-      {/* Sync button */}
+      {/* Sync */}
       <td className="whitespace-nowrap p-4">
         {canUpdate &&
           order.consignment_id &&

@@ -9,6 +9,7 @@ import PrintableInvoice from "../../components/common/printableInvoice/Printable
 import { SettingContext } from "../../context/SettingProvider";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2-optimized";
+
 import PendingRow from "../../components/Order/PendingRow";
 
 import SteadfastRow from "../../components/Order/SteadfastRow";
@@ -16,7 +17,6 @@ import PathaoRow from "../../components/Order/PathaoRow";
 import DefaultRow from "../../components/Order/DefaultRow";
 import BulkSendBar from "../../components/Order/BulkSendBar";
 
-// ── TABS ─────────────────────────────────────────────────────
 const TABS = [
   { label: "Pending", value: "pending" },
   { label: "Steadfast", value: "steadfast" },
@@ -37,6 +37,17 @@ const STEADFAST_SUB_TABS = [
   { label: "Unknown", value: "unknown" },
 ];
 
+const PATHAO_SUB_TABS = [
+  { label: "All", value: "all" },
+  { label: "Pickup Requested", value: "Pickup Requested" },
+  { label: "In Transit", value: "In Transit" },
+  { label: "Out for Delivery", value: "Out for Delivery" },
+  { label: "Delivered", value: "Delivered" },
+  { label: "Pickup Cancel", value: "Pickup Cancel" },
+  { label: "Return", value: "Return" },
+  { label: "Delivery Failed", value: "Delivery Failed" },
+];
+
 const STEADFAST_CANCEL_BLOCKED = [
   "delivered_approval_pending",
   "partial_delivered_approval_pending",
@@ -49,7 +60,7 @@ const STEADFAST_CANCEL_BLOCKED = [
   "hold",
 ];
 
-// ── TABLE HEADS ───────────────────────────────────────────────
+// Pending tab এ checkbox আছে, Pathao tab এ নেই
 const PENDING_HEAD = [
   "",
   "SL",
@@ -111,11 +122,15 @@ const OrderPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [steadfastSubTab, setSteadfastSubTab] = useState("all");
+  const [pathaoSubTab, setPathaoSubTab] = useState("all");
 
   const [loadingOrderId, setLoadingOrderId] = useState(null);
   const [syncingOrderId, setSyncingOrderId] = useState(null);
+
+  // Pending tab এ selected orders — Steadfast বা Pathao যেকোনোটায় পাঠানো যাবে
   const [selectedOrders, setSelectedOrders] = useState([]);
-  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkSteadfastLoading, setBulkSteadfastLoading] = useState(false);
+  const [bulkPathaoLoading, setBulkPathaoLoading] = useState(false);
 
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -136,16 +151,17 @@ const OrderPage = () => {
     setSearchValue("");
     setSearchTerm("");
     setSteadfastSubTab("all");
+    setPathaoSubTab("all");
     setSelectedOrders([]);
   };
 
-  // ── API URL ───────────────────────────────────────────────
   const buildApiUrl = () => {
     const base = `${BASE_URL}/order`;
     const common = `page=${page}&limit=${limit}&searchTerm=${searchTerm}`;
     if (activeTab === "steadfast")
       return `${base}/steadfast?${common}&steadfast_status=${steadfastSubTab}`;
-    if (activeTab === "pathao") return `${base}/pathao?${common}`;
+    if (activeTab === "pathao")
+      return `${base}/pathao?${common}&pathao_status=${pathaoSubTab}`;
     if (activeTab === "all") return `${base}/dashboard?${common}`;
     if (activeTab === "delivered")
       return `${base}/dashboard?${common}&order_status=delivered`;
@@ -159,7 +175,15 @@ const OrderPage = () => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["orders", activeTab, steadfastSubTab, page, limit, searchTerm],
+    queryKey: [
+      "orders",
+      activeTab,
+      steadfastSubTab,
+      pathaoSubTab,
+      page,
+      limit,
+      searchTerm,
+    ],
     queryFn: async () => {
       const res = await fetch(buildApiUrl(), { credentials: "include" });
       return res.json();
@@ -169,18 +193,17 @@ const OrderPage = () => {
   const orders = ordersData?.data || [];
   const totalData = ordersData?.totalData || 0;
 
+  // Pending tab checkbox
   // ── SELECTION ─────────────────────────────────────────────
   const handleSelectOrder = (id) =>
     setSelectedOrders((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
-
   const handleSelectAll = () =>
     setSelectedOrders(
       selectedOrders.length === orders.length ? [] : orders.map((o) => o._id),
     );
 
-  // ── PRINT ─────────────────────────────────────────────────
   const handlePrintClick = async (order) => {
     try {
       const res = await fetch(`${BASE_URL}/order/${order._id}`, {
@@ -197,18 +220,18 @@ const OrderPage = () => {
     }
   };
 
-  // ── SEND TO STEADFAST ─────────────────────────────────────
+  // ── Single send ───────────────────────────────────────────
   const handleSendToSteadfast = async (order) => {
-    const confirm = await Swal.fire({
+    const ok = await Swal.fire({
       title: "Steadfast এ পাঠাবেন?",
       text: `Invoice: ${order?.invoice_id}`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
       cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, send it!",
+      confirmButtonText: "Yes!",
     });
-    if (!confirm.isConfirmed) return;
+    if (!ok.isConfirmed) return;
     try {
       setLoadingOrderId(order._id);
       const res = await fetch(
@@ -231,67 +254,17 @@ const OrderPage = () => {
     }
   };
 
-  // ── BULK SEND ─────────────────────────────────────────────
-  const handleBulkSendToSteadfast = async () => {
-    if (selectedOrders.length === 0) {
-      toast.warning("কোনো order select করা হয়নি।");
-      return;
-    }
-    const confirm = await Swal.fire({
-      title: `${selectedOrders.length} টা order Steadfast এ পাঠাবেন?`,
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, send all!",
-    });
-    if (!confirm.isConfirmed) return;
-    try {
-      setBulkLoading(true);
-      const res = await fetch(`${BASE_URL}/courier/steadfast/bulk-send`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order_ids: selectedOrders }),
-      });
-      const data = await res.json();
-      if (data?.success) {
-        const { success, failed } = data?.data || {};
-        Swal.fire({
-          title: "Bulk Send Complete!",
-          html: `
-            ✅ সফল: <b>${success?.length || 0}</b> টা<br/>
-            ❌ ব্যর্থ: <b>${failed?.length || 0}</b> টা
-            ${
-              failed?.length > 0
-                ? `<br/><small style="color:red">${failed
-                    .map((f) => f.reason)
-                    .join(", ")}</small>`
-                : ""
-            }
-          `,
-          icon: failed?.length > 0 ? "warning" : "success",
-        });
-        setSelectedOrders([]);
-        refetch();
-      } else throw new Error(data?.message);
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
-  // ── SEND TO PATHAO ────────────────────────────────────────
   const handleSendToPathao = async (order) => {
-    const confirm = await Swal.fire({
+    const ok = await Swal.fire({
       title: "Pathao তে পাঠাবেন?",
       text: `Invoice: ${order?.invoice_id}`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
       cancelButtonColor: "#d33",
-      confirmButtonText: "Yes, send it!",
+      confirmButtonText: "Yes!",
     });
-    if (!confirm.isConfirmed) return;
+    if (!ok.isConfirmed) return;
     try {
       setLoadingOrderId(order._id);
       const res = await fetch(`${BASE_URL}/courier/pathao/send/${order._id}`, {
@@ -311,7 +284,85 @@ const OrderPage = () => {
     }
   };
 
-  // ── SYNC STEADFAST ────────────────────────────────────────
+  // ── Bulk send — Pending tab ───────────────────────────────
+  const handleBulkSendToSteadfast = async () => {
+    if (!selectedOrders.length) {
+      toast.warning("কোনো order select করা হয়নি।");
+      return;
+    }
+    const ok = await Swal.fire({
+      title: `${selectedOrders.length} টা order Steadfast এ পাঠাবেন?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, send all!",
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      setBulkSteadfastLoading(true);
+      const res = await fetch(`${BASE_URL}/courier/steadfast/bulk-send`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: selectedOrders }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        const { success, failed } = data?.data || {};
+        Swal.fire({
+          title: "Steadfast Bulk Complete!",
+          html: `✅ সফল: <b>${success?.length || 0}</b><br/>❌ ব্যর্থ: <b>${failed?.length || 0}</b>`,
+          icon: failed?.length > 0 ? "warning" : "success",
+        });
+        setSelectedOrders([]);
+        refetch();
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setBulkSteadfastLoading(false);
+    }
+  };
+
+  const handleBulkSendToPathao = async () => {
+    if (!selectedOrders.length) {
+      toast.warning("কোনো order select করা হয়নি।");
+      return;
+    }
+    const ok = await Swal.fire({
+      title: `${selectedOrders.length} টা order Pathao তে পাঠাবেন?`,
+      html: `<p class="text-sm text-gray-500 mt-1">⚠️ Pathao bulk async — consignment ID পেতে কিছুক্ষণ পর Sync করুন।</p>`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, send all!",
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      setBulkPathaoLoading(true);
+      const res = await fetch(`${BASE_URL}/courier/pathao/bulk-send`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: selectedOrders }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        const { success, failed } = data?.data || {};
+        Swal.fire({
+          title: "Pathao Bulk Send!",
+          html: `✅ সফল: <b>${success?.length || 0}</b><br/>❌ ব্যর্থ: <b>${failed?.length || 0}</b>${failed?.length > 0 ? `<br/><small style="color:red">${failed.map((f) => f.reason).join(", ")}</small>` : ""}<br/><small>Consignment ID পেতে কিছুক্ষণ পর Pathao tab এ Sync করুন।</small>`,
+          icon: failed?.length > 0 ? "warning" : "success",
+        });
+        setSelectedOrders([]);
+        refetch();
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setBulkPathaoLoading(false);
+    }
+  };
+
+  // ── Sync ─────────────────────────────────────────────────
   const handleSyncSteadfast = async (order) => {
     try {
       setSyncingOrderId(order._id);
@@ -358,7 +409,7 @@ const OrderPage = () => {
     }
   };
 
-  // ── CANCEL ────────────────────────────────────────────────
+  // ── Cancel ────────────────────────────────────────────────
   const handleCancelOrder = async (order) => {
     const isSteadfastSent =
       order?.courier_type === "steadfast" && order?.steadfast_consignment_id;
@@ -377,15 +428,15 @@ const OrderPage = () => {
       return;
     }
 
-    let warningHtml = `<p>Invoice: <strong>${order?.invoice_id}</strong></p>`;
-    if (isSteadfastSent) {
-      warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Steadfast এ পাঠানো হয়েছে (${order?.steadfast_status}).<br/>Database এ cancel হবে, Steadfast portal এ manually cancel করতে হতে পারে।</p>`;
-    } else if (isPathaoSent) {
-      warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Pathao তে পাঠানো হয়েছে।<br/>Database এ cancel হবে, Pathao portal এ manually cancel করতে হবে।</p>`;
-    }
-    const confirm = await Swal.fire({
+    let html = `<p>Invoice: <strong>${order?.invoice_id}</strong></p>`;
+    if (isSteadfastSent)
+      html += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Steadfast এ পাঠানো হয়েছে (${order?.steadfast_status}).<br/>Database এ cancel হবে, Steadfast portal এ manually cancel করতে হতে পারে।</p>`;
+    if (isPathaoSent)
+      html += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Pathao তে পাঠানো হয়েছে।<br/>Database এ cancel হবে, Pathao portal এ manually cancel করতে হবে।</p>`;
+
+    const ok = await Swal.fire({
       title: "Cancel করবেন?",
-      html: warningHtml,
+      html,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -393,11 +444,10 @@ const OrderPage = () => {
       confirmButtonText: "Yes, Cancel!",
       cancelButtonText: "No",
     });
-    if (!confirm.isConfirmed) return;
+    if (!ok.isConfirmed) return;
 
     try {
       setLoadingOrderId(order._id);
-
       if (order?.courier_type === "steadfast") {
         const res = await fetch(
           `${BASE_URL}/order/steadfast/cancel/${order._id}`,
@@ -419,10 +469,9 @@ const OrderPage = () => {
             toast.success(data?.message || "Order Cancelled!");
           }
           refetch();
-        } else throw new Error(data?.message || "Cancel Failed!");
+        } else throw new Error(data?.message);
         return;
       }
-
       const cancelTime =
         new Date().toISOString().split("T")[0] +
         " " +
@@ -458,15 +507,14 @@ const OrderPage = () => {
     }
   };
 
-  if (!user?.role_id?.order_show) {
+  if (!user?.role_id?.order_show)
     return (
       <div className="flex items-center justify-center h-40 text-red-500 font-medium">
         Access Denied!
       </div>
     );
-  }
 
-  // ── TABLE HEAD ────────────────────────────────────────────
+  // ── Table head ────────────────────────────────────────────
   const getHead = () => {
     const heads =
       activeTab === "pending"
@@ -476,6 +524,7 @@ const OrderPage = () => {
           : activeTab === "pathao"
             ? PATHAO_HEAD
             : DEFAULT_HEAD;
+
     return (
       <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
         {heads.map((h, i) => (
@@ -498,7 +547,7 @@ const OrderPage = () => {
     );
   };
 
-  // ── TABLE ROW ─────────────────────────────────────────────
+  // ── Table row ─────────────────────────────────────────────
   const getRow = (order, index) => {
     const common = {
       order,
@@ -552,7 +601,6 @@ const OrderPage = () => {
     );
   };
 
-  // ── RENDER ────────────────────────────────────────────────
   return (
     <div className="bg-white rounded py-6 px-4 shadow">
       {/* Header */}
@@ -589,7 +637,6 @@ const OrderPage = () => {
               onClick={() => {
                 setSteadfastSubTab(tab.value);
                 setPage(1);
-                setSelectedOrders([]);
               }}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${steadfastSubTab === tab.value ? "bg-red-500 text-white border-red-500" : "bg-white text-gray-600 border-gray-300 hover:border-red-400"}`}
             >
@@ -599,14 +646,51 @@ const OrderPage = () => {
         </div>
       )}
 
-      {/* Bulk Send Bar */}
+      {/* Pathao Sub-Tabs */}
+      {activeTab === "pathao" && (
+        <div className="flex flex-wrap gap-2 mb-4 pb-3 border-b">
+          {PATHAO_SUB_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => {
+                setPathaoSubTab(tab.value);
+                setPage(1);
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${pathaoSubTab === tab.value ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Pending tab — Bulk send bar (Steadfast + Pathao দুটো option) */}
       {activeTab === "pending" && selectedOrders.length > 0 && (
-        <BulkSendBar
-          selectedCount={selectedOrders.length}
-          onBulkSend={handleBulkSendToSteadfast}
-          onClear={() => setSelectedOrders([])}
-          loading={bulkLoading}
-        />
+        <div className="flex flex-wrap items-center gap-3 mb-4 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+          <span className="text-sm text-gray-700 font-medium">
+            {selectedOrders.length} টা order selected
+          </span>
+          <button
+            onClick={handleBulkSendToSteadfast}
+            disabled={bulkSteadfastLoading || bulkPathaoLoading}
+            className="h-[32px] rounded-lg px-4 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-medium"
+          >
+            {bulkSteadfastLoading ? "Sending..." : "Bulk Send → Steadfast"}
+          </button>
+          <button
+            onClick={handleBulkSendToPathao}
+            disabled={bulkSteadfastLoading || bulkPathaoLoading}
+            className="h-[32px] rounded-lg px-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-medium"
+          >
+            {bulkPathaoLoading ? "Sending..." : "Bulk Send → Pathao"}
+          </button>
+          <button
+            onClick={() => setSelectedOrders([])}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            Clear
+          </button>
+        </div>
       )}
 
       {/* Table */}
@@ -627,7 +711,6 @@ const OrderPage = () => {
         </div>
       )}
 
-      {/* Pagination */}
       {totalData > 10 && (
         <Pagination
           page={page}
@@ -638,7 +721,6 @@ const OrderPage = () => {
         />
       )}
 
-      {/* Print Modal */}
       {printModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-auto">
