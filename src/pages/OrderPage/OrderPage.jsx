@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { FaRegEye, FaPrint } from "react-icons/fa";
+import { FaRegEye, FaPrint, FaSync } from "react-icons/fa";
 import { AuthContext } from "../../context/AuthProvider";
 import useDebounced from "../../hooks/useDebounced";
 import { BASE_URL } from "../../utils/baseURL";
@@ -78,11 +78,18 @@ const OrderPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [steadfastSubTab, setSteadfastSubTab] = useState("all");
-  const [buttonLoading, setButtonLoading] = useState(false);
+
+  // ✅ Per-order loading (single actions)
+  const [loadingOrderId, setLoadingOrderId] = useState(null);
+  // ✅ Sync loading per order
+  const [syncingOrderId, setSyncingOrderId] = useState(null);
+  // ✅ Bulk send
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedOrderProducts, setSelectedOrderProducts] = useState([]);
-  const [loadingOrderId, setLoadingOrderId] = useState(null);
 
   const { user, loading } = useContext(AuthContext);
   const { settingData } = useContext(SettingContext);
@@ -98,12 +105,14 @@ const OrderPage = () => {
     setPage(1);
     setSearchValue("");
     setSearchTerm("");
-    setSteadfastSubTab("all"); // sub-tab reset
+    setSteadfastSubTab("all");
+    setSelectedOrders([]); // selection clear
   };
 
   const handleSteadfastSubTabChange = (tab) => {
     setSteadfastSubTab(tab);
     setPage(1);
+    setSelectedOrders([]);
   };
 
   // ===================== BUILD API URL =====================
@@ -126,7 +135,6 @@ const OrderPage = () => {
     if (activeTab === "cancelled") {
       return `${base}/dashboard?${common}&order_status=cancel`;
     }
-    // pending
     return `${base}/dashboard?${common}&order_status=pending`;
   };
 
@@ -145,6 +153,23 @@ const OrderPage = () => {
   const orders = ordersData?.data || [];
   const totalData = ordersData?.totalData || 0;
 
+  // ===================== CHECKBOX SELECTION =====================
+  const handleSelectOrder = (orderId) => {
+    setSelectedOrders((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map((o) => o._id));
+    }
+  };
+
   // ===================== PRINT =====================
   const handlePrintClick = async (order) => {
     try {
@@ -162,7 +187,7 @@ const OrderPage = () => {
     }
   };
 
-  // ===================== SEND TO STEADFAST =====================
+  // ===================== SEND TO STEADFAST (single) =====================
   const handleSendToSteadfast = async (order) => {
     const confirm = await Swal.fire({
       title: "Steadfast এ পাঠাবেন?",
@@ -177,7 +202,6 @@ const OrderPage = () => {
 
     try {
       setLoadingOrderId(order._id);
-
       const res = await fetch(
         `${BASE_URL}/courier/steadfast/send/${order._id}`,
         {
@@ -188,19 +212,76 @@ const OrderPage = () => {
       );
       const data = await res.json();
       if (data?.success) {
-        Swal.fire(
-          "Sent!",
-          `Tracking: ${data?.data?.tracking_code || ""}`,
-          "success",
-        );
+        toast.success(`Sent! Tracking: ${data?.data?.tracking_code || ""}`);
+        //  Swal.fire(
+        //   "Sent!",
+        //   `Tracking: ${data?.data?.tracking_code || ""}`,
+        //   "success",
+        // );
         refetch();
       } else {
         throw new Error(data?.message || "Failed!");
       }
     } catch (error) {
-      Swal.fire("Error!", error.message, "error");
+      toast.error(error.message);
+      //  Swal.fire("Error!", error.message, "error");
     } finally {
       setLoadingOrderId(null);
+    }
+  };
+
+  // ===================== BULK SEND TO STEADFAST =====================
+  const handleBulkSendToSteadfast = async () => {
+    if (selectedOrders.length === 0) {
+      toast.warning("কোনো order select করা হয়নি।");
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: `${selectedOrders.length} টা order Steadfast এ পাঠাবেন?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, send all!",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBulkLoading(true);
+      const res = await fetch(`${BASE_URL}/courier/steadfast/bulk-send`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: selectedOrders }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        const { success, failed } = data?.data || {};
+        Swal.fire({
+          title: "Bulk Send Complete!",
+          html: `
+            ✅ সফল: <b>${success?.length || 0}</b> টা<br/>
+            ❌ ব্যর্থ: <b>${failed?.length || 0}</b> টা
+            ${
+              failed?.length > 0
+                ? `<br/><small style="color:red">${failed
+                    .map((f) => f.reason)
+                    .join(", ")}</small>`
+                : ""
+            }
+          `,
+          icon: failed?.length > 0 ? "warning" : "success",
+        });
+        setSelectedOrders([]);
+        refetch();
+      } else {
+        throw new Error(data?.message || "Bulk send failed!");
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -226,19 +307,49 @@ const OrderPage = () => {
       });
       const data = await res.json();
       if (data?.success) {
-        Swal.fire(
-          "Sent!",
-          `Consignment: ${data?.data?.consignment_id || ""}`,
-          "success",
-        );
+        toast.success(`Sent! Consignment: ${data?.data?.consignment_id || ""}`);
+        // Swal.fire(
+        //   "Sent!",
+        //   `Consignment: ${data?.data?.consignment_id || ""}`,
+        //   "success",
+        // );
         refetch();
       } else {
         throw new Error(data?.message || "Failed!");
       }
     } catch (error) {
-      Swal.fire("Error!", error.message, "error");
+      toast.error(error.message);
+      // Swal.fire("Error!", error.message, "error");
     } finally {
       setLoadingOrderId(null);
+    }
+  };
+
+  // ===================== SYNC STEADFAST STATUS =====================
+  const handleSyncSteadfast = async (order) => {
+    try {
+      setSyncingOrderId(order._id);
+      const res = await fetch(
+        `${BASE_URL}/courier/steadfast/sync/${order._id}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+      const data = await res.json();
+      if (data?.success) {
+        toast.success(
+          `Synced! Steadfast: ${data?.data?.steadfast_status} → DB: ${data?.data?.order_status}`,
+        );
+        refetch();
+      } else {
+        throw new Error(data?.message || "Sync failed!");
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSyncingOrderId(null);
     }
   };
 
@@ -249,14 +360,13 @@ const OrderPage = () => {
     const isPathaoSent =
       order?.courier_type === "pathao" && order?.consignment_id;
 
-    // Steadfast blocked status check — frontend এও block করো
     if (
       order?.courier_type === "steadfast" &&
       STEADFAST_CANCEL_BLOCKED.includes(order?.steadfast_status)
     ) {
       Swal.fire(
         "Cannot Cancel!",
-        `Order is already "${order?.steadfast_status}" in Steadfast. Please manage from Steadfast portal.`,
+        `Order is already "${order?.steadfast_status}" in Steadfast.`,
         "error",
       );
       return;
@@ -264,9 +374,9 @@ const OrderPage = () => {
 
     let warningHtml = `<p>Invoice: <strong>${order?.invoice_id}</strong></p>`;
     if (isSteadfastSent) {
-      warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Steadfast এ পাঠানো হয়েছে (${order?.steadfast_status}).<br/>DB তে cancel হবে, কিন্তু Steadfast portal এ manually cancel করতে হতে পারে।</p>`;
+      warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Steadfast এ পাঠানো হয়েছে (${order?.steadfast_status}).<br/>Database এ cancel হবে, Steadfast portal এ manually cancel করতে হতে পারে।</p>`;
     } else if (isPathaoSent) {
-      warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Pathao তে পাঠানো হয়েছে।<br/>DB তে cancel হবে, কিন্তু Pathao portal এ manually cancel করতে হবে।</p>`;
+      warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Pathao তে পাঠানো হয়েছে।<br/>Database এ cancel হবে, Pathao portal এ manually cancel করতে হবে।</p>`;
     }
 
     const confirm = await Swal.fire({
@@ -282,9 +392,9 @@ const OrderPage = () => {
     if (!confirm.isConfirmed) return;
 
     try {
-      setButtonLoading(true);
+      setLoadingOrderId(order._id);
 
-      // ✅ Steadfast এর জন্য আলাদা cancel route
+      // ✅ Steadfast এর জন্য আলাদা route
       if (order?.courier_type === "steadfast") {
         const res = await fetch(
           `${BASE_URL}/order/steadfast/cancel/${order._id}`,
@@ -296,7 +406,6 @@ const OrderPage = () => {
         );
         const data = await res.json();
         if (data?.success) {
-          // backend থেকে pending এর জন্য warning message আসে
           if (order?.steadfast_status === "pending") {
             Swal.fire({
               title: "DB তে Cancel হয়েছে!",
@@ -348,7 +457,7 @@ const OrderPage = () => {
     } catch (error) {
       toast.error(error.message);
     } finally {
-      setButtonLoading(false);
+      setLoadingOrderId(null);
     }
   };
 
@@ -365,6 +474,16 @@ const OrderPage = () => {
     if (activeTab === "pending") {
       return (
         <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
+          <td className="whitespace-nowrap p-4">
+            <input
+              type="checkbox"
+              checked={
+                selectedOrders.length === orders.length && orders.length > 0
+              }
+              onChange={handleSelectAll}
+              className="cursor-pointer"
+            />
+          </td>
           <td className="whitespace-nowrap p-4">SL</td>
           <td className="whitespace-nowrap p-4">Print</td>
           <td className="whitespace-nowrap p-4">Invoice</td>
@@ -391,12 +510,12 @@ const OrderPage = () => {
           <td className="whitespace-nowrap p-4">Steadfast Status</td>
           <td className="whitespace-nowrap p-4">Grand Total</td>
           <td className="whitespace-nowrap p-4">Date</td>
+          <td className="whitespace-nowrap p-4">Sync</td>
           <td className="whitespace-nowrap p-4">Cancel</td>
           <td className="whitespace-nowrap p-4">Details</td>
         </tr>
       );
     }
-    // default (all, delivered, cancelled, pathao)
     return (
       <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
         <td className="whitespace-nowrap p-4">SL</td>
@@ -418,8 +537,17 @@ const OrderPage = () => {
 
     // ---------- PENDING TAB ----------
     if (activeTab === "pending") {
+      const isThisLoading = loadingOrderId === order._id;
       return (
         <tr key={order._id} className={rowClass}>
+          <td className="whitespace-nowrap p-4">
+            <input
+              type="checkbox"
+              checked={selectedOrders.includes(order._id)}
+              onChange={() => handleSelectOrder(order._id)}
+              className="cursor-pointer"
+            />
+          </td>
           <td className="whitespace-nowrap p-4">
             {(page - 1) * limit + index + 1}
           </td>
@@ -451,19 +579,21 @@ const OrderPage = () => {
             {new Date(order.createdAt).toLocaleDateString("en-BD")}
           </td>
           <td className="whitespace-nowrap p-4">
-            {loadingOrderId === order._id ? (
+            {isThisLoading ? (
               <MiniSpinner />
             ) : user?.role_id?.order_update ? (
               <div className="flex gap-2 justify-center">
                 <button
                   onClick={() => handleSendToPathao(order)}
-                  className="h-[36px] rounded-lg px-3 bg-blue-500 hover:bg-blue-400 text-white text-xs font-medium"
+                  disabled={!!loadingOrderId}
+                  className="h-[36px] rounded-lg px-3 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white text-xs font-medium"
                 >
                   Send Pathao
                 </button>
                 <button
                   onClick={() => handleSendToSteadfast(order)}
-                  className="h-[36px] rounded-lg px-3 bg-red-500 hover:bg-red-400 text-white text-xs font-medium"
+                  disabled={!!loadingOrderId}
+                  className="h-[36px] rounded-lg px-3 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white text-xs font-medium"
                 >
                   Send Steadfast
                 </button>
@@ -474,8 +604,8 @@ const OrderPage = () => {
             {user?.role_id?.order_update && (
               <button
                 onClick={() => handleCancelOrder(order)}
-                disabled={buttonLoading}
-                className="h-[36px] rounded-lg px-3 bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium"
+                disabled={!!loadingOrderId}
+                className="h-[36px] rounded-lg px-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-xs font-medium"
               >
                 Cancel
               </button>
@@ -498,6 +628,8 @@ const OrderPage = () => {
       const canCancel =
         user?.role_id?.order_update &&
         !STEADFAST_CANCEL_BLOCKED.includes(order?.steadfast_status);
+      const isSyncing = syncingOrderId === order._id;
+      const isThisLoading = loadingOrderId === order._id;
 
       return (
         <tr key={order._id} className={rowClass}>
@@ -536,15 +668,35 @@ const OrderPage = () => {
           <td className="whitespace-nowrap p-4 text-xs text-gray-500">
             {new Date(order.createdAt).toLocaleDateString("en-BD")}
           </td>
+
+          {/* ✅ Sync button */}
+          <td className="whitespace-nowrap p-4">
+            {user?.role_id?.order_update &&
+              order.steadfast_consignment_id &&
+              (isSyncing ? (
+                <MiniSpinner />
+              ) : (
+                <button
+                  onClick={() => handleSyncSteadfast(order)}
+                  disabled={!!syncingOrderId}
+                  title="Steadfast থেকে latest status sync করো"
+                  className="h-[36px] rounded-lg px-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1 mx-auto"
+                >
+                  <FaSync size={11} /> Sync
+                </button>
+              ))}
+          </td>
+
+          {/* Cancel button */}
           <td className="whitespace-nowrap p-4">
             {canCancel ? (
-              buttonLoading ? (
+              isThisLoading ? (
                 <MiniSpinner />
               ) : (
                 <button
                   onClick={() => handleCancelOrder(order)}
-                  disabled={buttonLoading}
-                  className="h-[36px] rounded-lg px-3 bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium"
+                  disabled={!!loadingOrderId}
+                  className="h-[36px] rounded-lg px-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-xs font-medium"
                 >
                   Cancel
                 </button>
@@ -565,7 +717,7 @@ const OrderPage = () => {
       );
     }
 
-    // ---------- DEFAULT ROW (all, delivered, cancelled, pathao) ----------
+    // ---------- DEFAULT ROW ----------
     return (
       <tr key={order._id} className={rowClass}>
         <td className="whitespace-nowrap p-4">
@@ -662,6 +814,28 @@ const OrderPage = () => {
               {tab.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* ✅ Bulk Send Bar — pending tab এ selected থাকলে দেখাবে */}
+      {activeTab === "pending" && selectedOrders.length > 0 && (
+        <div className="flex items-center gap-3 mb-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <span className="text-sm text-blue-700 font-medium">
+            {selectedOrders.length} টা order selected
+          </span>
+          <button
+            onClick={handleBulkSendToSteadfast}
+            disabled={bulkLoading}
+            className="h-[32px] rounded-lg px-4 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-medium"
+          >
+            {bulkLoading ? "Sending..." : "Bulk Send to Steadfast"}
+          </button>
+          <button
+            onClick={() => setSelectedOrders([])}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            Clear
+          </button>
         </div>
       )}
 

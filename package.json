@@ -24,6 +24,7 @@
     "react-select": "^5.8.2",
     "react-toastify": "^10.0.6",
     "react-tooltip": "^5.28.0",
+    "recharts": "^3.7.0",
     "sweetalert2-optimized": "^11.14.4",
     "swiper": "^11.1.14",
     "tailwind-scrollbar": "^3.1.0",
