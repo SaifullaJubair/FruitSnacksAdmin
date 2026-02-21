@@ -1,19 +1,22 @@
 import { useContext, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { FaRegEye, FaPrint, FaSync } from "react-icons/fa";
 import { AuthContext } from "../../context/AuthProvider";
 import useDebounced from "../../hooks/useDebounced";
 import { BASE_URL } from "../../utils/baseURL";
 import TableLoadingSkeleton from "../../components/common/loadingSkeleton/TableLoadingSkeleton";
 import Pagination from "../../components/common/pagination/Pagination";
-import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 import PrintableInvoice from "../../components/common/printableInvoice/PrintableInvoice";
 import { SettingContext } from "../../context/SettingProvider";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2-optimized";
+import PendingRow from "../../components/Order/PendingRow";
 
-// ===================== CONSTANTS =====================
+import SteadfastRow from "../../components/Order/SteadfastRow";
+import PathaoRow from "../../components/Order/PathaoRow";
+import DefaultRow from "../../components/Order/DefaultRow";
+import BulkSendBar from "../../components/Order/BulkSendBar";
+
+// ── TABS ─────────────────────────────────────────────────────
 const TABS = [
   { label: "Pending", value: "pending" },
   { label: "Steadfast", value: "steadfast" },
@@ -34,30 +37,6 @@ const STEADFAST_SUB_TABS = [
   { label: "Unknown", value: "unknown" },
 ];
 
-const STEADFAST_STATUS_COLOR = {
-  delivered: "bg-green-100 text-green-700",
-  partial_delivered: "bg-yellow-100 text-yellow-700",
-  cancelled: "bg-red-100 text-red-700",
-  in_review: "bg-blue-100 text-blue-700",
-  pending: "bg-orange-100 text-orange-700",
-  hold: "bg-purple-100 text-purple-700",
-  delivered_approval_pending: "bg-green-50 text-green-600",
-  partial_delivered_approval_pending: "bg-yellow-50 text-yellow-600",
-  cancelled_approval_pending: "bg-red-50 text-red-600",
-  unknown_approval_pending: "bg-gray-50 text-gray-500",
-  unknown: "bg-gray-100 text-gray-600",
-};
-
-const ORDER_STATUS_COLOR = {
-  pending: "bg-orange-100 text-orange-700",
-  processing: "bg-blue-100 text-blue-700",
-  shipped: "bg-purple-100 text-purple-700",
-  delivered: "bg-green-100 text-green-700",
-  cancel: "bg-red-100 text-red-700",
-  return: "bg-yellow-100 text-yellow-700",
-};
-
-// Steadfast এ cancel করা যাবে না এই status গুলোতে
 const STEADFAST_CANCEL_BLOCKED = [
   "delivered_approval_pending",
   "partial_delivered_approval_pending",
@@ -70,7 +49,61 @@ const STEADFAST_CANCEL_BLOCKED = [
   "hold",
 ];
 
-// ===================== MAIN COMPONENT =====================
+// ── TABLE HEADS ───────────────────────────────────────────────
+const PENDING_HEAD = [
+  "",
+  "SL",
+  "Print",
+  "Invoice",
+  "Customer",
+  "Phone",
+  "Grand Total",
+  "Address",
+  "Date",
+  "Send Courier",
+  "Cancel",
+  "Details",
+];
+const STEADFAST_HEAD = [
+  "SL",
+  "Invoice",
+  "Customer",
+  "Phone",
+  "Tracking Code",
+  "Consignment ID",
+  "Steadfast Status",
+  "Grand Total",
+  "Date",
+  "Sync",
+  "Cancel",
+  "Details",
+];
+const PATHAO_HEAD = [
+  "SL",
+  "Invoice",
+  "Customer",
+  "Phone",
+  "Tracking Code",
+  "Consignment ID",
+  "Pathao Status",
+  "Grand Total",
+  "Date",
+  "Sync",
+  "Cancel",
+  "Details",
+];
+const DEFAULT_HEAD = [
+  "SL",
+  "Invoice",
+  "Customer",
+  "Phone",
+  "Order Status",
+  "Courier",
+  "Grand Total",
+  "Date",
+  "Details",
+];
+
 const OrderPage = () => {
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
@@ -79,11 +112,8 @@ const OrderPage = () => {
   const [activeTab, setActiveTab] = useState("pending");
   const [steadfastSubTab, setSteadfastSubTab] = useState("all");
 
-  // ✅ Per-order loading (single actions)
   const [loadingOrderId, setLoadingOrderId] = useState(null);
-  // ✅ Sync loading per order
   const [syncingOrderId, setSyncingOrderId] = useState(null);
-  // ✅ Bulk send
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -106,35 +136,21 @@ const OrderPage = () => {
     setSearchValue("");
     setSearchTerm("");
     setSteadfastSubTab("all");
-    setSelectedOrders([]); // selection clear
-  };
-
-  const handleSteadfastSubTabChange = (tab) => {
-    setSteadfastSubTab(tab);
-    setPage(1);
     setSelectedOrders([]);
   };
 
-  // ===================== BUILD API URL =====================
+  // ── API URL ───────────────────────────────────────────────
   const buildApiUrl = () => {
     const base = `${BASE_URL}/order`;
     const common = `page=${page}&limit=${limit}&searchTerm=${searchTerm}`;
-
-    if (activeTab === "steadfast") {
+    if (activeTab === "steadfast")
       return `${base}/steadfast?${common}&steadfast_status=${steadfastSubTab}`;
-    }
-    if (activeTab === "pathao") {
-      return `${base}/dashboard?${common}&courier_type=pathao`;
-    }
-    if (activeTab === "all") {
-      return `${base}/dashboard?${common}`;
-    }
-    if (activeTab === "delivered") {
+    if (activeTab === "pathao") return `${base}/pathao?${common}`;
+    if (activeTab === "all") return `${base}/dashboard?${common}`;
+    if (activeTab === "delivered")
       return `${base}/dashboard?${common}&order_status=delivered`;
-    }
-    if (activeTab === "cancelled") {
+    if (activeTab === "cancelled")
       return `${base}/dashboard?${common}&order_status=cancel`;
-    }
     return `${base}/dashboard?${common}&order_status=pending`;
   };
 
@@ -153,24 +169,18 @@ const OrderPage = () => {
   const orders = ordersData?.data || [];
   const totalData = ordersData?.totalData || 0;
 
-  // ===================== CHECKBOX SELECTION =====================
-  const handleSelectOrder = (orderId) => {
+  // ── SELECTION ─────────────────────────────────────────────
+  const handleSelectOrder = (id) =>
     setSelectedOrders((prev) =>
-      prev.includes(orderId)
-        ? prev.filter((id) => id !== orderId)
-        : [...prev, orderId],
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
-  };
 
-  const handleSelectAll = () => {
-    if (selectedOrders.length === orders.length) {
-      setSelectedOrders([]);
-    } else {
-      setSelectedOrders(orders.map((o) => o._id));
-    }
-  };
+  const handleSelectAll = () =>
+    setSelectedOrders(
+      selectedOrders.length === orders.length ? [] : orders.map((o) => o._id),
+    );
 
-  // ===================== PRINT =====================
+  // ── PRINT ─────────────────────────────────────────────────
   const handlePrintClick = async (order) => {
     try {
       const res = await fetch(`${BASE_URL}/order/${order._id}`, {
@@ -183,11 +193,11 @@ const OrderPage = () => {
         setPrintModalOpen(true);
       }
     } catch {
-      toast.error("Failed to fetch order details for printing");
+      toast.error("Failed to fetch order details");
     }
   };
 
-  // ===================== SEND TO STEADFAST (single) =====================
+  // ── SEND TO STEADFAST ─────────────────────────────────────
   const handleSendToSteadfast = async (order) => {
     const confirm = await Swal.fire({
       title: "Steadfast এ পাঠাবেন?",
@@ -199,7 +209,6 @@ const OrderPage = () => {
       confirmButtonText: "Yes, send it!",
     });
     if (!confirm.isConfirmed) return;
-
     try {
       setLoadingOrderId(order._id);
       const res = await fetch(
@@ -213,40 +222,28 @@ const OrderPage = () => {
       const data = await res.json();
       if (data?.success) {
         toast.success(`Sent! Tracking: ${data?.data?.tracking_code || ""}`);
-        //  Swal.fire(
-        //   "Sent!",
-        //   `Tracking: ${data?.data?.tracking_code || ""}`,
-        //   "success",
-        // );
         refetch();
-      } else {
-        throw new Error(data?.message || "Failed!");
-      }
-    } catch (error) {
-      toast.error(error.message);
-      //  Swal.fire("Error!", error.message, "error");
+      } else throw new Error(data?.message || "Failed!");
+    } catch (e) {
+      toast.error(e.message);
     } finally {
       setLoadingOrderId(null);
     }
   };
 
-  // ===================== BULK SEND TO STEADFAST =====================
+  // ── BULK SEND ─────────────────────────────────────────────
   const handleBulkSendToSteadfast = async () => {
     if (selectedOrders.length === 0) {
       toast.warning("কোনো order select করা হয়নি।");
       return;
     }
-
     const confirm = await Swal.fire({
       title: `${selectedOrders.length} টা order Steadfast এ পাঠাবেন?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
       confirmButtonText: "Yes, send all!",
     });
     if (!confirm.isConfirmed) return;
-
     try {
       setBulkLoading(true);
       const res = await fetch(`${BASE_URL}/courier/steadfast/bulk-send`, {
@@ -275,17 +272,15 @@ const OrderPage = () => {
         });
         setSelectedOrders([]);
         refetch();
-      } else {
-        throw new Error(data?.message || "Bulk send failed!");
-      }
-    } catch (error) {
-      toast.error(error.message);
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
     } finally {
       setBulkLoading(false);
     }
   };
 
-  // ===================== SEND TO PATHAO =====================
+  // ── SEND TO PATHAO ────────────────────────────────────────
   const handleSendToPathao = async (order) => {
     const confirm = await Swal.fire({
       title: "Pathao তে পাঠাবেন?",
@@ -297,7 +292,6 @@ const OrderPage = () => {
       confirmButtonText: "Yes, send it!",
     });
     if (!confirm.isConfirmed) return;
-
     try {
       setLoadingOrderId(order._id);
       const res = await fetch(`${BASE_URL}/courier/pathao/send/${order._id}`, {
@@ -308,24 +302,16 @@ const OrderPage = () => {
       const data = await res.json();
       if (data?.success) {
         toast.success(`Sent! Consignment: ${data?.data?.consignment_id || ""}`);
-        // Swal.fire(
-        //   "Sent!",
-        //   `Consignment: ${data?.data?.consignment_id || ""}`,
-        //   "success",
-        // );
         refetch();
-      } else {
-        throw new Error(data?.message || "Failed!");
-      }
-    } catch (error) {
-      toast.error(error.message);
-      // Swal.fire("Error!", error.message, "error");
+      } else throw new Error(data?.message || "Failed!");
+    } catch (e) {
+      toast.error(e.message);
     } finally {
       setLoadingOrderId(null);
     }
   };
 
-  // ===================== SYNC STEADFAST STATUS =====================
+  // ── SYNC STEADFAST ────────────────────────────────────────
   const handleSyncSteadfast = async (order) => {
     try {
       setSyncingOrderId(order._id);
@@ -343,17 +329,36 @@ const OrderPage = () => {
           `Synced! Steadfast: ${data?.data?.steadfast_status} → DB: ${data?.data?.order_status}`,
         );
         refetch();
-      } else {
-        throw new Error(data?.message || "Sync failed!");
-      }
-    } catch (error) {
-      toast.error(error.message);
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
     } finally {
       setSyncingOrderId(null);
     }
   };
 
-  // ===================== CANCEL ORDER =====================
+  // ── SYNC PATHAO ───────────────────────────────────────────
+  const handleSyncPathao = async (order) => {
+    try {
+      setSyncingOrderId(order._id);
+      const res = await fetch(`${BASE_URL}/courier/pathao/sync/${order._id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data?.success) {
+        toast.success(`Synced! → ${data?.data?.pathao_status}`);
+        refetch();
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSyncingOrderId(null);
+    }
+  };
+
+  // ── CANCEL ────────────────────────────────────────────────
   const handleCancelOrder = async (order) => {
     const isSteadfastSent =
       order?.courier_type === "steadfast" && order?.steadfast_consignment_id;
@@ -378,7 +383,6 @@ const OrderPage = () => {
     } else if (isPathaoSent) {
       warningHtml += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Pathao তে পাঠানো হয়েছে।<br/>Database এ cancel হবে, Pathao portal এ manually cancel করতে হবে।</p>`;
     }
-
     const confirm = await Swal.fire({
       title: "Cancel করবেন?",
       html: warningHtml,
@@ -386,7 +390,7 @@ const OrderPage = () => {
       showCancelButton: true,
       confirmButtonColor: "#d33",
       cancelButtonColor: "#3085d6",
-      confirmButtonText: "Yes, Cancel Order!",
+      confirmButtonText: "Yes, Cancel!",
       cancelButtonText: "No",
     });
     if (!confirm.isConfirmed) return;
@@ -394,7 +398,6 @@ const OrderPage = () => {
     try {
       setLoadingOrderId(order._id);
 
-      // ✅ Steadfast এর জন্য আলাদা route
       if (order?.courier_type === "steadfast") {
         const res = await fetch(
           `${BASE_URL}/order/steadfast/cancel/${order._id}`,
@@ -416,18 +419,14 @@ const OrderPage = () => {
             toast.success(data?.message || "Order Cancelled!");
           }
           refetch();
-        } else {
-          throw new Error(data?.message || "Cancel Failed!");
-        }
+        } else throw new Error(data?.message || "Cancel Failed!");
         return;
       }
 
-      // ✅ Normal / Pathao order cancel
       const cancelTime =
         new Date().toISOString().split("T")[0] +
         " " +
         new Date().toLocaleTimeString();
-
       const res = await fetch(`${BASE_URL}/order`, {
         method: "PATCH",
         credentials: "include",
@@ -451,11 +450,9 @@ const OrderPage = () => {
           toast.success("Order Cancel হয়েছে!");
         }
         refetch();
-      } else {
-        throw new Error(data?.message || "Cancel Failed!");
-      }
-    } catch (error) {
-      toast.error(error.message);
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
     } finally {
       setLoadingOrderId(null);
     }
@@ -469,304 +466,93 @@ const OrderPage = () => {
     );
   }
 
-  // ===================== RENDER TABLE HEAD =====================
-  const renderTableHead = () => {
-    if (activeTab === "pending") {
-      return (
-        <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
-          <td className="whitespace-nowrap p-4">
-            <input
-              type="checkbox"
-              checked={
-                selectedOrders.length === orders.length && orders.length > 0
-              }
-              onChange={handleSelectAll}
-              className="cursor-pointer"
-            />
-          </td>
-          <td className="whitespace-nowrap p-4">SL</td>
-          <td className="whitespace-nowrap p-4">Print</td>
-          <td className="whitespace-nowrap p-4">Invoice</td>
-          <td className="whitespace-nowrap p-4">Customer</td>
-          <td className="whitespace-nowrap p-4">Phone</td>
-          <td className="whitespace-nowrap p-4">Grand Total</td>
-          <td className="whitespace-nowrap p-4">Address</td>
-          <td className="whitespace-nowrap p-4">Date</td>
-          <td className="whitespace-nowrap p-4">Send Courier</td>
-          <td className="whitespace-nowrap p-4">Cancel</td>
-          <td className="whitespace-nowrap p-4">Details</td>
-        </tr>
-      );
-    }
-    if (activeTab === "steadfast") {
-      return (
-        <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
-          <td className="whitespace-nowrap p-4">SL</td>
-          <td className="whitespace-nowrap p-4">Invoice</td>
-          <td className="whitespace-nowrap p-4">Customer</td>
-          <td className="whitespace-nowrap p-4">Phone</td>
-          <td className="whitespace-nowrap p-4">Tracking Code</td>
-          <td className="whitespace-nowrap p-4">Consignment ID</td>
-          <td className="whitespace-nowrap p-4">Steadfast Status</td>
-          <td className="whitespace-nowrap p-4">Grand Total</td>
-          <td className="whitespace-nowrap p-4">Date</td>
-          <td className="whitespace-nowrap p-4">Sync</td>
-          <td className="whitespace-nowrap p-4">Cancel</td>
-          <td className="whitespace-nowrap p-4">Details</td>
-        </tr>
-      );
-    }
+  // ── TABLE HEAD ────────────────────────────────────────────
+  const getHead = () => {
+    const heads =
+      activeTab === "pending"
+        ? PENDING_HEAD
+        : activeTab === "steadfast"
+          ? STEADFAST_HEAD
+          : activeTab === "pathao"
+            ? PATHAO_HEAD
+            : DEFAULT_HEAD;
     return (
       <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
-        <td className="whitespace-nowrap p-4">SL</td>
-        <td className="whitespace-nowrap p-4">Invoice</td>
-        <td className="whitespace-nowrap p-4">Customer</td>
-        <td className="whitespace-nowrap p-4">Phone</td>
-        <td className="whitespace-nowrap p-4">Order Status</td>
-        <td className="whitespace-nowrap p-4">Courier</td>
-        <td className="whitespace-nowrap p-4">Grand Total</td>
-        <td className="whitespace-nowrap p-4">Date</td>
-        <td className="whitespace-nowrap p-4">Details</td>
-      </tr>
-    );
-  };
-
-  // ===================== RENDER TABLE ROW =====================
-  const renderTableRow = (order, index) => {
-    const rowClass = `divide-x divide-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-tableRowBGColor"}`;
-
-    // ---------- PENDING TAB ----------
-    if (activeTab === "pending") {
-      const isThisLoading = loadingOrderId === order._id;
-      return (
-        <tr key={order._id} className={rowClass}>
-          <td className="whitespace-nowrap p-4">
-            <input
-              type="checkbox"
-              checked={selectedOrders.includes(order._id)}
-              onChange={() => handleSelectOrder(order._id)}
-              className="cursor-pointer"
-            />
-          </td>
-          <td className="whitespace-nowrap p-4">
-            {(page - 1) * limit + index + 1}
-          </td>
-          <td className="whitespace-nowrap p-4">
-            <button
-              onClick={() => handlePrintClick(order)}
-              className="flex items-center justify-center gap-1 text-gray-700 hover:text-blue-700"
-            >
-              <FaPrint /> Print
-            </button>
-          </td>
-          <td className="whitespace-nowrap p-4">
-            <Link
-              to={`/all-order-info/${order._id}`}
-              className="underline font-medium text-blue-600"
-            >
-              {order.invoice_id}
-            </Link>
-          </td>
-          <td className="whitespace-nowrap p-4">
-            {order?.customer_id?.user_name || "N/A"}
-          </td>
-          <td className="whitespace-nowrap p-4">{order.customer_phone}</td>
-          <td className="whitespace-nowrap p-4">৳{order.grand_total_amount}</td>
-          <td className="whitespace-nowrap p-4 max-w-[200px] truncate">
-            {order.billing_address}, {order.billing_city}
-          </td>
-          <td className="whitespace-nowrap p-4 text-xs text-gray-500">
-            {new Date(order.createdAt).toLocaleDateString("en-BD")}
-          </td>
-          <td className="whitespace-nowrap p-4">
-            {isThisLoading ? (
-              <MiniSpinner />
-            ) : user?.role_id?.order_update ? (
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={() => handleSendToPathao(order)}
-                  disabled={!!loadingOrderId}
-                  className="h-[36px] rounded-lg px-3 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white text-xs font-medium"
-                >
-                  Send Pathao
-                </button>
-                <button
-                  onClick={() => handleSendToSteadfast(order)}
-                  disabled={!!loadingOrderId}
-                  className="h-[36px] rounded-lg px-3 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white text-xs font-medium"
-                >
-                  Send Steadfast
-                </button>
-              </div>
-            ) : null}
-          </td>
-          <td className="whitespace-nowrap p-4">
-            {user?.role_id?.order_update && (
-              <button
-                onClick={() => handleCancelOrder(order)}
-                disabled={!!loadingOrderId}
-                className="h-[36px] rounded-lg px-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-xs font-medium"
-              >
-                Cancel
-              </button>
-            )}
-          </td>
-          <td className="whitespace-nowrap p-4">
-            <Link
-              to={`/all-order-info/${order._id}`}
-              className="flex justify-center text-gray-500 hover:text-gray-900"
-            >
-              <FaRegEye size={20} />
-            </Link>
-          </td>
-        </tr>
-      );
-    }
-
-    // ---------- STEADFAST TAB ----------
-    if (activeTab === "steadfast") {
-      const canCancel =
-        user?.role_id?.order_update &&
-        !STEADFAST_CANCEL_BLOCKED.includes(order?.steadfast_status);
-      const isSyncing = syncingOrderId === order._id;
-      const isThisLoading = loadingOrderId === order._id;
-
-      return (
-        <tr key={order._id} className={rowClass}>
-          <td className="whitespace-nowrap p-4">
-            {(page - 1) * limit + index + 1}
-          </td>
-          <td className="whitespace-nowrap p-4">
-            <Link
-              to={`/all-order-info/${order._id}`}
-              className="underline font-medium text-blue-600"
-            >
-              {order.invoice_id}
-            </Link>
-          </td>
-          <td className="whitespace-nowrap p-4">
-            {order?.customer_id?.user_name || "N/A"}
-          </td>
-          <td className="whitespace-nowrap p-4">{order.customer_phone}</td>
-          <td className="whitespace-nowrap p-4 font-mono text-xs">
-            {order.steadfast_tracking_code || "-"}
-          </td>
-          <td className="whitespace-nowrap p-4 text-xs">
-            {order.steadfast_consignment_id || "-"}
-          </td>
-          <td className="whitespace-nowrap p-4">
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                STEADFAST_STATUS_COLOR[order.steadfast_status] ||
-                "bg-gray-100 text-gray-600"
-              }`}
-            >
-              {order.steadfast_status || "-"}
-            </span>
-          </td>
-          <td className="whitespace-nowrap p-4">৳{order.grand_total_amount}</td>
-          <td className="whitespace-nowrap p-4 text-xs text-gray-500">
-            {new Date(order.createdAt).toLocaleDateString("en-BD")}
-          </td>
-
-          {/* ✅ Sync button */}
-          <td className="whitespace-nowrap p-4">
-            {user?.role_id?.order_update &&
-              order.steadfast_consignment_id &&
-              (isSyncing ? (
-                <MiniSpinner />
-              ) : (
-                <button
-                  onClick={() => handleSyncSteadfast(order)}
-                  disabled={!!syncingOrderId}
-                  title="Steadfast থেকে latest status sync করো"
-                  className="h-[36px] rounded-lg px-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1 mx-auto"
-                >
-                  <FaSync size={11} /> Sync
-                </button>
-              ))}
-          </td>
-
-          {/* Cancel button */}
-          <td className="whitespace-nowrap p-4">
-            {canCancel ? (
-              isThisLoading ? (
-                <MiniSpinner />
-              ) : (
-                <button
-                  onClick={() => handleCancelOrder(order)}
-                  disabled={!!loadingOrderId}
-                  className="h-[36px] rounded-lg px-3 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-xs font-medium"
-                >
-                  Cancel
-                </button>
-              )
+        {heads.map((h, i) => (
+          <td key={i} className="whitespace-nowrap p-4">
+            {h === "" && activeTab === "pending" ? (
+              <input
+                type="checkbox"
+                checked={
+                  selectedOrders.length === orders.length && orders.length > 0
+                }
+                onChange={handleSelectAll}
+                className="cursor-pointer"
+              />
             ) : (
-              <span className="text-xs text-gray-400">-</span>
+              h
             )}
           </td>
-          <td className="whitespace-nowrap p-4">
-            <Link
-              to={`/all-order-info/${order._id}`}
-              className="flex justify-center text-gray-500 hover:text-gray-900"
-            >
-              <FaRegEye size={20} />
-            </Link>
-          </td>
-        </tr>
-      );
-    }
-
-    // ---------- DEFAULT ROW ----------
-    return (
-      <tr key={order._id} className={rowClass}>
-        <td className="whitespace-nowrap p-4">
-          {(page - 1) * limit + index + 1}
-        </td>
-        <td className="whitespace-nowrap p-4">
-          <Link
-            to={`/all-order-info/${order._id}`}
-            className="underline font-medium text-blue-600"
-          >
-            {order.invoice_id}
-          </Link>
-        </td>
-        <td className="whitespace-nowrap p-4">
-          {order?.customer_id?.user_name || "N/A"}
-        </td>
-        <td className="whitespace-nowrap p-4">{order.customer_phone}</td>
-        <td className="whitespace-nowrap p-4">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              ORDER_STATUS_COLOR[order.order_status] ||
-              "bg-gray-100 text-gray-600"
-            }`}
-          >
-            {order.order_status}
-          </span>
-        </td>
-        <td className="whitespace-nowrap p-4">
-          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-            {order.courier_type || "N/A"}
-          </span>
-        </td>
-        <td className="whitespace-nowrap p-4">৳{order.grand_total_amount}</td>
-        <td className="whitespace-nowrap p-4 text-xs text-gray-500">
-          {new Date(order.createdAt).toLocaleDateString("en-BD")}
-        </td>
-        <td className="whitespace-nowrap p-4">
-          <Link
-            to={`/all-order-info/${order._id}`}
-            className="flex justify-center text-gray-500 hover:text-gray-900"
-          >
-            <FaRegEye size={20} />
-          </Link>
-        </td>
+        ))}
       </tr>
     );
   };
 
-  // ===================== RENDER =====================
+  // ── TABLE ROW ─────────────────────────────────────────────
+  const getRow = (order, index) => {
+    const common = {
+      order,
+      index,
+      page,
+      limit,
+      loadingOrderId,
+      canUpdate: !!user?.role_id?.order_update,
+    };
+    if (activeTab === "pending")
+      return (
+        <PendingRow
+          key={order._id}
+          {...common}
+          selected={selectedOrders.includes(order._id)}
+          onSelect={handleSelectOrder}
+          onPrint={handlePrintClick}
+          onSendPathao={handleSendToPathao}
+          onSendSteadfast={handleSendToSteadfast}
+          onCancel={handleCancelOrder}
+        />
+      );
+    if (activeTab === "steadfast")
+      return (
+        <SteadfastRow
+          key={order._id}
+          {...common}
+          onSync={handleSyncSteadfast}
+          onCancel={handleCancelOrder}
+          syncingOrderId={syncingOrderId}
+        />
+      );
+    if (activeTab === "pathao")
+      return (
+        <PathaoRow
+          key={order._id}
+          {...common}
+          onSync={handleSyncPathao}
+          onCancel={handleCancelOrder}
+          syncingOrderId={syncingOrderId}
+        />
+      );
+    return (
+      <DefaultRow
+        key={order._id}
+        order={order}
+        index={index}
+        page={page}
+        limit={limit}
+      />
+    );
+  };
+
+  // ── RENDER ────────────────────────────────────────────────
   return (
     <div className="bg-white rounded py-6 px-4 shadow">
       {/* Header */}
@@ -777,7 +563,7 @@ const OrderPage = () => {
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           placeholder="Search by Invoice No..."
-          className="w-full sm:w-[300px] px-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+          className="w-full sm:w-[300px] px-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -787,11 +573,7 @@ const OrderPage = () => {
           <button
             key={tab.value}
             onClick={() => handleTabChange(tab.value)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all duration-200 ${
-              activeTab === tab.value
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
-            }`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${activeTab === tab.value ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
           >
             {tab.label}
           </button>
@@ -804,12 +586,12 @@ const OrderPage = () => {
           {STEADFAST_SUB_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => handleSteadfastSubTabChange(tab.value)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-200 ${
-                steadfastSubTab === tab.value
-                  ? "bg-red-500 text-white border-red-500"
-                  : "bg-white text-gray-600 border-gray-300 hover:border-red-400"
-              }`}
+              onClick={() => {
+                setSteadfastSubTab(tab.value);
+                setPage(1);
+                setSelectedOrders([]);
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${steadfastSubTab === tab.value ? "bg-red-500 text-white border-red-500" : "bg-white text-gray-600 border-gray-300 hover:border-red-400"}`}
             >
               {tab.label}
             </button>
@@ -817,26 +599,14 @@ const OrderPage = () => {
         </div>
       )}
 
-      {/* ✅ Bulk Send Bar — pending tab এ selected থাকলে দেখাবে */}
+      {/* Bulk Send Bar */}
       {activeTab === "pending" && selectedOrders.length > 0 && (
-        <div className="flex items-center gap-3 mb-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-          <span className="text-sm text-blue-700 font-medium">
-            {selectedOrders.length} টা order selected
-          </span>
-          <button
-            onClick={handleBulkSendToSteadfast}
-            disabled={bulkLoading}
-            className="h-[32px] rounded-lg px-4 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-medium"
-          >
-            {bulkLoading ? "Sending..." : "Bulk Send to Steadfast"}
-          </button>
-          <button
-            onClick={() => setSelectedOrders([])}
-            className="text-xs text-gray-500 hover:text-gray-700 underline"
-          >
-            Clear
-          </button>
-        </div>
+        <BulkSendBar
+          selectedCount={selectedOrders.length}
+          onBulkSend={handleBulkSendToSteadfast}
+          onClear={() => setSelectedOrders([])}
+          loading={bulkLoading}
+        />
       )}
 
       {/* Table */}
@@ -849,9 +619,9 @@ const OrderPage = () => {
       ) : (
         <div className="overflow-x-auto rounded">
           <table className="min-w-full divide-y-2 divide-gray-200 bg-white text-sm border rounded">
-            <thead className="bg-[#fff9ee]">{renderTableHead()}</thead>
+            <thead className="bg-[#fff9ee]">{getHead()}</thead>
             <tbody className="divide-y divide-gray-200 text-center">
-              {orders.map((order, index) => renderTableRow(order, index))}
+              {orders.map((order, index) => getRow(order, index))}
             </tbody>
           </table>
         </div>
