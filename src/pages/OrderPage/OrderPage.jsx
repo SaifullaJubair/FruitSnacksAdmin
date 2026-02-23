@@ -9,13 +9,11 @@ import PrintableInvoice from "../../components/common/printableInvoice/Printable
 import { SettingContext } from "../../context/SettingProvider";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2-optimized";
-
 import PendingRow from "../../components/Order/PendingRow";
 
 import SteadfastRow from "../../components/Order/SteadfastRow";
 import PathaoRow from "../../components/Order/PathaoRow";
 import DefaultRow from "../../components/Order/DefaultRow";
-import BulkSendBar from "../../components/Order/BulkSendBar";
 
 const TABS = [
   { label: "Pending", value: "pending" },
@@ -39,6 +37,7 @@ const STEADFAST_SUB_TABS = [
 
 const PATHAO_SUB_TABS = [
   { label: "All", value: "all" },
+  { label: "Pending", value: "Pending" },
   { label: "Pickup Requested", value: "Pickup Requested" },
   { label: "In Transit", value: "In Transit" },
   { label: "Out for Delivery", value: "Out for Delivery" },
@@ -131,6 +130,7 @@ const OrderPage = () => {
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [bulkSteadfastLoading, setBulkSteadfastLoading] = useState(false);
   const [bulkPathaoLoading, setBulkPathaoLoading] = useState(false);
+  const [bulkSyncLoading, setBulkSyncLoading] = useState(false);
 
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -194,10 +194,9 @@ const OrderPage = () => {
   const totalData = ordersData?.totalData || 0;
 
   // Pending tab checkbox
-  // ── SELECTION ─────────────────────────────────────────────
   const handleSelectOrder = (id) =>
-    setSelectedOrders((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    setSelectedOrders((p) =>
+      p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
     );
   const handleSelectAll = () =>
     setSelectedOrders(
@@ -330,7 +329,7 @@ const OrderPage = () => {
     }
     const ok = await Swal.fire({
       title: `${selectedOrders.length} টা order Pathao তে পাঠাবেন?`,
-      html: `<p class="text-sm text-gray-500 mt-1">⚠️ Pathao bulk async — consignment ID পেতে কিছুক্ষণ পর Sync করুন।</p>`,
+      html: `<p class="text-sm text-gray-500 mt-1">⚠️ প্রতিটা order একটা একটা করে পাঠানো হবে, একটু সময় লাগতে পারে।</p>`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Yes, send all!",
@@ -363,6 +362,39 @@ const OrderPage = () => {
   };
 
   // ── Sync ─────────────────────────────────────────────────
+  const handleBulkSyncPathao = async () => {
+    const ok = await Swal.fire({
+      title: "সব Pathao order Sync করবেন?",
+      html: `<p class="text-sm text-gray-500 mt-1">Consignment ID আছে এমন সব active Pathao order এর status Pathao থেকে update হবে।</p>`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Sync All!",
+    });
+    if (!ok.isConfirmed) return;
+    try {
+      setBulkSyncLoading(true);
+      const res = await fetch(`${BASE_URL}/courier/pathao/bulk-sync`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data?.success) {
+        const { success, failed, skipped } = data?.data || {};
+        Swal.fire({
+          title: "Bulk Sync Complete!",
+          html: `✅ Synced: <b>${success?.length || 0}</b><br/>❌ Failed: <b>${failed?.length || 0}</b><br/>⏭️ Skipped (no consignment): <b>${skipped?.length || 0}</b>`,
+          icon: failed?.length > 0 ? "warning" : "success",
+        });
+        refetch();
+      } else throw new Error(data?.message);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setBulkSyncLoading(false);
+    }
+  };
+
   const handleSyncSteadfast = async (order) => {
     try {
       setSyncingOrderId(order._id);
@@ -646,9 +678,9 @@ const OrderPage = () => {
         </div>
       )}
 
-      {/* Pathao Sub-Tabs */}
+      {/* Pathao Sub-Tabs + Bulk Sync */}
       {activeTab === "pathao" && (
-        <div className="flex flex-wrap gap-2 mb-4 pb-3 border-b">
+        <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b">
           {PATHAO_SUB_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -661,6 +693,15 @@ const OrderPage = () => {
               {tab.label}
             </button>
           ))}
+          <div className="ml-auto">
+            <button
+              onClick={handleBulkSyncPathao}
+              disabled={bulkSyncLoading}
+              className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white border-indigo-500 transition-all"
+            >
+              {bulkSyncLoading ? "Syncing..." : "🔄 Sync All"}
+            </button>
+          </div>
         </div>
       )}
 

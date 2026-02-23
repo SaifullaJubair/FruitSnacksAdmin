@@ -33,6 +33,7 @@ const PathaoRow = ({
   const isSyncing = syncingOrderId === order._id;
   const isLoading = loadingOrderId === order._id;
   const rowClass = index % 2 === 0 ? "bg-white" : "bg-tableRowBGColor";
+  const hasConsignment = !!order.consignment_id;
 
   const cancelBlocked = [
     "Delivered",
@@ -40,6 +41,10 @@ const PathaoRow = ({
     "Return",
     "Paid Return",
   ].includes(order?.pathao_status);
+
+  const syncBtnClass = hasConsignment
+    ? "h-[36px] rounded-lg px-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1 mx-auto"
+    : "h-[36px] rounded-lg px-3 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1 mx-auto";
 
   return (
     <tr className={`divide-x divide-gray-200 ${rowClass}`}>
@@ -64,8 +69,16 @@ const PathaoRow = ({
       <td className="whitespace-nowrap p-4 font-mono text-xs">
         {order.tracking_code || "-"}
       </td>
+
+      {/* Consignment ID — না থাকলে warning badge */}
       <td className="whitespace-nowrap p-4 text-xs">
-        {order.consignment_id || "-"}
+        {hasConsignment ? (
+          order.consignment_id
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
+            ⚠️ Sync করুন
+          </span>
+        )}
       </td>
 
       <td className="whitespace-nowrap p-4">
@@ -86,17 +99,16 @@ const PathaoRow = ({
         {new Date(order.createdAt).toLocaleDateString("en-BD")}
       </td>
 
-      {/* Sync */}
+      {/* Sync — সবসময় দেখাবে, consignment নেই হলে yellow */}
       <td className="whitespace-nowrap p-4">
         {canUpdate &&
-          order.consignment_id &&
           (isSyncing ? (
             <MiniSpinner />
           ) : (
             <button
               onClick={() => onSync(order)}
               disabled={!!syncingOrderId}
-              className="h-[36px] rounded-lg px-3 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-1 mx-auto"
+              className={syncBtnClass}
             >
               <FaSync size={11} /> Sync
             </button>
