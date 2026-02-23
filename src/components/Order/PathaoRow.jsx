@@ -38,8 +38,16 @@ const PathaoRow = ({
   const cancelBlocked = [
     "Delivered",
     "Partial Delivery",
+    "Partially Delivered",
     "Return",
+    "Returned",
     "Paid Return",
+    "Partially Returned",
+    "Pickup Cancel",
+    "Pickup Cancelled",
+    "Cancelled",
+    "Delivery Cancelled",
+    "Delivery Failed",
   ].includes(order?.pathao_status);
 
   const syncBtnClass = hasConsignment
