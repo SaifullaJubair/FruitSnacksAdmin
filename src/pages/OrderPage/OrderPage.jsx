@@ -420,7 +420,6 @@ const OrderPage = () => {
     }
   };
 
-  // ── SYNC PATHAO ───────────────────────────────────────────
   const handleSyncPathao = async (order) => {
     try {
       setSyncingOrderId(order._id);
@@ -447,7 +446,10 @@ const OrderPage = () => {
       order?.courier_type === "steadfast" && order?.steadfast_consignment_id;
     const isPathaoSent =
       order?.courier_type === "pathao" && order?.consignment_id;
+    const isPathaoPending =
+      order?.courier_type === "pathao" && order?.pathao_status === "Pending";
 
+    // Steadfast block check
     if (
       order?.courier_type === "steadfast" &&
       STEADFAST_CANCEL_BLOCKED.includes(order?.steadfast_status)
@@ -460,11 +462,58 @@ const OrderPage = () => {
       return;
     }
 
+    // Pathao — Pending না হলে API কাজ করবে না, warning দাও
+    if (isPathaoSent && !isPathaoPending) {
+      const ok = await Swal.fire({
+        title: "Cancel করবেন?",
+        html: `<p>Invoice: <strong>${order?.invoice_id}</strong></p>
+               <p class="text-sm mt-2">⚠️ Pathao status <b>"${order?.pathao_status}"</b> — API দিয়ে cancel হবে না।<br/>
+               <a href="https://merchant.pathao.com" target="_blank" style="color:blue;text-decoration:underline">Pathao Portal</a> থেকে manually cancel করুন।<br/>
+               Consignment ID: <b>${order?.consignment_id}</b></p>`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "DB তে Cancel করো",
+        cancelButtonText: "না",
+      });
+      if (!ok.isConfirmed) return;
+      // শুধু DB update করো
+      try {
+        setLoadingOrderId(order._id);
+        const cancelTime =
+          new Date().toISOString().split("T")[0] +
+          " " +
+          new Date().toLocaleTimeString();
+        const res = await fetch(`${BASE_URL}/order`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            _id: order._id,
+            order_status: "cancel",
+            cancel_time: cancelTime,
+            order_updated_by: user?._id,
+          }),
+        });
+        const data = await res.json();
+        if (data?.statusCode === 200) {
+          toast.success("DB তে Cancel হয়েছে!");
+          refetch();
+        } else throw new Error(data?.message);
+      } catch (e) {
+        toast.error(e.message);
+      } finally {
+        setLoadingOrderId(null);
+      }
+      return;
+    }
+
     let html = `<p>Invoice: <strong>${order?.invoice_id}</strong></p>`;
-    if (isSteadfastSent)
+    if (isPathaoPending)
+      html += `<p class="text-sm mt-2 text-green-600">✅ Pathao API দিয়ে cancel হবে।</p>`;
+     if (isSteadfastSent)
       html += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Steadfast এ পাঠানো হয়েছে (${order?.steadfast_status}).<br/>Database এ cancel হবে, Steadfast portal এ manually cancel করতে হতে পারে।</p>`;
-    if (isPathaoSent)
-      html += `<p class="text-sm text-gray-500 mt-2">⚠️ এই order Pathao তে পাঠানো হয়েছে।<br/>Database এ cancel হবে, Pathao portal এ manually cancel করতে হবে।</p>`;
 
     const ok = await Swal.fire({
       title: "Cancel করবেন?",
@@ -480,6 +529,8 @@ const OrderPage = () => {
 
     try {
       setLoadingOrderId(order._id);
+
+      // Steadfast cancel
       if (order?.courier_type === "steadfast") {
         const res = await fetch(
           `${BASE_URL}/order/steadfast/cancel/${order._id}`,
@@ -491,19 +542,37 @@ const OrderPage = () => {
         );
         const data = await res.json();
         if (data?.success) {
-          if (order?.steadfast_status === "pending") {
-            Swal.fire({
-              title: "DB তে Cancel হয়েছে!",
-              html: `⚠️ এখন <a href="https://portal.packzy.com" target="_blank" style="color:blue;text-decoration:underline">Steadfast Portal</a> এ গিয়ে manually cancel করুন।<br/>Consignment ID: <b>${order?.steadfast_consignment_id}</b>`,
-              icon: "warning",
-            });
-          } else {
-            toast.success(data?.message || "Order Cancelled!");
-          }
+          order?.steadfast_status === "pending"
+            ? Swal.fire({
+                title: "DB তে Cancel হয়েছে!",
+                html: `⚠️ <a href="https://portal.packzy.com" target="_blank" style="color:blue;text-decoration:underline">Steadfast Portal</a> এ manually cancel করুন।<br/>Consignment ID: <b>${order?.steadfast_consignment_id}</b>`,
+                icon: "warning",
+              })
+            : toast.success(data?.message || "Cancelled!");
           refetch();
         } else throw new Error(data?.message);
         return;
       }
+
+      // Pathao Pending → API দিয়ে cancel
+      if (isPathaoPending) {
+        const res = await fetch(
+          `${BASE_URL}/courier/pathao/cancel/${order._id}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+        const data = await res.json();
+        if (data?.success) {
+          toast.success("Pathao তে Order Cancel সফল!");
+          refetch();
+        } else throw new Error(data?.message);
+        return;
+      }
+
+      // Normal cancel (no courier)
       const cancelTime =
         new Date().toISOString().split("T")[0] +
         " " +
@@ -521,15 +590,7 @@ const OrderPage = () => {
       });
       const data = await res.json();
       if (data?.statusCode === 200) {
-        if (isPathaoSent) {
-          Swal.fire({
-            title: "DB তে Cancel হয়েছে!",
-            html: `⚠️ এখন <a href="https://merchant.pathao.com" target="_blank" style="color:blue;text-decoration:underline">Pathao Portal</a> এ গিয়ে manually cancel করুন।<br/>Consignment ID: <b>${order?.consignment_id}</b>`,
-            icon: "warning",
-          });
-        } else {
-          toast.success("Order Cancel হয়েছে!");
-        }
+        toast.success("Order Cancel হয়েছে!");
         refetch();
       } else throw new Error(data?.message);
     } catch (e) {
