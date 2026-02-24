@@ -1,0 +1,29 @@
+name: Deploy Admin Panel
+
+on:
+  push:
+    branches: [ main ]  # যদি আপনার মেইন ব্রাঞ্চের নাম master হয়, তবে এখানে master লিখবেন
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            cd /var/www/artisenleather/admin
+            git reset --hard
+            git pull origin main
+            npm install
+            # ১জিবি র‍্যামের সার্ভারের জন্য নিরাপদ বিল্ড কমান্ড
+            NODE_OPTIONS="--max-old-space-size=512" npm run build
+            echo "Successfully deployed to admin.artisenleather.com!"
