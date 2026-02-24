@@ -352,7 +352,7 @@ const SideNavBar = () => {
                 isActive={isActive("/processing-order")}
                 onClick={closeAllDropdowns}
               />
-              {/* <MenuItem
+              <MenuItem
                 to="/steadfast-order"
                 icon={FaBorderAll}
                 label="SteadFast Order"
@@ -365,7 +365,7 @@ const SideNavBar = () => {
                 label="Pathao Order List"
                 isActive={isActive("/pathao-order")}
                 onClick={closeAllDropdowns}
-              /> */}
+              />
               {/* <MenuItem
                 to="/delivery-order"
                 icon={FaBorderAll}

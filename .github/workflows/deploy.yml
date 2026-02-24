@@ -2,7 +2,7 @@ name: Deploy Admin Panel
 
 on:
   push:
-    branches: [main] # যদি আপনার মেইন ব্রাঞ্চের নাম master হয়, তবে এখানে master লিখবেন
+    branches: [main]
 
 jobs:
   deploy:
@@ -23,14 +23,16 @@ jobs:
             cd /var/www/artisenleather/admin
             git reset --hard
             git pull origin main
+
+            # মেমোরি লিমিট নিশ্চিত করা (Swap ব্যবহারের জন্য)
+            export NODE_OPTIONS="--max-old-space-size=1536"
+
             npm install
             rm -rf dist
-            # ১জিবি র‍্যামের জন্য মেমোরি লিমিট সহ বিল্ড
             npm run build
 
-            # --- পারমিশন ফিক্স (নিচের লাইনগুলো যোগ করুন) ---
+            # পারমিশন ফিক্স এবং এনজিনেক্স রিস্টার্ট
             sudo chown -R www-data:www-data /var/www/artisenleather/admin/dist
             sudo chmod -R 755 /var/www/artisenleather/admin/dist
-
             sudo systemctl restart nginx
-            echo "Deployment and Permissions fixed!"
+            echo "CI/CD Deployment Successful!"
