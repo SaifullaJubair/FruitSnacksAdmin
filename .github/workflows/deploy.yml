@@ -19,13 +19,13 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: 22
-        script: |
-          cd /var/www/artisenleather/admin
-          git reset --hard
-          git pull origin main
-          npm install
-          # বিল্ড করার আগে পুরনো dist ফোল্ডার মুছে ফেলা ভালো
-          rm -rf dist
-          NODE_OPTIONS="--max-old-space-size=512" npm run build
-          # Nginx ক্যাশ ক্লিয়ার করতে রিস্টার্ট (ঐচ্ছিক কিন্তু নিরাপদ)
-          sudo systemctl restart nginx
+          script: |
+            cd /var/www/artisenleather/admin
+            git reset --hard
+            git pull origin main
+            npm install
+            # বিল্ড করার আগে পুরনো dist ফোল্ডার মুছে ফেলা ভালো
+            rm -rf dist
+            npm run build
+            # Nginx ক্যাশ ক্লিয়ার করতে রিস্টার্ট (ঐচ্ছিক কিন্তু নিরাপদ)
+            sudo systemctl restart nginx
