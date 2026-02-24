@@ -352,7 +352,7 @@ const SideNavBar = () => {
                 isActive={isActive("/processing-order")}
                 onClick={closeAllDropdowns}
               />
-              <MenuItem
+              {/* <MenuItem
                 to="/steadfast-order"
                 icon={FaBorderAll}
                 label="SteadFast Order"
@@ -365,8 +365,8 @@ const SideNavBar = () => {
                 label="Pathao Order List"
                 isActive={isActive("/pathao-order")}
                 onClick={closeAllDropdowns}
-              />
-              <MenuItem
+              /> */}
+              {/* <MenuItem
                 to="/delivery-order"
                 icon={FaBorderAll}
                 label="Delivery Order List"
@@ -386,7 +386,7 @@ const SideNavBar = () => {
                 label="Cancel Order List"
                 isActive={isActive("/cancel-order")}
                 onClick={closeAllDropdowns}
-              />
+              /> */}
             </>
           )}
           {/* {user?.role_id?.offer_order_show === true && (
