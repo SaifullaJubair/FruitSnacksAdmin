@@ -24,8 +24,13 @@ jobs:
             git reset --hard
             git pull origin main
             npm install
-            # বিল্ড করার আগে পুরনো dist ফোল্ডার মুছে ফেলা ভালো
             rm -rf dist
-            npm run build
-            # Nginx ক্যাশ ক্লিয়ার করতে রিস্টার্ট (ঐচ্ছিক কিন্তু নিরাপদ)
+            # ১জিবি র‍্যামের জন্য মেমোরি লিমিট সহ বিল্ড
+            NODE_OPTIONS="--max-old-space-size=512" npm run build
+
+            # --- পারমিশন ফিক্স (নিচের লাইনগুলো যোগ করুন) ---
+            sudo chown -R www-data:www-data /var/www/artisenleather/admin/dist
+            sudo chmod -R 755 /var/www/artisenleather/admin/dist
+
             sudo systemctl restart nginx
+            echo "Deployment and Permissions fixed!"
