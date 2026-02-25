@@ -1,4 +1,5 @@
 import { useContext, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AuthContext } from "../../context/AuthProvider";
 import useDebounced from "../../hooks/useDebounced";
@@ -72,6 +73,7 @@ const PENDING_HEAD = [
   "Date",
   "Send Courier",
   "Cancel",
+  "Fraud",
   "Details",
 ];
 const STEADFAST_HEAD = [
@@ -115,13 +117,20 @@ const DEFAULT_HEAD = [
 ];
 
 const OrderPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [limit, setLimit] = useState(10);
   const [page, setPage] = useState(1);
   const [searchValue, setSearchValue] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("pending");
-  const [steadfastSubTab, setSteadfastSubTab] = useState("all");
-  const [pathaoSubTab, setPathaoSubTab] = useState("all");
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("tab") || "pending",
+  );
+  const [steadfastSubTab, setSteadfastSubTab] = useState(
+    searchParams.get("sub") || "all",
+  );
+  const [pathaoSubTab, setPathaoSubTab] = useState(
+    searchParams.get("sub") || "all",
+  );
 
   const [loadingOrderId, setLoadingOrderId] = useState(null);
   const [syncingOrderId, setSyncingOrderId] = useState(null);
@@ -153,6 +162,7 @@ const OrderPage = () => {
     setSteadfastSubTab("all");
     setPathaoSubTab("all");
     setSelectedOrders([]);
+    setSearchParams({ tab });
   };
 
   const buildApiUrl = () => {
@@ -409,7 +419,7 @@ const OrderPage = () => {
       const data = await res.json();
       if (data?.success) {
         toast.success(
-          `Synced! Steadfast: ${data?.data?.steadfast_status} → DB: ${data?.data?.order_status}`,
+          `Synced! Steadfast Status: ${data?.data?.steadfast_status} → DB Status: ${data?.data?.order_status}`,
         );
         refetch();
       } else throw new Error(data?.message);
@@ -730,6 +740,7 @@ const OrderPage = () => {
               onClick={() => {
                 setSteadfastSubTab(tab.value);
                 setPage(1);
+                setSearchParams({ tab: activeTab, sub: tab.value });
               }}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${steadfastSubTab === tab.value ? "bg-red-500 text-white border-red-500" : "bg-white text-gray-600 border-gray-300 hover:border-red-400"}`}
             >
@@ -748,6 +759,7 @@ const OrderPage = () => {
               onClick={() => {
                 setPathaoSubTab(tab.value);
                 setPage(1);
+                setSearchParams({ tab: activeTab, sub: tab.value });
               }}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${pathaoSubTab === tab.value ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"}`}
             >

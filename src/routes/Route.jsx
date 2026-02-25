@@ -48,6 +48,7 @@ import DeliveryOrderPage from "../pages/DeliveryOrderPage/DeliveryOrderPage";
 import SingleViewOfferOrder from "../components/OfferOrderList/SingleViewOfferOrder";
 import StadefastProcessingOrderPage from "../pages/StadefastProcessingOrderPage/StadefastProcessingOrderPage";
 import SteadfastOrderPage from "../pages/SteadfastOrderPage/SteadfastOrderPage";
+import FraudCheckPage from "../pages/Fraudcheckpage/Fraudcheckpage";
 
 const route = createBrowserRouter([
   {
@@ -224,6 +225,10 @@ const route = createBrowserRouter([
       {
         path: "/steadfast-order",
         element: <SteadfastOrderPage />,
+      },
+      {
+        path: "/fraud-check",
+        element: <FraudCheckPage />,
       },
       {
         path: "/all-order-info/:id",

@@ -18,7 +18,7 @@ import { FiUsers } from "react-icons/fi";
 import { ChildMenuItem, DropdownMenu, MenuItem } from "./DropdownAndMenuItem";
 import { IoSettings } from "react-icons/io5";
 
-import { RiCoupon3Line } from "react-icons/ri";
+import { RiCoupon3Line, RiShieldCheckLine } from "react-icons/ri";
 import { FaBorderAll, FaQuestion } from "react-icons/fa";
 import { FaUsers } from "react-icons/fa6";
 
@@ -338,6 +338,13 @@ const SideNavBar = () => {
           {/* ......Order....  */}
           {user?.role_id?.order_show === true && (
             <>
+              <MenuItem
+                to="/fraud-check"
+                icon={RiShieldCheckLine}
+                label="Fraud Check"
+                isActive={isActive("/order")}
+                onClick={closeAllDropdowns}
+              />
               <MenuItem
                 to="/order"
                 icon={FaBorderAll}

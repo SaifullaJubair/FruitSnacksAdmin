@@ -1,5 +1,5 @@
 // OrderPage/components/PendingRow.jsx
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaPrint } from "react-icons/fa";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 
@@ -19,6 +19,12 @@ const PendingRow = ({
 }) => {
   const isLoading = loadingOrderId === order._id;
   const rowClass = index % 2 === 0 ? "bg-white" : "bg-tableRowBGColor";
+  const navigate = useNavigate();
+
+  const handleFraudCheck = () => {
+    const phone = order.customer_phone.replace(/^\+?88/, "");
+    navigate(`/fraud-check?phone=${phone}`);
+  };
 
   return (
     <tr className={`divide-x divide-gray-200 ${rowClass}`}>
@@ -92,6 +98,15 @@ const PendingRow = ({
             Cancel
           </button>
         )}
+      </td>
+      <td className="whitespace-nowrap p-4">
+        <button
+          onClick={handleFraudCheck}
+          className="flex items-center justify-center mx-auto text-purple-500 hover:text-purple-700 text-lg"
+          title="Fraud Check"
+        >
+          🔍
+        </button>
       </td>
       <td className="whitespace-nowrap p-4">
         <Link
