@@ -1,21 +1,21 @@
 import { createBrowserRouter } from "react-router-dom";
 import DashboardLayout from "../layout/DashboardLayout";
-import NotFound from "../shared/NotFound/NotFound";
-import CategoryPage from "../pages/CategoryPage/CategoryPage";
-import SubcategoryPage from "../pages/SubCategoryPage/SubcategoryPage";
-import ChildCategoryPage from "../pages/ChildCategoryPage/ChildCategoryPage";
-import BrandPage from "../pages/BrandPage/BrandPage";
-import SpecificationPage from "../pages/SpecificationPage/SpecificationPage";
 import AttributePage from "../pages/AttributePage/AttributePage";
-import AllStaffPage from "../pages/StaffAndRolePage/AllStaffPage/AllStaffPage";
-import StaffRoleTablePage from "../pages/StaffAndRolePage/StaffRoleTablePage/StaffRoleTablePage";
-import ReviewPage from "../pages/ReviewPage/ReviewPage";
+import BrandPage from "../pages/BrandPage/BrandPage";
+import AddCampaignPage from "../pages/CampaignPage/AddCampaignPage/AddCampaignPage";
 import CampaignListPage from "../pages/CampaignPage/CampaignListPage/CampaignListPage";
-import AddStaffRolePage from "../pages/StaffAndRolePage/AddStaffRolePage/AddStaffRolePage";
+import CategoryPage from "../pages/CategoryPage/CategoryPage";
+import ChildCategoryPage from "../pages/ChildCategoryPage/ChildCategoryPage";
 import AddProductPage from "../pages/ProductPage/AddProductPage/AddProductPage";
 import ProductListTablePage from "../pages/ProductPage/ProductListTablePage/ProductListTablePage";
-import AddCampaignPage from "../pages/CampaignPage/AddCampaignPage/AddCampaignPage";
+import ReviewPage from "../pages/ReviewPage/ReviewPage";
 import SignInPage from "../pages/SignInPage/SignInPage";
+import SpecificationPage from "../pages/SpecificationPage/SpecificationPage";
+import AddStaffRolePage from "../pages/StaffAndRolePage/AddStaffRolePage/AddStaffRolePage";
+import AllStaffPage from "../pages/StaffAndRolePage/AllStaffPage/AllStaffPage";
+import StaffRoleTablePage from "../pages/StaffAndRolePage/StaffRoleTablePage/StaffRoleTablePage";
+import SubcategoryPage from "../pages/SubCategoryPage/SubcategoryPage";
+import NotFound from "../shared/NotFound/NotFound";
 
 import ProductUpdatePage from "../pages/ProductPage/ProductUpdatePage/ProductUpdatePage";
 import SupplierPage from "../pages/Supplier/SupplierPage";
@@ -23,32 +23,29 @@ import SupplierPage from "../pages/Supplier/SupplierPage";
 import YourCoupon from "../pages/CouponPage/YourCouponPage.jsx/YourCoupon";
 
 import BannerPage from "../pages/Banner/BannerPage";
-import SliderPage from "../pages/SliderPage/SliderPage";
 import SettingPage from "../pages/SettingPage/SettingPage";
+import SliderPage from "../pages/SliderPage/SliderPage";
 
 import PrivateRoute from "./privateRoute/PrivateRoute";
 
 import AddCoupon from "../components/Coupon/AddCoupon";
-import OrderPage from "../pages/OrderPage/OrderPage";
 import ViewAllOrderInfo from "../components/Order/ViewAllOrderInfo";
+import OrderPage from "../pages/OrderPage/OrderPage";
 
 import OfferTablePage from "../pages/OfferPage/OfferTablePage/OfferTablePage";
 
 import AddOfferPage from "../pages/OfferPage/AddOfferPage/AddOfferPage";
 import QuestionPage from "../pages/QuestionPage/QuestionPage";
 
-import OfferOrderListPage from "../pages/OfferOrderListPage/OfferOrderListPage";
+import SingleViewOfferOrder from "../components/OfferOrderList/SingleViewOfferOrder";
 import CustomerPage from "../pages/AllCustomerPage/CustomerPage";
 import DashBoard from "../pages/DashBoardPage/DashBoard";
-import ProfilePage from "../pages/MyProfilePage/ProfilePage";
-import PathaoOrderPage from "../pages/PathaoOrderPage/PathaoOrderPage";
-import CancelOrderPage from "../pages/CancelOrderPage/CancelOrderPage";
-import ReturnOrderPage from "../pages/ReturnOrderPage/ReturnOrderPage";
-import DeliveryOrderPage from "../pages/DeliveryOrderPage/DeliveryOrderPage";
-import SingleViewOfferOrder from "../components/OfferOrderList/SingleViewOfferOrder";
-import StadefastProcessingOrderPage from "../pages/StadefastProcessingOrderPage/StadefastProcessingOrderPage";
-import SteadfastOrderPage from "../pages/SteadfastOrderPage/SteadfastOrderPage";
 import FraudCheckPage from "../pages/Fraudcheckpage/Fraudcheckpage";
+import ProfilePage from "../pages/MyProfilePage/ProfilePage";
+import OfferOrderListPage from "../pages/OfferOrderListPage/OfferOrderListPage";
+import PageSeoPage from "../pages/pageSeoPage/PageSeoPage";
+import PathaoOrderPage from "../pages/PathaoOrderPage/PathaoOrderPage";
+import SteadfastOrderPage from "../pages/SteadfastOrderPage/SteadfastOrderPage";
 
 const route = createBrowserRouter([
   {
@@ -186,6 +183,11 @@ const route = createBrowserRouter([
       {
         path: "/settings",
         element: <SettingPage />,
+      },
+      //....Site Settings Page....//
+      {
+        path: "/page-seo",
+        element: <PageSeoPage />,
       },
       // ......Offer-order list.......//
       {

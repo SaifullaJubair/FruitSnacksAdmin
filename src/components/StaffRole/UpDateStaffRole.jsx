@@ -8,6 +8,7 @@ import { BASE_URL } from "../../utils/baseURL";
 import { AuthContext } from "./../../context/AuthProvider";
 
 const UpDateStaffRole = ({ setUpdateModal, updateModalValue, refetch }) => {
+  console.log(updateModalValue, "role value");
   const {
     register,
     reset,

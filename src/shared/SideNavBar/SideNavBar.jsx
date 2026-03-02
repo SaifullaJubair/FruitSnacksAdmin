@@ -63,6 +63,8 @@ const SideNavBar = () => {
     return <LoaderOverlay />;
   }
 
+  console.log(user?.role_id, "page seo show");
+
   return (
     <div className="flex flex-col min-h-screen bg-blueColor-800 text-gray-50">
       <div className="flex-grow">
@@ -221,7 +223,6 @@ const SideNavBar = () => {
               )}
             </DropdownMenu>
           )} */}
-
           {(user?.role_id?.role_show === true ||
             user?.role_id?.user_show === true) && (
             <DropdownMenu
@@ -256,7 +257,6 @@ const SideNavBar = () => {
               )}
             </DropdownMenu>
           )}
-
           {/* <MenuItem
             to="/supplier"
             icon={FaUsers}
@@ -335,6 +335,15 @@ const SideNavBar = () => {
               onClick={closeAllDropdowns} // Close all dropdowns when clicked
             />
           )}
+          {user?.role_id?.page_seo_show === true && (
+            <MenuItem
+              to="/page-seo"
+              icon={IoSettings}
+              label="Page Seo"
+              isActive={isActive("/page-seo")}
+              onClick={closeAllDropdowns} // Close all dropdowns when clicked
+            />
+          )}
           {/* ......Order....  */}
           {user?.role_id?.order_show === true && (
             <>
@@ -342,7 +351,7 @@ const SideNavBar = () => {
                 to="/fraud-check"
                 icon={RiShieldCheckLine}
                 label="Fraud Check"
-                isActive={isActive("/order")}
+                isActive={isActive("/fraud-check")}
                 onClick={closeAllDropdowns}
               />
               <MenuItem

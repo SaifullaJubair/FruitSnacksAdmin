@@ -1,5 +1,12 @@
 const permissionsData = [
   {
+    Name: "Page Seo Update",
+    Type: [
+      { type_name: " Show Page Seo", type_value: "page_seo_show" },
+      { type_name: " Update Page Seo", type_value: "page_seo_update" },
+    ],
+  },
+  {
     Name: "Site Setting Update",
     Type: [
       { type_name: " Update Site Setting", type_value: "site_setting_update" },
@@ -369,7 +376,7 @@ const permissionsData = [
   //     },
   //   ],
   // },
-  
+
   {
     Name: "Customer Create And Update",
     Type: [
