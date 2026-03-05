@@ -13,7 +13,7 @@ const SettingPage = () => {
     { id: "phone-credential", label: "Phone Credential", icon: "📱" },
     { id: "currency", label: "Currency", icon: "💰" },
     { id: "shipping", label: "Shipping", icon: "🚚" },
-    // { id: "store-social", label: "Store & Social", icon: "🏪" },
+    { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
     { id: "policies", label: "Policies", icon: "📜" },
   ];
 
@@ -32,19 +32,17 @@ const SettingPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white rounded-2xl shadow-xl p-6 mb-6"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-                <IoSettingsOutline className="text-white text-3xl" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  Settings
-                </h1>
-                <p className="text-gray-500 mt-1">
-                  Manage your application configuration
-                </p>
-              </div>
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
+              <IoSettingsOutline className="text-white text-3xl" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                Settings
+              </h1>
+              <p className="text-gray-500 mt-1">
+                Manage your application configuration
+              </p>
             </div>
           </div>
 

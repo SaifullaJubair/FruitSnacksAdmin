@@ -2,22 +2,19 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Import all tab components
-
 import { BASE_URL } from "../../utils/baseURL";
 import { LoaderOverlay } from "../common/loader/LoderOverley";
 import Policies from "./SiteSetting/Policies";
 import SoftwareInformation from "./SiteSetting/SoftwareInformation";
 import PhoneCredential from "./PhoneCredential";
 import CurrencySymbol from "./CurrencySymbol";
-import StoreSocial from "./SiteSetting/StoreSocial";
 import ShippingConFiguration from "./ShippingConFiguration";
+import AnalyticsSettings from "./AnalyticsSettings";
 
 const SettingS = () => {
   const { tab } = useParams();
   const navigate = useNavigate();
 
-  // Data fetching
   const {
     data: getInitialAuthenticationData,
     isLoading: authLoading,
@@ -48,9 +45,7 @@ const SettingS = () => {
     },
   });
 
-  if (authLoading || currencyLoading) {
-    return <LoaderOverlay />;
-  }
+  if (authLoading || currencyLoading) return <LoaderOverlay />;
 
   const renderContent = () => {
     switch (tab) {
@@ -78,6 +73,15 @@ const SettingS = () => {
       case "shipping":
         return (
           <ShippingConFiguration
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // ✅ নতুন analytics tab
+      case "analytics":
+        return (
+          <AnalyticsSettings
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
