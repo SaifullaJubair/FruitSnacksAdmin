@@ -1,83 +1,50 @@
-import { useEffect, useState } from "react";
-import CurrencySymbol from "./CurrencySymbol";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { BASE_URL } from "./../../utils/baseURL";
-import { LoaderOverlay } from "../common/loader/LoderOverley";
+import { motion, AnimatePresence } from "framer-motion";
 
+// Import all tab components
+
+import { BASE_URL } from "../../utils/baseURL";
+import { LoaderOverlay } from "../common/loader/LoderOverley";
+import Policies from "./SiteSetting/Policies";
+import SoftwareInformation from "./SiteSetting/SoftwareInformation";
 import PhoneCredential from "./PhoneCredential";
+import CurrencySymbol from "./CurrencySymbol";
+import StoreSocial from "./SiteSetting/StoreSocial";
 import ShippingConFiguration from "./ShippingConFiguration";
-import AllSiteSetting from "./SiteSetting/AllSiteSetting";
 
 const SettingS = () => {
-  const [activeNavButton, setActiveNavButton] = useState("SiteSetting");
+  const { tab } = useParams();
+  const navigate = useNavigate();
 
-  const handleNavButtonClick = (buttonName) => {
-    setActiveNavButton(buttonName);
-    sessionStorage.setItem("activeTab", buttonName);
-  };
-  useEffect(() => {
-    // Retrieve active dropdown from localStorage when the component mounts
-    const saveDropDown = sessionStorage.getItem("activeTab");
-    if (saveDropDown) {
-      setActiveNavButton(saveDropDown);
-    }
-  }, []);
-
-  //data fetching of Authentication by Tans Tack Query
+  // Data fetching
   const {
     data: getInitialAuthenticationData,
     isLoading: authLoading,
-    refetch,
+    refetch: authRefetch,
   } = useQuery({
-    queryKey: [`/api/v1/authentication`],
+    queryKey: ["authentication"],
     queryFn: async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/authentication`, {
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const errorData = await res.text(); // Get more info about the error
-          throw new Error(
-            `Error: ${res.status} ${res.statusText} - ${errorData}`
-          );
-        }
-
-        const data = await res.json();
-        return data;
-      } catch (error) {
-        console.error("Fetch error:", error);
-        throw error; // Rethrow to propagate the error to react-query
-      }
+      const res = await fetch(`${BASE_URL}/authentication`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Authentication fetch failed");
+      return res.json();
     },
   });
 
-  //data fetching of Currency by Tans Tack Query
   const {
     data: getInitialCurrencyData,
     isLoading: currencyLoading,
     refetch: currencyRefetch,
   } = useQuery({
-    queryKey: [`/api/v1/setting`],
+    queryKey: ["setting"],
     queryFn: async () => {
-      try {
-        const res = await fetch(`${BASE_URL}/setting`, {
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          const errorData = await res.text(); // Get more info about the error
-          throw new Error(
-            `Error: ${res.status} ${res.statusText} - ${errorData}`
-          );
-        }
-
-        const data = await res.json();
-        return data;
-      } catch (error) {
-        console.error("Fetch error:", error);
-        throw error; // Rethrow to propagate the error to react-query
-      }
+      const res = await fetch(`${BASE_URL}/setting`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Settings fetch failed");
+      return res.json();
     },
   });
 
@@ -85,76 +52,63 @@ const SettingS = () => {
     return <LoaderOverlay />;
   }
 
-  return (
-    <div>
-      <div className="flex flex-wrap  gap-4 mt-8">
-        <button
-          className={`bg-primaryColor hover:bg-blue-500 duration-200  text-white p-2 font-medium   text-sm sm:text-base ${
-            activeNavButton == "SiteSetting" &&
-            "border-t-[4px]  border-blue-900"
-          }`}
-          onClick={() => handleNavButtonClick("SiteSetting")}
-        >
-          Site Setting
-        </button>
-
-        <button
-          className={`bg-primaryColor hover:bg-blue-500 duration-200  text-white p-2 font-medium   text-sm sm:text-base  ${
-            activeNavButton == "phoneCredential" &&
-            "border-t-[4px]  border-blue-900"
-          }`}
-          onClick={() => handleNavButtonClick("phoneCredential")}
-        >
-          OTP By Phone Credential
-        </button>
-        <button
-          className={`bg-primaryColor hover:bg-blue-500 duration-200  text-white p-2 font-medium   text-sm sm:text-base  ${
-            activeNavButton == "Currency Configuration" &&
-            "border-t-[4px]  border-blue-900"
-          }`}
-          onClick={() => handleNavButtonClick("Currency Configuration")}
-        >
-          Currency Symbol
-        </button>
-        <button
-          className={`bg-primaryColor hover:bg-blue-500 duration-200  text-white p-2 font-medium   text-sm sm:text-base  ${
-            activeNavButton == "ShippingConfiguration" &&
-            "border-t-[4px]  border-blue-900"
-          }`}
-          onClick={() => handleNavButtonClick("ShippingConfiguration")}
-        >
-          Shipping Configuration
-        </button>
-      </div>
-
-      <div className="mt-6 min-w-[1150px]">
-        {activeNavButton == "Currency Configuration" && (
+  const renderContent = () => {
+    switch (tab) {
+      case "site-setting":
+        return (
+          <SoftwareInformation
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+      case "phone-credential":
+        return (
+          <PhoneCredential
+            refetch={authRefetch}
+            initialAuthenticationData={getInitialAuthenticationData?.data[0]}
+          />
+        );
+      case "currency":
+        return (
           <CurrencySymbol
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
-        )}
-
-        {activeNavButton == "phoneCredential" && (
-          <PhoneCredential
-            refetch={refetch}
-            initialAuthenticationData={getInitialAuthenticationData?.data[0]}
-          />
-        )}
-        {activeNavButton == "ShippingConfiguration" && (
+        );
+      case "shipping":
+        return (
           <ShippingConFiguration
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
-        )}
-        {activeNavButton == "SiteSetting" && (
-          <AllSiteSetting
+        );
+
+      case "policies":
+        return (
+          <Policies
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
-        )}
-      </div>
-    </div>
+        );
+      default:
+        navigate("/settings/site-setting");
+        return null;
+    }
+  };
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={tab}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.2 }}
+        className="p-6"
+      >
+        {renderContent()}
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

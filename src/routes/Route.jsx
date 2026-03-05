@@ -184,6 +184,10 @@ const route = createBrowserRouter([
         path: "/settings",
         element: <SettingPage />,
       },
+      {
+        path: "/settings/:tab",
+        element: <SettingPage />,
+      },
       //....Site Settings Page....//
       {
         path: "/page-seo",
