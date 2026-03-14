@@ -1,9 +1,11 @@
 import { IoMdClose, IoIosMenu } from "react-icons/io";
 import { useContext, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaUser } from "react-icons/fa";
 import { LoaderOverlay } from "../../components/common/loader/LoderOverley";
 import { AuthContext } from "../../context/AuthProvider";
+import { BASE_URL } from "../../utils/baseURL";
+import { toast } from "react-toastify";
 
 const DashBoardNavbar = ({
   setSidebarOpen,
@@ -15,8 +17,25 @@ const DashBoardNavbar = ({
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [setIsFullscreen] = useState(false);
   const { user, loading } = useContext(AuthContext);
-
+  const navigate = useNavigate();
   // const { logout } = useContext(AuthContext);
+  const handleLogout = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/authentication/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        navigate("/sign-in");
+        window.location.reload();
+        toast.success("Logged out successfully");
+      }
+    } catch (error) {
+      console.error("An error occurred:", error);
+    }
+  };
+
   const menuRef = useRef(null);
   // const { user, loading } = useContext(AuthContext);
   // Toggle dropdown visibility
@@ -148,14 +167,7 @@ const DashBoardNavbar = ({
                       </Link>
 
                       <p
-                        onClick={() => {
-                          document.cookie =
-                            "artisan_lather_token=; Max-Age=0; path=/;";
-                          setTimeout(() => {
-                            toggleDropdown;
-                            window.location.reload();
-                          }, 1000);
-                        }}
+                        onClick={handleLogout}
                         className="block py-3 px-4 cursor-pointer text-sm w-full hover:hover:bg-blue-400 hover:text-white font-semibold text-center"
                         role="menuitem"
                         tabIndex="-1"
