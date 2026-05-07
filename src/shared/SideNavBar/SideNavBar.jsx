@@ -327,6 +327,15 @@ const SideNavBar = () => {
               onClick={closeAllDropdowns}
             />
           )}
+          {user?.role_id?.faq_template_show === true && (
+            <MenuItem
+              to="/faq-template"
+              icon={FaQuestion}
+              label="FAQ Templates"
+              isActive={isActive("/faq-template")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {/* {user?.role_id?.slider_show === true && (
             <MenuItem
               to="/slider"

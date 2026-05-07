@@ -264,6 +264,15 @@ const ProductListTablePage = () => {
                               />
                             </Link>
                           )}
+                          {user?.role_id?.product_update === true && (
+                            <Link
+                              to={`/product/page-content/${item?._id}`}
+                              title="Edit Page Content (theme, FAQ, nutrition, etc.)"
+                              className="text-purple-500 hover:text-purple-300 text-xs font-bold"
+                            >
+                              PG
+                            </Link>
+                          )}
                         </span>
                       </td>
                       {/* <td className="whitespace-nowrap px-4 py-2 space-x-1 flex items-center justify-center gap-4">

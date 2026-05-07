@@ -50,6 +50,8 @@ import ThemeListPage from "../pages/ThemePage/ThemeListPage";
 import ThemeAddPage from "../pages/ThemePage/ThemeAddPage";
 import ThemeUpdatePage from "../pages/ThemePage/ThemeUpdatePage";
 import ThemePreviewPage from "../pages/ThemePage/ThemePreviewPage";
+import FaqTemplateListPage from "../pages/FaqTemplatePage/FaqTemplateListPage";
+import ProductPageContentEditPage from "../pages/ProductPage/ProductPageContentEditPage/ProductPageContentEditPage";
 
 const route = createBrowserRouter([
   {
@@ -261,6 +263,18 @@ const route = createBrowserRouter([
       {
         path: "/theme/preview/:id",
         element: <ThemePreviewPage />,
+      },
+
+      // ......FAQ Templates.......//
+      {
+        path: "/faq-template",
+        element: <FaqTemplateListPage />,
+      },
+
+      // ......Product Page Content.......//
+      {
+        path: "/product/page-content/:id",
+        element: <ProductPageContentEditPage />,
       },
 
       // ......Customers.......//
