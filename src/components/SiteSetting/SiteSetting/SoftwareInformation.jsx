@@ -441,7 +441,7 @@ const SoftwareInformation = ({ refetch, getInitialCurrencyData: data }) => {
                 {...register("title")}
                 type="text"
                 disabled={editingSection !== "basic"}
-                placeholder="e.g. Artisan Leather"
+                placeholder="e.g. FruitSnacks"
                 className="w-full rounded-lg border-gray-200 shadow-sm text-sm p-2.5 border focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
               />
             </div>
@@ -714,7 +714,7 @@ const SoftwareInformation = ({ refetch, getInitialCurrencyData: data }) => {
                   {...register("seo_title")}
                   type="text"
                   disabled={editingSection !== "seo"}
-                  placeholder="e.g. Artisan Leather – Premium Genuine Leather Products"
+                  placeholder="e.g. FruitSnacks – Premium Genuine Leather Products"
                   className="w-full pl-10 rounded-lg border-gray-200 shadow-sm text-sm p-2.5 border focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
                 />
               </div>
@@ -784,10 +784,10 @@ const SoftwareInformation = ({ refetch, getInitialCurrencyData: data }) => {
                 <p className="text-blue-600 text-lg font-medium hover:underline cursor-pointer line-clamp-1">
                   {seoTitle ||
                     siteTitle ||
-                    "Artisan Leather – Premium Products"}
+                    "FruitSnacks – Premium Products"}
                 </p>
                 <p className="text-green-700 text-sm mt-0.5">
-                  https://www.artisenleather.com
+                  https://www.fruitsnacksbd.com
                 </p>
                 <p className="text-gray-600 text-sm mt-1 line-clamp-2">
                   {seoDescription ||

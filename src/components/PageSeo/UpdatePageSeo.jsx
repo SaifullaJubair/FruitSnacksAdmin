@@ -50,7 +50,7 @@ const UpdatePageSeo = ({
   const descLength = watchDescription?.length || 0;
 
   // Get site name from settings
-  const siteName = settingData?.title || "Artisan Leather";
+  const siteName = settingData?.title || "FruitSnacks";
 
   const siteNameLength = siteName.length + 3 || 20;
 

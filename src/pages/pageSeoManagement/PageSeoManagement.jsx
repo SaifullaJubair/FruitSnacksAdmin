@@ -398,7 +398,7 @@ const EditModal = ({ page, onClose, onSave }) => {
                 <div
                   style={{ fontSize: 12, color: "#86EFAC", marginBottom: 4 }}
                 >
-                  artisenleather.com/{page.path || ""}
+                  fruitsnacksbd.com/{page.path || ""}
                 </div>
                 <div
                   style={{
