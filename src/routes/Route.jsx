@@ -46,6 +46,10 @@ import OfferOrderListPage from "../pages/OfferOrderListPage/OfferOrderListPage";
 import PageSeoPage from "../pages/pageSeoPage/PageSeoPage";
 import PathaoOrderPage from "../pages/PathaoOrderPage/PathaoOrderPage";
 import SteadfastOrderPage from "../pages/SteadfastOrderPage/SteadfastOrderPage";
+import ThemeListPage from "../pages/ThemePage/ThemeListPage";
+import ThemeAddPage from "../pages/ThemePage/ThemeAddPage";
+import ThemeUpdatePage from "../pages/ThemePage/ThemeUpdatePage";
+import ThemePreviewPage from "../pages/ThemePage/ThemePreviewPage";
 
 const route = createBrowserRouter([
   {
@@ -239,6 +243,24 @@ const route = createBrowserRouter([
       {
         path: "/all-order-info/:id",
         element: <ViewAllOrderInfo />,
+      },
+
+      // ......Themes.......//
+      {
+        path: "/theme",
+        element: <ThemeListPage />,
+      },
+      {
+        path: "/theme/create",
+        element: <ThemeAddPage />,
+      },
+      {
+        path: "/theme/update/:id",
+        element: <ThemeUpdatePage />,
+      },
+      {
+        path: "/theme/preview/:id",
+        element: <ThemePreviewPage />,
       },
 
       // ......Customers.......//

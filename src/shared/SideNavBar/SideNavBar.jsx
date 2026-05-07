@@ -23,6 +23,7 @@ import { FaBorderAll, FaQuestion } from "react-icons/fa";
 import { FaUsers } from "react-icons/fa6";
 
 import { TfiLayoutSliderAlt } from "react-icons/tfi";
+import { IoColorPaletteOutline } from "react-icons/io5";
 import { SettingContext } from "../../context/SettingProvider";
 import { LoaderOverlay } from "../../components/common/loader/LoderOverley";
 import { AuthContext } from "../../context/AuthProvider";
@@ -315,6 +316,15 @@ const SideNavBar = () => {
               label="Banner"
               isActive={isActive("/banner")}
               onClick={closeAllDropdowns} // Close all dropdowns when clicked
+            />
+          )}
+          {user?.role_id?.theme_show === true && (
+            <MenuItem
+              to="/theme"
+              icon={IoColorPaletteOutline}
+              label="Themes"
+              isActive={isActive("/theme")}
+              onClick={closeAllDropdowns}
             />
           )}
           {/* {user?.role_id?.slider_show === true && (
