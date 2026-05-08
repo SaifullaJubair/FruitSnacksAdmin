@@ -10,6 +10,7 @@ import PhoneCredential from "./PhoneCredential";
 import CurrencySymbol from "./CurrencySymbol";
 import ShippingConFiguration from "./ShippingConFiguration";
 import AnalyticsSettings from "./AnalyticsSettings";
+import AnnouncementBarSettings from "./AnnouncementBarSettings";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -82,6 +83,14 @@ const SettingS = () => {
       case "analytics":
         return (
           <AnalyticsSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      case "announcement-bar":
+        return (
+          <AnnouncementBarSettings
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />

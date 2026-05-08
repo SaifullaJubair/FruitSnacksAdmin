@@ -14,6 +14,7 @@ const SettingPage = () => {
     { id: "currency", label: "Currency", icon: "💰" },
     { id: "shipping", label: "Shipping", icon: "🚚" },
     { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
+    { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },
     { id: "policies", label: "Policies", icon: "📜" },
   ];
 
