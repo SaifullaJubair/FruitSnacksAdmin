@@ -378,6 +378,26 @@ const permissionsData = [
   // },
 
   {
+    Name: "Theme Create And Update",
+    Type: [
+      { type_name: "Theme Show", type_value: "theme_show" },
+      { type_name: "Theme Create", type_value: "theme_create" },
+      { type_name: "Theme Update", type_value: "theme_update" },
+      { type_name: "Theme Delete", type_value: "theme_delete" },
+    ],
+  },
+
+  {
+    Name: "FAQ Template Create And Update",
+    Type: [
+      { type_name: "FAQ Template Show", type_value: "faq_template_show" },
+      { type_name: "FAQ Template Create", type_value: "faq_template_create" },
+      { type_name: "FAQ Template Update", type_value: "faq_template_update" },
+      { type_name: "FAQ Template Delete", type_value: "faq_template_delete" },
+    ],
+  },
+
+  {
     Name: "Customer Create And Update",
     Type: [
       {
