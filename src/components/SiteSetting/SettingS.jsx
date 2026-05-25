@@ -11,6 +11,7 @@ import CurrencySymbol from "./CurrencySymbol";
 import ShippingConFiguration from "./ShippingConFiguration";
 import AnalyticsSettings from "./AnalyticsSettings";
 import AnnouncementBarSettings from "./AnnouncementBarSettings";
+import OfferBannerSettings from "./OfferBannerSettings";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -91,6 +92,14 @@ const SettingS = () => {
       case "announcement-bar":
         return (
           <AnnouncementBarSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      case "offer-banner":
+        return (
+          <OfferBannerSettings
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />

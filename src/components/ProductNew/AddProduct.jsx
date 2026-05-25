@@ -2,28 +2,28 @@ import { useState } from "react";
 import { TiTick } from "react-icons/ti";
 import "./stepper.css";
 import StepOne from "./stepOne/StepOne";
-import StepTwo from "./stepTwo/StepTwo";
 import StepThree from "./stepThree/StepThree";
 
+// AddProduct = 2-step wizard since Phase 2 (variation-attribute-filter).
+// Old StepTwo was the specifications picker — that backend module is retired;
+// attribute assignment now happens inside StepOne (one unified attribute block
+// that also drives the variation matrix). Step 2 is now the final media/SEO
+// step (StepThree), so the form goes StepOne → StepThree.
+
 const AddProduct = () => {
-  const steps = ["", "", ""];
+  const steps = ["", ""];
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [complete, setComplete] = useState(false);
+  const [complete] = useState(false);
 
   // store all step one data
   const [stepOneData, setStepOneData] = useState();
-    // State to manage selected attributes
-    const [selectedAttributes, setSelectedAttributes] = useState([]);
-    // State to manage selected attribute values
-    const [selectedAttributeValues, setSelectedAttributeValues] = useState([]);
-    // State to store the data prepared for submission
-    const [dataToSubmit, setDataToSubmit] = useState([]);
+  // attribute selection state shared across renders of StepOne
+  const [selectedAttributes, setSelectedAttributes] = useState([]);
+  const [selectedAttributeValues, setSelectedAttributeValues] = useState([]);
+  const [dataToSubmit, setDataToSubmit] = useState([]);
 
-  // store all step two data
-  const [stepTwoData, setStepTwoData] = useState();
-
-  // store all step three data
+  // store all step two/final data (media + SEO)
   const [stepThreeData, setStepThreeData] = useState();
 
   return (
@@ -44,24 +44,24 @@ const AddProduct = () => {
         ))}
       </div>
       <div className="mx-4  mt-6 sm:mt-10">
-        {currentStep == 3 ? (
+        {currentStep == 2 ? (
           <StepThree
             setCurrentStep={setCurrentStep}
             stepThreeData={stepThreeData}
-            stepTwoData={stepTwoData}
             stepOneData={stepOneData}
           />
-        ) 
-        : currentStep == 2 ? (
-          <StepTwo
+        ) : (
+          <StepOne
+            stepOneData={stepOneData}
+            setStepOneData={setStepOneData}
             setCurrentStep={setCurrentStep}
-            setStepTwoData={setStepTwoData}
-            stepTwoData={stepTwoData}
-            stepOneData={stepOneData}
+            selectedAttributes={selectedAttributes}
+            selectedAttributeValues={selectedAttributeValues}
+            setSelectedAttributes={setSelectedAttributes}
+            setSelectedAttributeValues={setSelectedAttributeValues}
+            setDataToSubmit={setDataToSubmit}
+            dataToSubmit={dataToSubmit}
           />
-        )
-         : (
-          <StepOne stepOneData={stepOneData} setStepOneData={setStepOneData} setCurrentStep={setCurrentStep} selectedAttributes={selectedAttributes} selectedAttributeValues={selectedAttributeValues} setSelectedAttributes={setSelectedAttributes} setSelectedAttributeValues={setSelectedAttributeValues} setDataToSubmit={setDataToSubmit} dataToSubmit={dataToSubmit} setStepTwoData={setStepTwoData} />
         )}
       </div>
     </div>

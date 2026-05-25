@@ -18,8 +18,8 @@ const UpdateStepThree = ({
   setCurrentStep,
   stepThreeData,
   stepOneData,
-  stepTwoData,
   productData,
+  refetch,
 }) => {
   const { user, loading } = useContext(AuthContext);
   const [saveAndPublish, setSaveAndPublish] = useState(true);
@@ -281,26 +281,9 @@ const UpdateStepThree = ({
 
       formData.append("meta_keywords", JSON.stringify(keywords));
       formData.append("description", description);
-      // Append specifications
-      if (stepTwoData?.specifications?.length > 0) {
-        stepTwoData?.specifications?.forEach((spec, index) => {
-          if (spec?.attribute_values?.length) {
-            // Append the main specification ID
-            formData.append(
-              `specifications[${index}][specification_id]`,
-              spec?._id
-            );
-
-            // Append each specification value's ID
-            spec?.attribute_values?.forEach((value, valueIndex) => {
-              formData.append(
-                `specifications[${index}][specification_values][${valueIndex}][specification_value_id]`,
-                value?._id
-              );
-            });
-          }
-        });
-      }
+      // (legacy `specifications` formData append removed — specification
+      // module retired in Phase 0; attribute payload now ships via
+      // product_attributes + variant_axes set from UpdateStepOne.)
 
       Object.entries(stepOneData).forEach(([key, value]) => {
         if (
@@ -514,26 +497,9 @@ const UpdateStepThree = ({
 
       formData.append("meta_keywords", JSON.stringify(keywords));
       formData.append("description", description);
-      // Append specifications
-      if (stepTwoData?.specifications?.length > 0) {
-        stepTwoData?.specifications?.forEach((spec, index) => {
-          if (spec?.attribute_values?.length) {
-            // Append the main specification ID
-            formData.append(
-              `specifications[${index}][specification_id]`,
-              spec?._id
-            );
-
-            // Append each specification value's ID
-            spec?.attribute_values?.forEach((value, valueIndex) => {
-              formData.append(
-                `specifications[${index}][specification_values][${valueIndex}][specification_value_id]`,
-                value?._id
-              );
-            });
-          }
-        });
-      }
+      // (legacy `specifications` formData append removed — specification
+      // module retired in Phase 0; attribute payload now ships via
+      // product_attributes + variant_axes set from UpdateStepOne.)
 
       Object.entries(stepOneData).forEach(([key, value]) => {
         if (

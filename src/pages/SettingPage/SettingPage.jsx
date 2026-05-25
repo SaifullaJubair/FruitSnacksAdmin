@@ -15,6 +15,7 @@ const SettingPage = () => {
     { id: "shipping", label: "Shipping", icon: "🚚" },
     { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
     { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },
+    { id: "offer-banner", label: "Offer Banner", icon: "⏰" },
     { id: "policies", label: "Policies", icon: "📜" },
   ];
 

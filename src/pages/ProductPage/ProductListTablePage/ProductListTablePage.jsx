@@ -166,12 +166,6 @@ const ProductListTablePage = () => {
                       Category
                     </th>
                     <th className="whitespace-nowrap p-4  text-gray-900 text-center">
-                      Sub Category
-                    </th>
-                    {/* <th className="whitespace-nowrap p-4  text-gray-900 text-center">
-                      Child Category
-                    </th> */}
-                    <th className="whitespace-nowrap p-4  text-gray-900 text-center">
                       Brand
                     </th>
 
@@ -232,16 +226,6 @@ const ProductListTablePage = () => {
                       <td className="whitespace-nowrap px-4 py-2 font-semibold">
                         {item?.category_id?.category_name}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-2 font-semibold">
-                        {item?.sub_category_id?.sub_category_name
-                          ? item?.sub_category_id?.sub_category_name
-                          : "-"}
-                      </td>
-                      {/* <td className="whitespace-nowrap px-4 py-2 font-semibold">
-                        {item?.child_category_id?.child_category_name
-                          ? item?.child_category_id?.child_category_name
-                          : "-"}
-                      </td> */}
                       <td className="whitespace-nowrap px-4 py-2 font-semibold">
                         {item?.brand_id?.brand_name
                           ? item?.brand_id?.brand_name

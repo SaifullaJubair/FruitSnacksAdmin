@@ -7,7 +7,7 @@ import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 import { toast } from "react-toastify";
 import { BASE_URL } from "./../../utils/baseURL";
 
-const AddCategory = ({ setCategoryCreateModal, refetch, user }) => {
+const AddCategory = ({ setCategoryCreateModal, refetch, user, parentId = null, parentName = null }) => {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null); // Ref for file input
   const videoInputRef = useRef(null); // Ref for file input
@@ -62,7 +62,9 @@ const AddCategory = ({ setCategoryCreateModal, refetch, user }) => {
   const handleDataPost = async (data) => {
     setLoading(true);
     try {
-      if (!imagePreview && !videoPreview) {
+      // Root categories want a logo/video; child (sub-tree) nodes may be
+      // text-only — the backend allows logo-less creation under a parent.
+      if (!parentId && !imagePreview && !videoPreview) {
         toast.error("image or video is required", {
           position: "top-center",
           autoClose: 2000,
@@ -93,6 +95,11 @@ const AddCategory = ({ setCategoryCreateModal, refetch, user }) => {
 
       formData.append("category_slug", category_slug);
       formData.append("category_publisher_id", user?._id);
+      // When creating under a node, link it as a child; backend derives
+      // depth + category_path from this parent.
+      if (parentId) {
+        formData.append("parent_id", parentId);
+      }
 
       // Remove keys with undefined values
       for (const [key, value] of formData.entries()) {
@@ -145,7 +152,7 @@ const AddCategory = ({ setCategoryCreateModal, refetch, user }) => {
                 className="text-[26px] font-bold text-gray-800 capitalize"
                 id="modal-title "
               >
-                Create Category
+                {parentName ? `Add under: ${parentName}` : "Create Category"}
               </h3>
               <button
                 type="button"

@@ -1,19 +1,21 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TiTick } from "react-icons/ti";
 import "./updateStapper.css";
 import UpdateStepOne from "./UpdateStepOne/UpdateStepOne";
-import UpdateStepTwo from "./UpdateStepTwo/UpdateStepTwo";
 import UpdateStepThree from "./UpdateStepThree/UpdateStepThree";
 
-const UpdateProduct = ({ productData, refetch }) => {
-  // console.log(productData);
-  const steps = ["", "", ""];
-  // console.log(productData)
-  // State to manage current step
-  const [currentStep, setCurrentStep] = useState(1);
-  const [complete, setComplete] = useState(false);
+// UpdateProduct = 2-step wizard since Phase 2 (variation-attribute-filter).
+// Old UpdateStepTwo (specifications picker) was retired with the backend
+// specification module; attribute assignment now lives in UpdateStepOne.
 
-  // store all step one data
+const UpdateProduct = ({ productData, refetch }) => {
+  const steps = ["", ""];
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [complete] = useState(false);
+
+  // step one initial state — single-leaf category from the nested tree.
+  // (sub_category_id / child_category_id no longer exist on the product model.)
   const [stepOneData, setStepOneData] = useState(() => {
     if (!productData) return {};
     return {
@@ -23,11 +25,7 @@ const UpdateProduct = ({ productData, refetch }) => {
       product_sku: productData?.product_sku || "",
       category_id: productData?.category_id?._id || null,
       category_name: productData?.category_id?.category_name || "",
-      sub_category_id: productData?.sub_category_id?._id || null,
-      sub_category_name: productData?.sub_category_id?.sub_category_name || "",
-      child_category_id: productData?.child_category_id?._id || null,
-      child_category_name:
-        productData?.child_category_id?.child_category_name || "",
+      category_path: productData?.category_path || [],
       brand_id: productData?.brand_id?._id || null,
       brand_name: productData?.brand_id?.brand_name || "",
       is_variation: productData?.is_variation || false,
@@ -35,7 +33,6 @@ const UpdateProduct = ({ productData, refetch }) => {
       product_discount_price: productData?.product_discount_price || 0,
       product_buying_price: productData?.product_buying_price || 0,
       product_quantity: productData?.product_quantity || 0,
-      // product_alert_quantity: productData?.product_alert_quantity || 0,
       defaultVariationData: productData?.variations,
       newVariationData: [],
       againAddNewVariation: false,
@@ -43,51 +40,12 @@ const UpdateProduct = ({ productData, refetch }) => {
     };
   });
 
-  // State to manage selected attributes
+  // State to manage selected attributes (Phase 2 form state)
   const [selectedAttributes, setSelectedAttributes] = useState([]);
-  // State to manage selected attribute values
   const [selectedAttributeValues, setSelectedAttributeValues] = useState([]);
-  // State to store the data prepared for submission
-  const [dataToSubmit, setDataToSubmit] = useState([]); // Initialize to an empty array if undefined
+  const [dataToSubmit, setDataToSubmit] = useState([]);
 
-  useEffect(() => {
-    if (stepOneData?.newVariationData) {
-      setDataToSubmit(stepOneData?.newVariationData);
-    }
-  }, [stepOneData?.newVariationData]);
-
-  // store all step two data
-  const [stepTwoData, setStepTwoData] = useState([]);
-
-  useEffect(() => {
-    if (productData?.specifications) {
-      // Enrich specifications with details
-      const enrichedSpecifications = productData?.specifications?.map(
-        (spec) => {
-          const enrichedValues = spec?.specification_values?.map((value) => {
-            const matchingDetail =
-              spec?.specification_id?.attribute_values?.find(
-                (detail) => detail?._id === value?.specification_value_id
-              );
-
-            return {
-              ...value,
-              specification_value_details: matchingDetail || null,
-            };
-          });
-
-          return {
-            ...spec,
-            specification_values: enrichedValues,
-          };
-        }
-      );
-
-      setStepTwoData(enrichedSpecifications);
-    }
-  }, [productData?.specifications]);
-
-  // store all step three data
+  // step three (final) initial state — media + SEO
   const [stepThreeData, setStepThreeData] = useState({
     _id: productData?._id || null,
     description: productData?.description || "",
@@ -133,20 +91,13 @@ const UpdateProduct = ({ productData, refetch }) => {
         ))}
       </div>
       <div className="mx-4  mt-6 sm:mt-10">
-        {currentStep == 3 ? (
+        {currentStep == 2 ? (
           <UpdateStepThree
             setCurrentStep={setCurrentStep}
             stepThreeData={stepThreeData}
-            stepTwoData={stepTwoData}
             stepOneData={stepOneData}
             productData={productData}
-          />
-        ) : currentStep == 2 ? (
-          <UpdateStepTwo
-            setCurrentStep={setCurrentStep}
-            setStepTwoData={setStepTwoData}
-            stepTwoData={stepTwoData}
-            stepOneData={stepOneData}
+            refetch={refetch}
           />
         ) : (
           <UpdateStepOne

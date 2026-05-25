@@ -398,6 +398,14 @@ const permissionsData = [
   },
 
   {
+    Name: "Brand Promise (Trust Points)",
+    Type: [
+      { type_name: "Trust Point Show", type_value: "trust_point_show" },
+      { type_name: "Trust Point Update", type_value: "trust_point_update" },
+    ],
+  },
+
+  {
     Name: "Customer Create And Update",
     Type: [
       {

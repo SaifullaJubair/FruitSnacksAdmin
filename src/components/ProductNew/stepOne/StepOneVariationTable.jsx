@@ -1,391 +1,253 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { StepOneBaseContext } from "./StepOneBaseContext";
+
+// Phase 2 combination matrix.
+//
+// Auto-generates one row per combination of value picks across the *variant
+// axes only*. Each row emits BOTH the new combination shape AND the legacy
+// variation fields, so the additive migration (Phase 1 plan) doesn't break
+// cart/order/courier until they migrate to the resolver.
+//
+// Row payload:
+//   { combination:[sorted value_ids],          // Phase-1 new shape (D2)
+//     variation_price_delta, is_active,        // Phase-1 new shape
+//     variation_name, variation_price,         // legacy (computed from base+delta)
+//     variation_quantity, variation_sku,       // legacy
+//     variation_image, variation_video }
+//
+// Final price column = base + delta, read-only, recomputes live from the base
+// price the admin typed in StepOnePrice (via StepOneBaseContext).
+
+const cartesian = (arrays) => {
+  if (arrays.length === 0) return [[]];
+  const [first, ...rest] = arrays;
+  const tail = cartesian(rest);
+  return first.flatMap((item) => tail.map((combo) => [item, ...combo]));
+};
 
 const StepOneVariationTable = ({ data, inputValueData, setFormData }) => {
+  // Base price = the product-level price entered in StepOnePrice. We read it
+  // from a context (falling back to 0 if context is absent) so we can render
+  // the final-price calc without prop-drilling through StepOne.
+  const ctx = useContext(StepOneBaseContext);
+  const basePrice = Number(ctx?.basePrice) || 0;
 
-  const getCombinations = (arrays) => {
-    if (arrays.length === 0) return [[]];
-    const first = arrays[0];
-    const rest = getCombinations(arrays.slice(1));
-    return first.flatMap((item) => rest.map((combo) => [item, ...combo]));
-  };
+  const combinations = useMemo(() => {
+    const axes = data?.map((attr) => attr?.attribute_values) || [];
+    return cartesian(axes);
+  }, [data]);
 
-  const attributes = data?.map((attr) => attr?.attribute_values);
-  const combinations = getCombinations(attributes);
-
-  const [prevSelectedAttributes, setPrevSelectedAttributes] = useState([]);
-
+  // Re-seed inputValueData whenever the axis set (or its values) changes.
+  const [lastShape, setLastShape] = useState(null);
   useEffect(() => {
-    if (
-      combinations &&
-      JSON.stringify(prevSelectedAttributes) !== JSON.stringify(data)
-    ) {
-      const initialData = combinations?.map((combo) => ({
-        variation_name: combo?.map(item => item?.attribute_value_name).join("-"),
-        variation_price: 1,
+    const shape = JSON.stringify(
+      data?.map((a) => [a._id, (a.attribute_values || []).map((v) => v._id)]),
+    );
+    if (shape === lastShape) return;
+    const seeded = combinations.map((combo) => {
+      // sorted value_ids — D2 invariant for combination lookup stability.
+      const value_ids = combo.map((v) => v?._id).sort();
+      const variation_name = combo
+        .map((v) => v?.attribute_value_name)
+        .join(" / ");
+      const sku = combo
+        .map((v) => v?.attribute_value_name?.toLowerCase())
+        .join("-");
+      return {
+        // NEW shape
+        combination: value_ids,
+        variation_price_delta: 0,
+        is_active: true,
+        // LEGACY (additive)
+        variation_name,
+        variation_price: basePrice,
         variation_discount_price: 0,
         variation_buying_price: 0,
-        variation_quantity:1,
+        variation_quantity: 1,
         variation_alert_quantity: 0,
-        variation_barcode: '',
+        variation_sku: sku,
         variation_image: null,
         variation_video: null,
-        variation_sku: combo
-          .map((item) => item?.attribute_value_name?.toLowerCase())
-          .join("-"),
-      }));
-      setFormData(initialData);
-      setPrevSelectedAttributes(data);
+      };
+    });
+    setFormData(seeded);
+    setLastShape(shape);
+  }, [combinations, data, lastShape, basePrice, setFormData]);
+
+  const updateRow = (idx, field, value) => {
+    const next = [...inputValueData];
+    next[idx] = { ...next[idx], [field]: value };
+    // keep variation_price (legacy) in sync with base+delta so old consumers
+    // (cart/order/courier) still see a coherent absolute price.
+    if (field === "variation_price_delta") {
+      const delta = Number(value) || 0;
+      next[idx].variation_price = basePrice + delta;
     }
-  }, [combinations, data, prevSelectedAttributes]);
-
-  // State for bulk inputs including the image
-  const [bulkInput, setBulkInput] = useState({
-    variation_price: 1,
-    variation_discount_price: 0,
-    variation_buying_price: 0,
-    variation_quantity: 1,
-    variation_alert_quantity: 0,
-    variation_image: null,
-    variation_video: null,
-  });
-
-  // Handle bulk input changes
-  const handleBulkInputChange = (field, value) => {
-    setBulkInput({ ...bulkInput, [field]: value });
+    setFormData(next);
   };
 
-  // Handle bulk image upload
-  const handleBulkImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleBulkInputChange("variation_image", file);
-    }
-  };
-
-  // Handle bulk Video upload
-  const handleBulkVideoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleBulkInputChange("variation_video", file);
-    }
-  };
-
-  // Handle bulk form submission
-  const handleBulkSubmit = (e) => {
-    e.preventDefault();
-    const updatedFormData = inputValueData?.map((row) => ({
-      ...row,
-      variation_price: bulkInput?.variation_price || row?.variation_price,
-      variation_discount_price:
-        bulkInput?.variation_discount_price || row?.variation_discount_price,
-      variation_buying_price:
-        bulkInput?.variation_buying_price || row?.variation_buying_price,
-      variation_quantity:
-        bulkInput?.variation_quantity || row?.variation_quantity,
-      variation_alert_quantity:
-        bulkInput?.variation_alert_quantity || row?.variation_alert_quantity,
-      variation_image: bulkInput?.variation_image || row?.variation_image, // Apply the image
-      variation_video: bulkInput?.variation_video || row?.variation_video, // Apply the image
-    }));
-    setFormData(updatedFormData);
-  };
-
-  // Handle individual row input changes
-  const handleChange = (index, field, value) => {
-    const updatedFormData = [...inputValueData];
-    updatedFormData[index][field] = value;
-    setFormData(updatedFormData);
+  // Bulk apply
+  const [bulkDelta, setBulkDelta] = useState(0);
+  const [bulkQty, setBulkQty] = useState(1);
+  const applyBulk = () => {
+    const delta = Number(bulkDelta) || 0;
+    const qty = Number(bulkQty);
+    setFormData(
+      inputValueData.map((row) => ({
+        ...row,
+        variation_price_delta: delta,
+        variation_price: basePrice + delta,
+        variation_quantity: Number.isFinite(qty) ? qty : row.variation_quantity,
+      })),
+    );
   };
 
   return (
     <>
-      {/* Bulk input form */}
-      <div style={{ marginBottom: "20px" }}>
-        <h3 className="font-semibold my-2">Bulk Update:</h3>
-        <div className="grid grid-cols-5 gap-4">
-          <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">Price:</label>
+      <div className="mb-4">
+        <h3 className="font-semibold my-2">Bulk apply</h3>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col text-sm">
+            <span className="text-gray-600 mb-1">Price delta (+/−)</span>
             <input
               type="number"
-              placeholder="Variant price"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              value={bulkInput?.variation_price}
-              min={1}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value >= 1 || value === "") {
-                  handleBulkInputChange("variation_price", value);
-                }
-              }}
+              value={bulkDelta}
+              onChange={(e) => setBulkDelta(e.target.value)}
+              className="p-2 border rounded-md outline-primaryColor w-32"
             />
-          </div>
-
-          <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">Discount Price:</label>
+          </label>
+          <label className="flex flex-col text-sm">
+            <span className="text-gray-600 mb-1">Stock</span>
             <input
               type="number"
-              placeholder="Variant Discount price"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              value={bulkInput?.variation_discount_price}
               min={0}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value >= 0 || value === "") {
-                  handleBulkInputChange("variation_discount_price", value);
-                }
-              }}
+              value={bulkQty}
+              onChange={(e) => setBulkQty(e.target.value)}
+              className="p-2 border rounded-md outline-primaryColor w-32"
             />
-          </div>
-
-          <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">Buying Price:</label>
-            <input
-              type="number"
-              placeholder="Variant Buying price"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              value={bulkInput?.variation_buying_price}
-              min={0}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value >= 0 || value === "") {
-                  handleBulkInputChange("variation_buying_price", value);
-                }
-              }}
-            />
-          </div>
-
-          <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">Variant Quantity:</label>
-            <input
-              type="number"
-              placeholder="Variant Quantity"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              value={bulkInput?.variation_quantity}
-              min={0}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value >= 0 || value === "") {
-                  handleBulkInputChange("variation_quantity", value);
-                }
-              }}
-            />
-          </div>
-
-          {/* <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">
-              Variant Alert Quantity:
-            </label>
-            <input
-              type="number"
-              placeholder="Variant Alert Quantity"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              value={bulkInput?.variation_alert_quantity}
-              min={0}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value >= 0 || value === "") {
-                  handleBulkInputChange("variation_alert_quantity", value);
-                }
-              }}
-            />
-          </div> */}
-          {/* Add image input for bulk upload */}
-          {/* <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">Image:</label>
-            <input
-              type="file"
-              accept="image/*,.gif"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              onChange={handleBulkImageUpload}
-            />
-          </div> */}
-          {/* <div className="my-2 flex items-center">
-            <label className="w-full text-right pr-4">Video:</label>
-            <input
-              type="file"
-              accept="video/*"
-              className="p-2 border rounded-md outline-primaryColor w-full"
-              onChange={handleBulkVideoUpload}
-            />
-          </div> */}
+          </label>
           <button
             type="button"
-            className="btn py-3 px-3 my-4 bg-primaryColor text-white font-semibold hover:bg-gray-300 hover:text-gray-700 rounded-md"
-            onClick={handleBulkSubmit}
+            onClick={applyBulk}
+            className="px-4 py-2 bg-primaryColor text-white rounded-md hover:opacity-90"
           >
-            Apply to All
+            Apply to all
           </button>
         </div>
       </div>
 
-      {/* Variation table */}
-      <div className="rounded-lg border border-gray-200 mt-6">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-hide ">
+      <div className="rounded-lg border border-gray-200">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-hide">
           <table className="w-full divide-y-2 divide-gray-200 bg-white text-sm">
             <thead className="bg-[#fff9ee]">
               <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
-                <td className="whitespace-nowrap px-4 py-5">#SL No</td>
-                <td className="whitespace-nowrap px-4 py-5">Variant</td>
-                <td className="whitespace-nowrap px-4 py-5">Variant Price</td>
-                <td className="whitespace-nowrap px-4 py-5">Discount Price</td>
-                <td className="whitespace-nowrap px-4 py-5">Buying Price</td>
-                <td className="whitespace-nowrap px-4 py-5">
-                  Variant Quantity
-                </td>
-                {/* <td className="whitespace-nowrap px-4 py-5">
-                  Variant Alert Quantity
-                </td> */}
-                {/* <td className="whitespace-nowrap px-4 py-5">Variant SKU</td> */}
-                <td className="whitespace-nowrap px-4 py-5">Image</td>
-                <td className="whitespace-nowrap px-4 py-5">Video</td>
+                <td className="whitespace-nowrap px-4 py-3">#</td>
+                <td className="whitespace-nowrap px-4 py-3">Combination</td>
+                <td className="whitespace-nowrap px-4 py-3">Price delta</td>
+                <td className="whitespace-nowrap px-4 py-3">Final price</td>
+                <td className="whitespace-nowrap px-4 py-3">Buying price</td>
+                <td className="whitespace-nowrap px-4 py-3">Stock</td>
+                <td className="whitespace-nowrap px-4 py-3">Active</td>
+                <td className="whitespace-nowrap px-4 py-3">Image</td>
               </tr>
             </thead>
             <tbody>
-              {combinations?.map((combo, idx) => (
-                <tr
-                  key={idx}
-                  className={`divide-x divide-gray-200 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-tableRowBGColor"
-                  }`}
-                >
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700 text-center">
-                    {idx + 1}
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700 text-center">
-                    {combo.map((item) => item?.attribute_value_name).join("-")}
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="number"
-                      placeholder="Variant price"
-                      className="p-2 border rounded-md mx-1.5 outline-primaryColor text-center"
-                      value={inputValueData[idx]?.variation_price}
-                      min={1}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value >= 1 || value === "") {
-                          handleChange(idx, "variation_price", value);
+              {combinations?.map((combo, idx) => {
+                const row = inputValueData?.[idx] || {};
+                const finalPrice = basePrice + (Number(row.variation_price_delta) || 0);
+                return (
+                  <tr
+                    key={idx}
+                    className={`divide-x divide-gray-200 ${
+                      idx % 2 === 0 ? "bg-white" : "bg-tableRowBGColor"
+                    }`}
+                  >
+                    <td className="py-1.5 text-center font-medium text-gray-700">
+                      {idx + 1}
+                    </td>
+                    <td className="py-1.5 text-center font-medium text-gray-700">
+                      {combo.map((v) => v?.attribute_value_name).join(" / ")}
+                    </td>
+                    <td className="py-1.5 text-center">
+                      <input
+                        type="number"
+                        value={row.variation_price_delta ?? 0}
+                        onChange={(e) =>
+                          updateRow(idx, "variation_price_delta", e.target.value)
                         }
-                      }}
-                    />
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="number"
-                      placeholder="Variant Discount price"
-                      className="p-2 border rounded-md mx-1.5 outline-primaryColor text-center"
-                      value={inputValueData[idx]?.variation_discount_price}
-                      min={0}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value >= 0 || value === "") {
-                          handleChange(idx, "variation_discount_price", value);
+                        className="p-1.5 border rounded-md text-center w-24"
+                      />
+                    </td>
+                    <td className="py-1.5 text-center text-gray-700">
+                      ৳ {finalPrice}
+                    </td>
+                    <td className="py-1.5 text-center">
+                      <input
+                        type="number"
+                        min={0}
+                        value={row.variation_buying_price ?? 0}
+                        onChange={(e) =>
+                          updateRow(idx, "variation_buying_price", e.target.value)
                         }
-                      }}
-                    />
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="number"
-                      placeholder="Variant Buyian price"
-                      className="p-2 border rounded-md mx-1.5 outline-primaryColor text-center"
-                      value={inputValueData[idx]?.variation_buying_price}
-                      min={0}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value >= 0 || value === "") {
-                          handleChange(idx, "variation_buying_price", value);
+                        className="p-1.5 border rounded-md text-center w-24"
+                      />
+                    </td>
+                    <td className="py-1.5 text-center">
+                      <input
+                        type="number"
+                        min={0}
+                        value={row.variation_quantity ?? 0}
+                        onChange={(e) =>
+                          updateRow(idx, "variation_quantity", e.target.value)
                         }
-                      }}
-                    />
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="number"
-                      placeholder="Variant Quantity"
-                      className="p-2 border rounded-md mx-1.5 outline-primaryColor text-center"
-                      value={inputValueData[idx]?.variation_quantity}
-                      min={0}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value >= 0 || value === "") {
-                          handleChange(idx, "variation_quantity", value);
+                        className="p-1.5 border rounded-md text-center w-20"
+                      />
+                    </td>
+                    <td className="py-1.5 text-center">
+                      <label className="inline-flex cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="hidden peer"
+                          checked={row.is_active !== false}
+                          onChange={(e) => updateRow(idx, "is_active", e.target.checked)}
+                        />
+                        <span className="relative">
+                          <span className="block w-9 h-4 rounded-full bg-slate-300 peer-checked:bg-bgBtnActive"></span>
+                          <span className="absolute -inset-y-1 left-0 w-6 h-6 rounded-full bg-white shadow ring-1 ring-gray-300 peer-checked:left-auto peer-checked:right-0 peer-checked:bg-primaryColor"></span>
+                        </span>
+                      </label>
+                    </td>
+                    <td className="py-1.5 text-center">
+                      <input
+                        type="file"
+                        accept="image/*,.gif"
+                        className="hidden"
+                        id={`var-img-${idx}`}
+                        onChange={(e) =>
+                          updateRow(idx, "variation_image", e.target.files[0])
                         }
-                      }}
-                    />
-                  </td>
-                  {/* <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="number"
-                      placeholder="Variant Alert Quantity"
-                      className="p-2 border rounded-md mx-1.5 outline-primaryColor text-center"
-                      value={inputValueData[idx]?.variation_alert_quantity}
-                      min={0}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value >= 0 || value === "") {
-                          handleChange(idx, "variation_alert_quantity", value);
-                        }
-                      }}
-                    />
-                  </td> */}
-
-                  {/* <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="text"
-                      placeholder="Variant Sku"
-                      className="p-2 border rounded-md mx-1.5 outline-primaryColor text-center"
-                      value={inputValueData[idx]?.variation_sku}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                          handleChange(idx, "variation_sku", value);
-                      }}
-                    />
-                  </td> */}
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="file"
-                      accept="image/*,.gif"
-                      className="hidden" // Hide the file input
-                      id={`file-input-${idx}`} // Unique ID for accessibility
-                      onChange={(e) =>
-                        handleChange(idx, "variation_image", e.target.files[0])
-                      }
-                    />
-                    <label
-                      htmlFor={`file-input-${idx}`} // Associate label with the input
-                      className="p-2 border rounded-md cursor-pointer"
-                    >
-                      {inputValueData[idx]?.variation_image
-                        ? inputValueData[idx].variation_image.name // Display the file name
-                        : "No file chosen"}
-                    </label>
-                  </td>
-                  <td className="whitespace-nowrap py-1.5 font-medium text-gray-700">
-                    <input
-                      type="file"
-                      accept="video/*"
-                      className="hidden" // Hide the file input
-                      id={`file-video-${idx}`} // Unique ID for accessibility
-                      onChange={(e) =>
-                        handleChange(idx, "variation_video", e.target.files[0])
-                      }
-                    />
-                    <label
-                      htmlFor={`file-video-${idx}`} // Associate label with the input
-                      className="p-2 border rounded-md cursor-pointer"
-                    >
-                      {inputValueData[idx]?.variation_video
-                        ? inputValueData[idx].variation_video.name // Display the file name
-                        : "No file chosen"}
-                    </label>
-                  </td>
-                </tr>
-              ))}
+                      />
+                      <label
+                        htmlFor={`var-img-${idx}`}
+                        className="px-2 py-1 border rounded cursor-pointer text-xs"
+                      >
+                        {row.variation_image?.name
+                          ? row.variation_image.name.slice(0, 18) + "…"
+                          : "Choose"}
+                      </label>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      <p className="text-xs text-gray-500 mt-2">
+        Final price = product base price + this row&apos;s delta. Toggle a row off
+        to hide that combination without deleting it.
+      </p>
     </>
   );
 };

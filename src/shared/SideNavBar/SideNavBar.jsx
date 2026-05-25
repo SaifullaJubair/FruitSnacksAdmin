@@ -19,7 +19,7 @@ import { ChildMenuItem, DropdownMenu, MenuItem } from "./DropdownAndMenuItem";
 import { IoSettings } from "react-icons/io5";
 
 import { RiCoupon3Line, RiShieldCheckLine } from "react-icons/ri";
-import { FaBorderAll, FaQuestion } from "react-icons/fa";
+import { FaBorderAll, FaQuestion, FaHandshake } from "react-icons/fa";
 import { FaUsers } from "react-icons/fa6";
 
 import { TfiLayoutSliderAlt } from "react-icons/tfi";
@@ -85,10 +85,7 @@ const SideNavBar = () => {
             onClick={closeAllDropdowns} // Close all dropdowns when clicked
           />
           {(user?.role_id?.category_show === true ||
-            user?.role_id?.sub_category_show === true ||
-            // user?.role_id?.child_category_show === true ||
             user?.role_id?.brand_show === true ||
-            user?.role_id?.specification_show === true ||
             user?.role_id?.attribute_show === true) && (
             <DropdownMenu
               label="Task"
@@ -96,6 +93,7 @@ const SideNavBar = () => {
               isOpen={activeDropdown === "task"}
               onClick={() => toggleDropdown("task")}
             >
+              {/* Category is now a nested tree — Sub/Child Category pages retired. */}
               {user?.role_id?.category_show === true && (
                 <ChildMenuItem
                   to="/category"
@@ -105,23 +103,6 @@ const SideNavBar = () => {
                 />
               )}
 
-              {user?.role_id?.sub_category_show === true && (
-                <ChildMenuItem
-                  to="/sub-category"
-                  icon={TbCategoryPlus}
-                  label="Sub Category"
-                  isActive={isActive("/sub-category")}
-                />
-              )}
-              {/* {user?.role_id?.child_category_show === true && (
-                <ChildMenuItem
-                  to="/child-category"
-                  icon={TbCategoryPlus}
-                  label="Child Category"
-                  isActive={isActive("/child-category")}
-                />
-              )} */}
-
               {user?.role_id?.brand_show === true && (
                 <ChildMenuItem
                   to="/brand-category"
@@ -130,14 +111,6 @@ const SideNavBar = () => {
                   isActive={isActive("/brand-category")}
                 />
               )}
-              {/* {user?.role_id?.specification_show === true && (
-                <ChildMenuItem
-                  to="/specification-list"
-                  icon={TbCategoryPlus}
-                  label="Specification"
-                  isActive={isActive("/specification-list")} 
-                />
-              )} */}
 
               {user?.role_id?.attribute_show === true && (
                 <ChildMenuItem
@@ -333,6 +306,15 @@ const SideNavBar = () => {
               icon={FaQuestion}
               label="FAQ Templates"
               isActive={isActive("/faq-template")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {user?.role_id?.trust_point_show === true && (
+            <MenuItem
+              to="/trust-point"
+              icon={FaHandshake}
+              label="Brand Promise"
+              isActive={isActive("/trust-point")}
               onClick={closeAllDropdowns}
             />
           )}
