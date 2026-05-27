@@ -3,10 +3,12 @@ import { useParams } from "react-router-dom";
 import { BASE_URL } from "../../utils/baseURL";
 import { LoaderOverlay } from "../common/loader/LoderOverley";
 import { DateFormate } from "../../utils/DateFormate/DateFormate";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { toast } from "react-toastify";
 import { FiRefreshCw, FiExternalLink, FiEdit2, FiX } from "react-icons/fi";
 import { FaTruck, FaCheckCircle, FaTimesCircle, FaClock } from "react-icons/fa";
+import { AuthContext } from "../../context/AuthProvider";
+import PaymentInfoCard from "./PaymentInfoCard";
 
 const STEADFAST_STATUS_COLOR = {
   delivered: "bg-green-100 text-green-700 border-green-200",
@@ -217,6 +219,7 @@ const DeliveryInfoModal = ({ order, onClose, onSuccess }) => {
 // ── Main Component ────────────────────────────────────────────────────────────
 const ViewAllOrderInfo = () => {
   const { id } = useParams();
+  const { user } = useContext(AuthContext);
   const [syncing, setSyncing] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false); // ✅ নতুন
 
@@ -342,6 +345,7 @@ const ViewAllOrderInfo = () => {
           <p className="text-xs text-gray-400 mt-1">
             Sub: ৳{order?.sub_total_amount} | Discount: ৳
             {order?.discount_amount}
+            {Number(order?.vat_amount) > 0 && <> | VAT: ৳{order.vat_amount}</>}
           </p>
         </div>
       </div>
@@ -430,6 +434,9 @@ const ViewAllOrderInfo = () => {
           )}
         </div>
       </div>
+
+      {/* ── Phase C Payment Info + Admin verify buttons ───────────────────── */}
+      <PaymentInfoCard order={order} user={user} refetch={refetch} />
 
       {/* Steadfast Info */}
       {isSteadfast && (

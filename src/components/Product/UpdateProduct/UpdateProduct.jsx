@@ -37,6 +37,40 @@ const UpdateProduct = ({ productData, refetch }) => {
       newVariationData: [],
       againAddNewVariation: false,
       deletedImageArray: [],
+      // ── Phase F + H initial values (read from the existing product doc) ──
+      video_link: productData?.video_link || "",
+      condition: productData?.condition || "new",
+      product_weight_grams: productData?.product_weight_grams ?? "",
+      vat_percentage_override: productData?.vat_percentage_override ?? "",
+      warehouse_id:
+        typeof productData?.warehouse_id === "object"
+          ? productData?.warehouse_id?._id || ""
+          : productData?.warehouse_id || "",
+      product_dimensions: productData?.product_dimensions || {},
+      tier_prices: Array.isArray(productData?.tier_prices)
+        ? productData.tier_prices
+        : [],
+      group_prices: Array.isArray(productData?.group_prices)
+        ? productData.group_prices
+        : [],
+      // ── Phase F (A2c) initial values ─────────────────────────────────
+      product_type: productData?.product_type || "simple",
+      download_url: productData?.download_url || "",
+      license_key: productData?.license_key || "",
+      bundle_items: Array.isArray(productData?.bundle_items)
+        ? productData.bundle_items.map((b) => ({
+            product_id:
+              typeof b.product_id === "object"
+                ? b.product_id?._id || ""
+                : b.product_id || "",
+            quantity: b.quantity ?? 1,
+          }))
+        : [],
+      available_from: productData?.available_from || "",
+      billing_interval: productData?.billing_interval || "",
+      custom_fields: Array.isArray(productData?.custom_fields)
+        ? productData.custom_fields
+        : [],
     };
   });
 

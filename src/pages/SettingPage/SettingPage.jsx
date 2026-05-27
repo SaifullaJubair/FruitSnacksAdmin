@@ -13,6 +13,10 @@ const SettingPage = () => {
     { id: "phone-credential", label: "Phone Credential", icon: "📱" },
     { id: "currency", label: "Currency", icon: "💰" },
     { id: "shipping", label: "Shipping", icon: "🚚" },
+    { id: "payment-methods", label: "Payment Methods", icon: "💳" }, // ✅ Phase C
+    { id: "vat", label: "Tax / VAT", icon: "🧾" }, // ✅ Phase H
+    { id: "loyalty", label: "Loyalty", icon: "🎁" }, // ✅ Phase G3
+    { id: "sms", label: "SMS Provider", icon: "✉️" }, // ✅ Phase G5
     { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
     { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },
     { id: "offer-banner", label: "Offer Banner", icon: "⏰" },

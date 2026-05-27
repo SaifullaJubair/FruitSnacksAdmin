@@ -8,6 +8,8 @@ import UpdateStepOnePrice from "./UpdateStepOnePrice";
 import { toast } from "react-toastify";
 import DefaultProductVariation from "./DefaultProductVariation";
 import CategoryTreePicker from "../../../Category/CategoryTreePicker";
+import StepOneAdvanced from "../../../ProductNew/stepOne/StepOneAdvanced";
+import StepOneProductType from "../../../ProductNew/stepOne/StepOneProductType";
 
 const UpdateStepOne = ({
   setCurrentStep,
@@ -72,6 +74,50 @@ const UpdateStepOne = ({
   // set default variation data
   const [defaultVariationData, setDefaultVariationData] = useState(
     stepOneData?.defaultVariationData
+  );
+
+  // ── Phase F + H state (A2a + A2b) — hydrated from initial productData via
+  //    stepOneData and re-emitted into sendData below.
+  const [videoLink, setVideoLink] = useState(stepOneData?.video_link || "");
+  const [condition, setCondition] = useState(stepOneData?.condition || "new");
+  const [weightGrams, setWeightGrams] = useState(
+    stepOneData?.product_weight_grams ?? "",
+  );
+  const [vatOverride, setVatOverride] = useState(
+    stepOneData?.vat_percentage_override ?? "",
+  );
+  const [warehouseId, setWarehouseId] = useState(
+    stepOneData?.warehouse_id || "",
+  );
+  const [dimensions, setDimensions] = useState(
+    stepOneData?.product_dimensions || {},
+  );
+  const [tierPrices, setTierPrices] = useState(
+    Array.isArray(stepOneData?.tier_prices) ? stepOneData.tier_prices : [],
+  );
+  const [groupPrices, setGroupPrices] = useState(
+    Array.isArray(stepOneData?.group_prices) ? stepOneData.group_prices : [],
+  );
+
+  // ── Phase F (A2c) — product_type machinery + custom_fields ─────────
+  const [productType, setProductType] = useState(
+    stepOneData?.product_type || "simple",
+  );
+  const [downloadUrl, setDownloadUrl] = useState(
+    stepOneData?.download_url || "",
+  );
+  const [licenseKey, setLicenseKey] = useState(stepOneData?.license_key || "");
+  const [bundleItems, setBundleItems] = useState(
+    Array.isArray(stepOneData?.bundle_items) ? stepOneData.bundle_items : [],
+  );
+  const [availableFrom, setAvailableFrom] = useState(
+    stepOneData?.available_from || "",
+  );
+  const [billingInterval, setBillingInterval] = useState(
+    stepOneData?.billing_interval || "",
+  );
+  const [customFields, setCustomFields] = useState(
+    Array.isArray(stepOneData?.custom_fields) ? stepOneData.custom_fields : [],
   );
 
   // CategoryTreePicker fetches /category/tree itself. (sub/child endpoints retired.)
@@ -356,6 +402,35 @@ const UpdateStepOne = ({
         ...item,
       })),
       againAddNewVariation: againAddNewVariation,
+      // ── Phase F + H additions (A2a + A2b)
+      video_link: videoLink || "",
+      condition: condition || "new",
+      product_weight_grams: weightGrams === "" ? undefined : weightGrams,
+      vat_percentage_override: vatOverride === "" ? undefined : vatOverride,
+      warehouse_id: warehouseId || undefined,
+      product_dimensions:
+        dimensions &&
+        (dimensions.length || dimensions.width || dimensions.height)
+          ? dimensions
+          : undefined,
+      tier_prices: (tierPrices || []).filter(
+        (r) => r.min_qty !== "" && r.price !== "",
+      ),
+      group_prices: (groupPrices || []).filter((r) => r.price !== ""),
+      // ── Phase F (A2c) — product_type + per-type fields + custom_fields
+      product_type: productType || "simple",
+      download_url: downloadUrl || "",
+      license_key: licenseKey || "",
+      bundle_items: (bundleItems || []).filter(
+        (r) => r.product_id && Number(r.quantity) > 0,
+      ),
+      available_from: availableFrom
+        ? new Date(availableFrom).toISOString()
+        : undefined,
+      billing_interval: billingInterval || undefined,
+      custom_fields: (customFields || []).filter(
+        (r) => r.label?.trim() && r.value?.trim(),
+      ),
     };
     if (!sendData?.brand_id) {
       delete sendData?.brand_id;
@@ -505,6 +580,44 @@ const UpdateStepOne = ({
 
           </div>
         </section>
+
+        {/* Phase F + H — Advanced (logistics, tax, tier/group prices). */}
+        <StepOneAdvanced
+          videoLink={videoLink}
+          setVideoLink={setVideoLink}
+          condition={condition}
+          setCondition={setCondition}
+          weightGrams={weightGrams}
+          setWeightGrams={setWeightGrams}
+          vatOverride={vatOverride}
+          setVatOverride={setVatOverride}
+          warehouseId={warehouseId}
+          setWarehouseId={setWarehouseId}
+          dimensions={dimensions}
+          setDimensions={setDimensions}
+          tierPrices={tierPrices}
+          setTierPrices={setTierPrices}
+          groupPrices={groupPrices}
+          setGroupPrices={setGroupPrices}
+        />
+
+        {/* Phase F (A2c) — product_type + conditional per-type fields + custom_fields. */}
+        <StepOneProductType
+          productType={productType}
+          setProductType={setProductType}
+          downloadUrl={downloadUrl}
+          setDownloadUrl={setDownloadUrl}
+          licenseKey={licenseKey}
+          setLicenseKey={setLicenseKey}
+          bundleItems={bundleItems}
+          setBundleItems={setBundleItems}
+          availableFrom={availableFrom}
+          setAvailableFrom={setAvailableFrom}
+          billingInterval={billingInterval}
+          setBillingInterval={setBillingInterval}
+          customFields={customFields}
+          setCustomFields={setCustomFields}
+        />
 
         {/* Product Price and variation */}
         {showProductVariation === true ? (

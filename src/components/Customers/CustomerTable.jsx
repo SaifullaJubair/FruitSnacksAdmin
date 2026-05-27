@@ -116,6 +116,9 @@ const CustomerTable = ({
                         User Status
                       </th>
                       <th className="whitespace-nowrap p-4 font-medium text-gray-900">
+                        Group
+                      </th>
+                      <th className="whitespace-nowrap p-4 font-medium text-gray-900">
                         Action
                       </th>
                     </tr>
@@ -150,28 +153,35 @@ const CustomerTable = ({
                           {customer?.user_status === "active" ? (
                             <button
                               className="bg-bgBtnActive text-btnActiveColor px-[10px] py-[4px] rounded-[8px] cursor-default"
-                              //   onClick={() =>
-                              //     handleBrandActiveStatus(
-                              //       brand?._id,
-                              //       brand?.brand_status ? "in-active" : "active"
-                              //     )
-                              //   }
                             >
                               <span>Active</span>
                             </button>
                           ) : (
                             <button
                               className="bg-bgBtnInactive text-btnInactiveColor px-[10px] py-[4px] rounded-[8px] cursor-default"
-                              //   onClick={() =>
-                              //     handleBrandInActiveStatus(
-                              //       brand?._id,
-                              //       brand?.brand_status ? "active" : "in-active"
-                              //     )
-                              //   }
                             >
                               <span>In-Active</span>
                             </button>
                           )}
+                        </td>
+
+                        <td className="whitespace-nowrap px-4 py-1.5">
+                          {(() => {
+                            const g = customer?.customer_group || "retail";
+                            const styles =
+                              g === "vip"
+                                ? "bg-purple-100 text-purple-700"
+                                : g === "wholesale"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-gray-100 text-gray-600";
+                            return (
+                              <span
+                                className={`inline-block px-2 py-0.5 text-xs font-medium rounded capitalize ${styles}`}
+                              >
+                                {g}
+                              </span>
+                            );
+                          })()}
                         </td>
 
                         <td className="whitespace-nowrap px-4  py-1.5 text-gray-700">

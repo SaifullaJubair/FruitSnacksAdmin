@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { BASE_URL } from "../../../utils/baseURL";
 import { LoaderOverlay } from "../../../components/common/loader/LoderOverley";
 import UpdateProduct from "../../../components/Product/UpdateProduct/UpdateProduct";
+import ProductMetaPanel from "../../../components/Product/UpdateProduct/ProductMetaPanel";
 
 const ProductUpdatePage = () => {
   const { id } = useParams();
@@ -40,6 +41,9 @@ const ProductUpdatePage = () => {
           </Link>
         </div>
       </div>
+
+      {/* A2c read-only stats + QR generator. */}
+      <ProductMetaPanel productData={data?.data} refetch={refetch} />
 
       {/* Step start */}
       <UpdateProduct productData={data?.data} refetch={refetch} />

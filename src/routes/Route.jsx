@@ -50,6 +50,13 @@ import ThemePreviewPage from "../pages/ThemePage/ThemePreviewPage";
 import FaqTemplateListPage from "../pages/FaqTemplatePage/FaqTemplateListPage";
 import TrustPointPage from "../pages/TrustPointPage/TrustPointPage";
 import ProductPageContentEditPage from "../pages/ProductPage/ProductPageContentEditPage/ProductPageContentEditPage";
+import FlashSalePage from "../pages/FlashSalePage/FlashSalePage";
+import WarehousePage from "../pages/WarehousePage/WarehousePage";
+import WishlistPage from "../pages/WishlistPage/WishlistPage";
+import AbandonedCartPage from "../pages/AbandonedCartPage/AbandonedCartPage";
+import LoyaltyPage from "../pages/LoyaltyPage/LoyaltyPage";
+import LowStockPage from "../pages/LowStockPage/LowStockPage";
+import WalletPage from "../pages/WalletPage/WalletPage";
 
 const route = createBrowserRouter([
   {
@@ -154,6 +161,12 @@ const route = createBrowserRouter([
       },
       //------Coupon End-----//
 
+      //------Flash Sale (Phase E)-----//
+      {
+        path: "/flash-sale",
+        element: <FlashSalePage />,
+      },
+
       //----sell start----//
 
       {
@@ -249,6 +262,34 @@ const route = createBrowserRouter([
       {
         path: "/theme/preview/:id",
         element: <ThemePreviewPage />,
+      },
+
+      // ......Warehouses (Phase H).......//
+      {
+        path: "/warehouse",
+        element: <WarehousePage />,
+      },
+
+      // ......A3b admin viewer pages........//
+      {
+        path: "/wishlist",
+        element: <WishlistPage />,
+      },
+      {
+        path: "/abandoned-cart",
+        element: <AbandonedCartPage />,
+      },
+      {
+        path: "/loyalty",
+        element: <LoyaltyPage />,
+      },
+      {
+        path: "/wallet",
+        element: <WalletPage />,
+      },
+      {
+        path: "/low-stock",
+        element: <LowStockPage />,
       },
 
       // ......FAQ Templates.......//

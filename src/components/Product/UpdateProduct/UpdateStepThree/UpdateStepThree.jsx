@@ -14,6 +14,21 @@ import { LoaderOverlay } from "../../../common/loader/LoderOverley";
 import { useNavigate } from "react-router-dom";
 import MiniSpinner from "../../../../shared/MiniSpinner/MiniSpinner";
 
+// Phase F+H — array/object fields BE expects as JSON.parse'able strings.
+// The default stepOneData loop further down skips raw arrays/objects (would
+// stringify to "[object Object]"), so each gets an explicit appender.
+const PHASE_FH_JSON_FIELDS = ["product_dimensions", "tier_prices", "group_prices"];
+const appendPhaseFHJsonFields = (formData, stepOneData) => {
+  PHASE_FH_JSON_FIELDS.forEach((k) => {
+    const v = stepOneData?.[k];
+    if (v === undefined || v === null) return;
+    if (Array.isArray(v) && v.length === 0) return;
+    if (!Array.isArray(v) && typeof v === "object" && Object.keys(v).length === 0)
+      return;
+    formData.append(k, JSON.stringify(v));
+  });
+};
+
 const UpdateStepThree = ({
   setCurrentStep,
   stepThreeData,
@@ -356,6 +371,9 @@ const UpdateStepThree = ({
         }
       });
 
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
+
       formData.append("trending_product", trending_product);
 
       // setLoading(false);
@@ -571,6 +589,9 @@ const UpdateStepThree = ({
           formData.append(key, value);
         }
       });
+
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
 
       formData.append("trending_product", trending_product);
 

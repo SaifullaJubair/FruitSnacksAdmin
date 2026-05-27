@@ -14,6 +14,29 @@ import { useQuery } from "@tanstack/react-query";
 import MiniSpinner from "../../../shared/MiniSpinner/MiniSpinner";
 import { useNavigate } from "react-router-dom";
 
+// Phase F+H — array/object fields the BE expects as JSON.parse'able strings.
+// The default `Object.entries(stepOneData)` loop below skips raw arrays/objects
+// (would stringify to "[object Object]") so each gets an explicit appender.
+// A2c adds custom_fields + bundle_items here.
+const PHASE_FH_JSON_FIELDS = [
+  "product_dimensions",
+  "tier_prices",
+  "group_prices",
+  "custom_fields",
+  "bundle_items",
+];
+const appendPhaseFHJsonFields = (formData, stepOneData) => {
+  PHASE_FH_JSON_FIELDS.forEach((k) => {
+    const v = stepOneData?.[k];
+    if (v === undefined || v === null) return;
+    // Skip empty arrays / empty objects to keep the request small.
+    if (Array.isArray(v) && v.length === 0) return;
+    if (!Array.isArray(v) && typeof v === "object" && Object.keys(v).length === 0)
+      return;
+    formData.append(k, JSON.stringify(v));
+  });
+};
+
 const StepThree = ({
   setCurrentStep,
   stepThreeData,
@@ -362,6 +385,9 @@ const StepThree = ({
         });
       }
 
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
+
       formData.append("trending_product", trending_product);
 
       // Remove keys with undefined values
@@ -593,6 +619,9 @@ const StepThree = ({
           });
         });
       }
+
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
 
       formData.append("trending_product", trending_product);
 
