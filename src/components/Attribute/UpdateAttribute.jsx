@@ -13,6 +13,10 @@ const UpdateAttribute = ({
   attributeUpdateValue,
   refetch,
   user,
+  // Optional override — caller can show a context-aware heading (e.g. when
+  // embedded inside the Add Product form, this is "Add / Update Values: Size"
+  // rather than the generic "Update Attribute" used on /attribute page).
+  title,
 }) => {
   const { register, handleSubmit } = useForm();
   const [loading, setLoading] = useState(false);
@@ -130,7 +134,7 @@ const UpdateAttribute = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white w-[550px] lg:w-[660px] rounded-lg shadow-xl p-6 max-h-[95vh] overflow-y-auto relative">
         {/* HEADER */}
-        <h3 className="text-2xl font-bold mb-4">Update Attribute</h3>
+        <h3 className="text-2xl font-bold mb-4">{title || "Update Attribute"}</h3>
         <button
           className="absolute right-3 top-3"
           onClick={() => setOpenAttributeUpdateModal(false)}

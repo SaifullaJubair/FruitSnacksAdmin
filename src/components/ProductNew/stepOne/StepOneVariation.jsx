@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
@@ -7,6 +7,9 @@ import StepOneVariationTable from "./StepOneVariationTable";
 import { BASE_URL } from "../../../utils/baseURL";
 import { LoaderOverlay } from "../../common/loader/LoderOverley";
 import { generateSlug } from "../../../utils/generateSlug";
+import ToggleSwitch from "../sections/ToggleSwitch";
+import UpdateAttribute from "../../Attribute/UpdateAttribute";
+import { AuthContext } from "../../../context/AuthProvider";
 
 // Phase 2 unified attribute block.
 //
@@ -37,16 +40,60 @@ const StepOneVariation = ({
   setSelectedAttributeValues,
   dataToSubmit,
   setDataToSubmit,
+  // Media pool from the parent ProductForm (passed straight through to
+  // StepOneVariationTable so each row's "Choose image" modal can reference
+  // the product's main_image + other_images without re-uploading).
+  mainImage,
+  otherImages,
+  // Axis toggle map — LIFTED to ProductForm so update-mode can rehydrate from
+  // initialData.variant_axes before this component mounts. Falls back to a
+  // local state when parent doesn't provide it (add-mode default behaviour).
+  axisById: axisByIdProp,
+  setAxisById: setAxisByIdProp,
+  // Optional JSX slot rendered AFTER the attribute block but BEFORE the matrix
+  // — ProductForm uses this to inject the "Variation base price / discount /
+  // buying" trio in the visual flow attribute → values → axis → base → matrix.
+  basePriceSlot = null,
+  // Used by matrix table to seed new rows AND live-propagate to existing rows
+  // when the admin edits the product-level base field.
+  baseBuyingPrice = "",
+  baseDiscountPrice = "",
+  // Update-mode rehydration: { attribute_id: boolean } map of saved
+  // show_in_filter values. Applied ONCE when present so the toggles reflect
+  // what's in the DB.
+  initialShowInFilterById = null,
 }) => {
-  // ── Per-attribute "is this a variation axis?" toggle ─────────────────────
-  // Keyed by attribute _id so it survives re-ordering / re-pick.
-  const [axisById, setAxisById] = useState({});
+  // Lifted-or-local pattern: if parent passes the pair, use them; else manage
+  // ourselves (legacy / standalone usage).
+  const [axisByIdLocal, setAxisByIdLocal] = useState({});
+  const axisById = axisByIdProp ?? axisByIdLocal;
+  const setAxisById = setAxisByIdProp ?? setAxisByIdLocal;
 
-  // ── Inline "+ Add value" modal state ─────────────────────────────────────
-  // null when closed; { attribute } when open against a specific attribute.
-  const [addValueFor, setAddValueFor] = useState(null);
-  const [newValueName, setNewValueName] = useState("");
-  const [addingValue, setAddingValue] = useState(false);
+  // Batch 2 E6 — per-attribute "Show in filter sidebar?" override. Keyed by
+  // attribute_id. Default true (every attribute is filterable unless owner
+  // explicitly turns it off). Stored in dataToSubmit.product_attributes[].
+  const [showInFilterById, setShowInFilterById] = useState({});
+  const showInFilterHydratedRef = useRef(false);
+  useEffect(() => {
+    if (showInFilterHydratedRef.current) return;
+    if (initialShowInFilterById && Object.keys(initialShowInFilterById).length > 0) {
+      setShowInFilterById(initialShowInFilterById);
+      showInFilterHydratedRef.current = true;
+    }
+  }, [initialShowInFilterById]);
+  const toggleShowInFilter = (attributeId) => {
+    setShowInFilterById((prev) => ({
+      ...prev,
+      [attributeId]: prev[attributeId] === false ? true : false,
+    }));
+  };
+
+  // Inline "+ Add value" — opens the FULL UpdateAttribute modal so the admin
+  // gets all-in-one: add new values, edit existing names / hex codes, toggle
+  // status, delete unused ones. (Previously a separate mini-modal existed for
+  // quick-add; consolidated since the full editor covers everything.)
+  const [editAttrFor, setEditAttrFor] = useState(null);
+  const { user } = useContext(AuthContext);
 
   const { data: attributesRes = {}, isLoading, refetch } = useQuery({
     queryKey: ["/api/v1/attribute"],
@@ -59,9 +106,12 @@ const StepOneVariation = ({
   const attributes = attributesRes?.data ?? [];
 
   // attribute multi-select change — preserve already-ticked values when an
-  // attribute is re-picked.
+  // attribute is re-picked. NEW attributes default to axis=ON because the
+  // user already chose product_type=variable, so they almost always want the
+  // matrix. Admin can still toggle OFF for spec-only attributes.
   const handleAttributeChange = (selectedOptions) => {
     const next = selectedOptions || [];
+    const previousIds = new Set((selectedAttributes || []).map((a) => a?._id));
     const nextValues = next.map((attr) => {
       const existing = selectedAttributes?.findIndex(
         (a) => a?._id === attr?._id,
@@ -70,6 +120,16 @@ const StepOneVariation = ({
     });
     setSelectedAttributes(next);
     setSelectedAttributeValues(nextValues);
+    // Auto-enable axis for any newly-added attribute.
+    setAxisById((prev) => {
+      const updated = { ...prev };
+      next.forEach((attr) => {
+        if (!previousIds.has(attr?._id) && updated[attr?._id] === undefined) {
+          updated[attr?._id] = true;
+        }
+      });
+      return updated;
+    });
   };
 
   const handleValueChange = (index, selectedOptions) => {
@@ -79,6 +139,24 @@ const StepOneVariation = ({
   };
 
   const toggleAxis = (attributeId) => {
+    const currentlyOn = !!axisById[attributeId];
+    // Warn before turning OFF if a matrix already exists — turning off this
+    // axis will collapse the row set and any data on rows that no longer
+    // match will be lost. (Existing variation row data IS preserved by the
+    // matching-key reuse logic; admin still deserves a heads-up.)
+    if (currentlyOn && (inputValueData || []).length > 1) {
+      const onCount = Object.values(axisById).filter(Boolean).length;
+      if (onCount > 1) {
+        const ok = window.confirm(
+          "Turning this axis OFF will shrink the variation matrix. " +
+            "Rows that don't match a remaining combination will be DROPPED. Continue?",
+        );
+        if (!ok) return;
+      }
+    }
+    // IMPORTANT: only flip axisById. selectedAttributeValues stays intact so
+    // the attribute remains a spec-only entry (still saved into product_attributes
+    // + attributes_details, still appears on PDP spec table + filter sidebar).
     setAxisById((prev) => ({ ...prev, [attributeId]: !prev[attributeId] }));
   };
 
@@ -88,68 +166,18 @@ const StepOneVariation = ({
     return attributes.filter((a) => !taken.has(a?._id));
   }, [attributes, selectedAttributes]);
 
-  // ── Inline +Add value: PATCH the attribute with [...existing, new] ───────
-  const handleAddValue = async () => {
-    if (!addValueFor || !newValueName.trim()) return;
-    const attribute = addValueFor;
-    const trimmedName = newValueName.trim();
-    const newSlug = generateSlug(trimmedName);
+  // (Inline mini "+Add value" handler removed — the UI now uses the full
+  // UpdateAttribute modal which does the PATCH itself.)
 
-    // duplicate guard (frontend mirror of backend check)
-    if (
-      attribute.attribute_values?.some(
-        (v) =>
-          v.attribute_value_slug === newSlug ||
-          v.attribute_value_name === trimmedName,
-      )
-    ) {
-      toast.error("This value already exists on the attribute.");
-      return;
-    }
-
-    setAddingValue(true);
-    try {
-      const body = {
-        _id: attribute._id,
-        attribute_name: attribute.attribute_name,
-        attribute_slug: attribute.attribute_slug,
-        attribute_status: attribute.attribute_status,
-        attribute_values: [
-          ...(attribute.attribute_values ?? []),
-          {
-            attribute_value_name: trimmedName,
-            attribute_value_slug: newSlug,
-            attribute_value_status: "active",
-          },
-        ],
-      };
-      const res = await fetch(`${BASE_URL}/attribute`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const result = await res.json();
-      if (result?.statusCode === 200 && result?.success === true) {
-        toast.success("Value added", { autoClose: 1200 });
-        setNewValueName("");
-        setAddValueFor(null);
-        await refetch();
-      } else {
-        toast.error(result?.message || "Failed to add value");
-      }
-    } catch {
-      toast.error("Network error");
-    } finally {
-      setAddingValue(false);
-    }
-  };
 
   // ── Build dataToSubmit whenever selection or axis toggles change ─────────
   useEffect(() => {
     const product_attributes = selectedAttributes.map((attr, i) => ({
       attribute_id: attr?._id,
       value_ids: (selectedAttributeValues[i] || []).map((v) => v?._id),
+      // Default true unless the owner explicitly turned this attribute OFF
+      // for the storefront filter sidebar. (Backend schema default also true.)
+      show_in_filter: showInFilterById[attr?._id] !== false,
     }));
 
     const variant_axes = selectedAttributes
@@ -168,7 +196,7 @@ const StepOneVariation = ({
       variant_axes,
       attributes_details,
     });
-  }, [selectedAttributes, selectedAttributeValues, axisById, setDataToSubmit]);
+  }, [selectedAttributes, selectedAttributeValues, axisById, showInFilterById, setDataToSubmit]);
 
   if (isLoading) return <LoaderOverlay />;
 
@@ -186,7 +214,9 @@ const StepOneVariation = ({
           Attributes &amp; Variation
         </p>
 
-        {/* Attribute picker */}
+        {/* Attribute picker — multi-keep-open so admin doesn't have to reopen
+            the dropdown for every pick. blurInputOnSelect=false keeps the
+            input focused. */}
         <div className="flex items-center gap-3 flex-wrap ">
           <p className="font-semibold text-gray-700">Attribute</p>
           <div className="flex-1">
@@ -200,6 +230,9 @@ const StepOneVariation = ({
               getOptionValue={(x) => x?._id}
               isClearable
               isMulti
+              closeMenuOnSelect={false}
+              blurInputOnSelect={false}
+              hideSelectedOptions={false}
               onChange={handleAttributeChange}
               value={selectedAttributes}
             />
@@ -219,33 +252,53 @@ const StepOneVariation = ({
               return (
                 <div
                   key={attr?._id}
-                  className="bg-white rounded border border-gray-200 p-3"
+                  className={`bg-white rounded border p-3 ${
+                    isAxis ? "border-primaryColor/40" : "border-gray-200"
+                  }`}
                 >
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                    <p className="font-semibold text-gray-700">
-                      {attr?.attribute_name}
-                    </p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-700">
+                        {attr?.attribute_name}
+                      </p>
+                      {!isAxis && (
+                        <span
+                          className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full"
+                          title="Spec-only — shows on PDP spec table + filter sidebar, no separate variations"
+                        >
+                          Spec-only
+                        </span>
+                      )}
+                      {isAxis && (
+                        <span
+                          className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full"
+                          title="Variation axis — each value creates its own purchasable variation"
+                        >
+                          Axis
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => setAddValueFor(attr)}
+                        onClick={() => setEditAttrFor(attr)}
                         className="text-sm text-primaryColor hover:opacity-80 flex items-center gap-1"
+                        title="Add new values OR edit existing ones (name, hex code, status)"
                       >
                         <FiPlus /> Add value
                       </button>
-                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="hidden peer"
-                          checked={isAxis}
-                          onChange={() => toggleAxis(attr?._id)}
-                        />
-                        <span className="relative">
-                          <span className="block w-9 h-4 rounded-full bg-slate-300 peer-checked:bg-bgBtnActive"></span>
-                          <span className="absolute -inset-y-1 left-0 w-6 h-6 rounded-full bg-white shadow ring-1 ring-gray-300 peer-checked:left-auto peer-checked:right-0 peer-checked:bg-primaryColor"></span>
-                        </span>
-                        <span className="text-gray-700">Variation axis</span>
-                      </label>
+                      <ToggleSwitch
+                        checked={isAxis}
+                        onChange={() => toggleAxis(attr?._id)}
+                        label="Variation axis"
+                        size="sm"
+                      />
+                      <ToggleSwitch
+                        checked={showInFilterById[attr?._id] !== false}
+                        onChange={() => toggleShowInFilter(attr?._id)}
+                        label="Show in filter"
+                        size="sm"
+                      />
                     </div>
                   </div>
                   <Select
@@ -255,57 +308,56 @@ const StepOneVariation = ({
                     getOptionValue={(x) => x?._id}
                     isClearable
                     isMulti
+                    closeMenuOnSelect={false}
+                    blurInputOnSelect={false}
+                    hideSelectedOptions={false}
                     onChange={(opts) => handleValueChange(index, opts)}
                     value={selectedAttributeValues[index]}
+                    // Render an hex-color swatch beside the value name when the
+                    // attribute is colour-like (any value carries a hex code).
+                    formatOptionLabel={(v) => (
+                      <span className="inline-flex items-center gap-2">
+                        {v?.attribute_value_code && (
+                          <span
+                            className="inline-block w-4 h-4 rounded-full border border-gray-300"
+                            style={{ backgroundColor: v.attribute_value_code }}
+                            title={v.attribute_value_code}
+                          />
+                        )}
+                        <span>{v?.attribute_value_name}</span>
+                        {v?.attribute_value_code && (
+                          <span className="text-[10px] text-gray-400 ml-1">
+                            {v.attribute_value_code}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   />
                 </div>
               );
             })}
         </div>
 
-        {/* Inline "+ Add value" modal */}
-        {addValueFor && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white rounded-lg shadow-xl w-[420px] p-5">
-              <h4 className="text-lg font-semibold text-gray-800 mb-1">
-                Add value to: {addValueFor.attribute_name}
-              </h4>
-              <p className="text-xs text-gray-500 mb-4">
-                The new value will be added to the attribute and available across
-                all products.
-              </p>
-              <input
-                type="text"
-                autoFocus
-                value={newValueName}
-                onChange={(e) => setNewValueName(e.target.value)}
-                placeholder="e.g. 256GB, Red, Large"
-                className="w-full p-2.5 border border-gray-300 rounded-lg outline-primaryColor"
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddValueFor(null);
-                    setNewValueName("");
-                  }}
-                  className="px-4 py-2 rounded border hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddValue}
-                  disabled={addingValue || !newValueName.trim()}
-                  className="px-4 py-2 rounded bg-primaryColor text-white disabled:opacity-50"
-                >
-                  {addingValue ? "Adding…" : "Add"}
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Inline "Add value" — full UpdateAttribute modal so admin can
+            add NEW values, edit existing names / hex codes, toggle status,
+            delete unused ones. On save, the attribute query is refetched so
+            the new values appear immediately in the dropdown. */}
+        {editAttrFor && (
+          <UpdateAttribute
+            setOpenAttributeUpdateModal={() => setEditAttrFor(null)}
+            attributeUpdateValue={editAttrFor}
+            refetch={refetch}
+            user={user}
+            title={`Add / Update Values: ${editAttrFor?.attribute_name || ""}`}
+          />
         )}
+
       </section>
+
+      {/* Base price card injected by ProductForm — sits between attribute
+          block and the matrix so the flow reads top-to-bottom:
+          attribute → values → axis → base prices → matrix. */}
+      {basePriceSlot}
 
       {/* Variation combination matrix — only over the variant_axes. */}
       {axisOnlyForMatrix.length > 0 && (
@@ -313,6 +365,10 @@ const StepOneVariation = ({
           data={axisOnlyForMatrix}
           inputValueData={inputValueData}
           setFormData={setFormData}
+          mainImage={mainImage}
+          otherImages={otherImages}
+          baseBuyingPrice={baseBuyingPrice}
+          baseDiscountPrice={baseDiscountPrice}
         />
       )}
     </div>
