@@ -208,9 +208,10 @@ const AttributeTable = ({
                       <th className="whitespace-nowrap p-4 font-medium text-gray-900">
                         Attribute Name
                       </th>
-                      {/* <th className="whitespace-nowrap p-4 font-medium text-gray-900">
-                        Category Name
-                      </th> */}
+                      {/* Phase A — display style + weight tracking at a glance. */}
+                      <th className="whitespace-nowrap p-4 font-medium text-gray-900">
+                        Display
+                      </th>
                       <th className="whitespace-nowrap p-4 font-medium text-gray-900">
                         Attribute value
                       </th>
@@ -238,9 +239,30 @@ const AttributeTable = ({
                         <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">
                           {attribute?.attribute_name}
                         </td>
-                        {/* <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">
-                          {attribute?.category_id?.category_name}
-                        </td> */}
+                        {/* Phase A — display style badge + weight tracking indicator. */}
+                        <td className="whitespace-nowrap px-4 py-2">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase ${
+                                attribute?.display_type === "swatch"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : attribute?.display_type === "dropdown"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-700"
+                              }`}
+                            >
+                              {attribute?.display_type || "button"}
+                            </span>
+                            {attribute?.tracks_weight && (
+                              <span
+                                className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700"
+                                title="Weight tracking enabled — variation matrix auto-fills from weight values"
+                              >
+                                ⚖ weight
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
                         <td className="whitespace-nowrap px-4 py-2 text-gray-700">
                           <button

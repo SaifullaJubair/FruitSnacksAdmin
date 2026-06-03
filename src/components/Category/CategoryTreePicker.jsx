@@ -17,13 +17,22 @@ import { BASE_URL } from "../../utils/baseURL";
 //                    category_path} off it.
 //   placeholder    — text shown before any pick (defaults to "Select category")
 
-const CategoryTreePicker = ({ value, onChange, placeholder = "Select category" }) => {
+// Phase D Bug #6 — `includeInactive` lets the product form show inactive
+// categories greyed-out (with toast warning) instead of hiding them. Public
+// callers omit the prop and get the active-only tree.
+const CategoryTreePicker = ({
+  value,
+  onChange,
+  placeholder = "Select category",
+  includeInactive = false,
+}) => {
   const { data: treeRes = {}, isLoading } = useQuery({
-    queryKey: ["/api/v1/category/tree"],
+    queryKey: [`/api/v1/category/tree?includeInactive=${includeInactive}`],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/category/tree`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${BASE_URL}/category/tree?includeInactive=${includeInactive}`,
+        { credentials: "include" },
+      );
       return res.json();
     },
   });
@@ -135,16 +144,29 @@ const CategoryTreePicker = ({ value, onChange, placeholder = "Select category" }
                     {col.nodes.map((n) => {
                       const hasKids = (n.children?.length ?? 0) > 0;
                       const isActive = String(activeAtThisLevel) === String(n._id);
+                      const isInactive = n.category_status === "in-active";
                       return (
                         <button
                           key={n._id}
                           type="button"
                           onClick={() => handlePick(idx, n)}
+                          title={
+                            isInactive
+                              ? "এই category inactive — product publish হবে না, draft হিসেবে save হবে"
+                              : undefined
+                          }
                           className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 ${
                             isActive ? "bg-primaryColor/10 text-primaryColor" : "text-gray-700"
-                          }`}
+                          } ${isInactive ? "text-gray-400 italic" : ""}`}
                         >
-                          <span className="truncate">{n.category_name}</span>
+                          <span className="truncate">
+                            {n.category_name}
+                            {isInactive && (
+                              <span className="ml-1 text-[10px] text-red-400">
+                                (inactive)
+                              </span>
+                            )}
+                          </span>
                           {hasKids && <FiChevronRight size={14} className="opacity-60" />}
                         </button>
                       );

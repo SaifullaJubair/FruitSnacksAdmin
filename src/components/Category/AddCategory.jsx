@@ -6,6 +6,7 @@ import { generateSlug } from "../../utils/generateSlug";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 import { toast } from "react-toastify";
 import { BASE_URL } from "./../../utils/baseURL";
+import AttributeDefaultsSelector from "./AttributeDefaultsSelector";
 
 const AddCategory = ({ setCategoryCreateModal, refetch, user, parentId = null, parentName = null }) => {
   const [loading, setLoading] = useState(false);
@@ -23,6 +24,12 @@ const AddCategory = ({ setCategoryCreateModal, refetch, user, parentId = null, p
   const [imagePreview, setImagePreview] = useState(null);
   //video preview....
   const [videoPreview, setVideoPreview] = useState(null);
+
+  // Phase B — default attribute selections (controlled outside react-hook-form)
+  const [attrDefaults, setAttrDefaults] = useState({
+    default_variant_attributes: [],
+    default_filter_attributes: [],
+  });
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]; // Safe check for file existence
@@ -100,6 +107,18 @@ const AddCategory = ({ setCategoryCreateModal, refetch, user, parentId = null, p
       if (parentId) {
         formData.append("parent_id", parentId);
       }
+
+      // Phase B — attribute defaults sent as JSON-stringified arrays. Multer
+      // collapses repeated multipart keys to the last value, so we can't
+      // append per-id. Backend normalizeAttributeArrays parses these back.
+      formData.append(
+        "default_variant_attributes",
+        JSON.stringify(attrDefaults.default_variant_attributes || []),
+      );
+      formData.append(
+        "default_filter_attributes",
+        JSON.stringify(attrDefaults.default_filter_attributes || []),
+      );
 
       // Remove keys with undefined values
       for (const [key, value] of formData.entries()) {
@@ -291,6 +310,12 @@ const AddCategory = ({ setCategoryCreateModal, refetch, user, parentId = null, p
                   )}
                 </div>
               </div>
+              {/* Phase B — Default attributes for products under this category */}
+              <AttributeDefaultsSelector
+                parentId={parentId}
+                onChange={setAttrDefaults}
+              />
+
               {/* IMAGE */}
               <div className="mt-6">
                 {imagePreview ? (

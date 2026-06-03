@@ -145,6 +145,9 @@ const ProductListTablePage = () => {
                       Product Name
                     </th>
                     <th className="whitespace-nowrap p-4  text-gray-900 text-center">
+                      SKU
+                    </th>
+                    <th className="whitespace-nowrap p-4  text-gray-900 text-center">
                       Product Image
                     </th>
                     <th className="whitespace-nowrap p-4  text-gray-900 text-center">
@@ -183,6 +186,11 @@ const ProductListTablePage = () => {
                     >
                       <td className="whitespace-nowrap px-4 py-2 font-semibold">
                         {item?.product_name}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2">
+                        <code className="text-xs font-mono text-gray-500 select-all">
+                          {item?.product_sku || "—"}
+                        </code>
                       </td>
                       <td className="whitespace-nowrap px-4 py-1 font-semibold flex justify-center">
                         <img

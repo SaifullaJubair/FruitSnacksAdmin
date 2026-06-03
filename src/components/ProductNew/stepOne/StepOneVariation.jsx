@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import Select from "react-select";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2-optimized";
 import { FiPlus } from "react-icons/fi";
 import StepOneVariationTable from "./StepOneVariationTable";
 import { BASE_URL } from "../../../utils/baseURL";
@@ -9,7 +10,9 @@ import { LoaderOverlay } from "../../common/loader/LoderOverley";
 import { generateSlug } from "../../../utils/generateSlug";
 import ToggleSwitch from "../sections/ToggleSwitch";
 import UpdateAttribute from "../../Attribute/UpdateAttribute";
+import AddAttribute from "../../Attribute/AddAttribute";
 import { AuthContext } from "../../../context/AuthProvider";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Phase 2 unified attribute block.
 //
@@ -62,6 +65,10 @@ const StepOneVariation = ({
   // show_in_filter values. Applied ONCE when present so the toggles reflect
   // what's in the DB.
   initialShowInFilterById = null,
+  // Phase 0.5 follow-up — notify parent (ProductForm) when any picked
+  // attribute is inactive. Mirrors the inactive cat/brand pattern so the
+  // sticky Publish button can disable for the same reason.
+  onInactiveAttributeChange = null,
 }) => {
   // Lifted-or-local pattern: if parent passes the pair, use them; else manage
   // ourselves (legacy / standalone usage).
@@ -94,6 +101,153 @@ const StepOneVariation = ({
   // quick-add; consolidated since the full editor covers everything.)
   const [editAttrFor, setEditAttrFor] = useState(null);
   const { user } = useContext(AuthContext);
+  const queryClient = useQueryClient();
+
+  // Phase E — "+ Create attribute" modal (reuses AddAttribute). On success the
+  // EM1 callback hands us the created doc; we inject it directly into
+  // selectedAttributes (with axis=on, like a normal pick) so the admin can
+  // immediately tick values without waiting for a refetch.
+  const [showCreateAttrModal, setShowCreateAttrModal] = useState(false);
+  const handleAttributeCreated = (newAttr) => {
+    if (!newAttr?._id) return;
+    // Refresh the attribute pool too (so the multi-select option list updates).
+    queryClient.invalidateQueries({ queryKey: ["/api/v1/attribute"] });
+    if (selectedAttributes?.some((a) => a?._id === newAttr._id)) return;
+    setSelectedAttributes([...(selectedAttributes || []), newAttr]);
+    setSelectedAttributeValues([...(selectedAttributeValues || []), []]);
+    setAxisById((prev) => ({ ...prev, [newAttr._id]: true }));
+    toast.success(`"${newAttr.attribute_name}" added — pick values to continue.`, {
+      autoClose: 2000,
+    });
+  };
+
+  // Phase E — per-attribute inline "+ Add value" mini-form state. Keyed by
+  // attribute_id so multiple rows can each have their own open-state.
+  const [addValueOpenId, setAddValueOpenId] = useState(null);
+  const [addValueName, setAddValueName] = useState("");
+  const [addValueHex, setAddValueHex] = useState("");
+  const [addValueWeight, setAddValueWeight] = useState("");
+  const [addValueSaving, setAddValueSaving] = useState(false);
+
+  const closeAddValueInline = () => {
+    setAddValueOpenId(null);
+    setAddValueName("");
+    setAddValueHex("");
+    setAddValueWeight("");
+  };
+
+  // EM4 + EM8 — fetch fresh attribute, dedupe-check name, PATCH combined list.
+  const submitAddValueInline = async (attr) => {
+    const trimmedName = addValueName.trim();
+    if (!trimmedName) {
+      toast.error("Value name দিতে হবে।", { autoClose: 1500 });
+      return;
+    }
+    // EM8: client-side duplicate check against the attribute we already have.
+    const lower = trimmedName.toLocaleLowerCase();
+    const localDuplicate = (attr?.attribute_values || []).some(
+      (v) =>
+        (v?.attribute_value_name || "").trim().toLocaleLowerCase() === lower,
+    );
+    if (localDuplicate) {
+      toast.error(`"${trimmedName}" এই attribute-এ already আছে।`, {
+        autoClose: 2000,
+      });
+      return;
+    }
+    setAddValueSaving(true);
+    try {
+      // EM4: refetch the live attribute so we don't overwrite parallel edits.
+      const liveRes = await fetch(`${BASE_URL}/attribute`, {
+        credentials: "include",
+      });
+      const liveJson = await liveRes.json();
+      const live = (liveJson?.data || []).find((a) => a?._id === attr._id);
+      if (!live) {
+        toast.error("Attribute আর available নেই।", { autoClose: 2000 });
+        setAddValueSaving(false);
+        return;
+      }
+      // Recheck duplicate against the FRESH list (covers race with other admin).
+      const serverDuplicate = (live.attribute_values || []).some(
+        (v) =>
+          (v?.attribute_value_name || "").trim().toLocaleLowerCase() === lower,
+      );
+      if (serverDuplicate) {
+        toast.error(`"${trimmedName}" এই attribute-এ already আছে।`, {
+          autoClose: 2000,
+        });
+        setAddValueSaving(false);
+        return;
+      }
+
+      const newValue = {
+        attribute_value_name: trimmedName,
+        attribute_value_slug: generateSlug(trimmedName),
+        attribute_value_code: addValueHex.trim() || "",
+        attribute_value_status: "active",
+      };
+      if (attr?.tracks_weight && addValueWeight !== "") {
+        newValue.weight_grams_value = Number(addValueWeight);
+      }
+      const combined = [...(live.attribute_values || []), newValue];
+
+      const payload = {
+        _id: attr._id,
+        attribute_name: live.attribute_name,
+        attribute_slug: live.attribute_slug,
+        attribute_status: live.attribute_status,
+        display_type: live.display_type,
+        tracks_weight: live.tracks_weight,
+        attribute_updated_by: user?._id,
+        attribute_values: combined,
+      };
+      const res = await fetch(`${BASE_URL}/attribute`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (result?.statusCode !== 200 || !result?.success) {
+        toast.error(result?.message || "Add value failed", { autoClose: 2000 });
+        setAddValueSaving(false);
+        return;
+      }
+      toast.success(`Value "${trimmedName}" added.`, { autoClose: 1500 });
+      // Refresh attribute pool; React Query will re-render the select+rows
+      // with the new value visible.
+      await queryClient.invalidateQueries({ queryKey: ["/api/v1/attribute"] });
+      const refreshed = await refetch();
+      const updatedPool = refreshed?.data?.data || [];
+      const updatedAttr = updatedPool.find((a) => a?._id === attr._id);
+      if (updatedAttr) {
+        // Refresh local selectedAttribute entry (so the value tick list shows
+        // the new value as a pick option) and auto-check the new value.
+        const idx = selectedAttributes.findIndex((a) => a?._id === attr._id);
+        if (idx >= 0) {
+          const nextAttrs = [...selectedAttributes];
+          nextAttrs[idx] = updatedAttr;
+          setSelectedAttributes(nextAttrs);
+          const addedValue = (updatedAttr.attribute_values || []).find(
+            (v) =>
+              (v?.attribute_value_name || "").trim().toLocaleLowerCase() ===
+              lower,
+          );
+          if (addedValue) {
+            const nextValues = [...selectedAttributeValues];
+            nextValues[idx] = [...(nextValues[idx] || []), addedValue];
+            setSelectedAttributeValues(nextValues);
+          }
+        }
+      }
+      closeAddValueInline();
+    } catch (e) {
+      toast.error(e?.message || "Network error", { autoClose: 2000 });
+    } finally {
+      setAddValueSaving(false);
+    }
+  };
 
   const { data: attributesRes = {}, isLoading, refetch } = useQuery({
     queryKey: ["/api/v1/attribute"],
@@ -130,6 +284,18 @@ const StepOneVariation = ({
       });
       return updated;
     });
+    // Phase 0.5 follow-up — toast when an inactive attribute was just added.
+    next.forEach((attr) => {
+      if (
+        !previousIds.has(attr?._id) &&
+        attr?.attribute_status === "in-active"
+      ) {
+        toast.warn(
+          `Attribute "${attr.attribute_name}" inactive — Publish disabled, only Save as Draft কাজ করবে।`,
+          { autoClose: 4000 },
+        );
+      }
+    });
   };
 
   const handleValueChange = (index, selectedOptions) => {
@@ -138,7 +304,7 @@ const StepOneVariation = ({
     setSelectedAttributeValues(next);
   };
 
-  const toggleAxis = (attributeId) => {
+  const toggleAxis = async (attributeId) => {
     const currentlyOn = !!axisById[attributeId];
     // Warn before turning OFF if a matrix already exists — turning off this
     // axis will collapse the row set and any data on rows that no longer
@@ -147,11 +313,19 @@ const StepOneVariation = ({
     if (currentlyOn && (inputValueData || []).length > 1) {
       const onCount = Object.values(axisById).filter(Boolean).length;
       if (onCount > 1) {
-        const ok = window.confirm(
-          "Turning this axis OFF will shrink the variation matrix. " +
-            "Rows that don't match a remaining combination will be DROPPED. Continue?",
-        );
-        if (!ok) return;
+        const confirm = await Swal.fire({
+          title: "Turn this off?",
+          html:
+            "This will <strong>remove</strong> some rows from the variation table.<br/>" +
+            "Any data in the removed rows will be <strong>lost</strong>.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#3085d6",
+          cancelButtonColor: "#d33",
+          confirmButtonText: "Yes, turn off",
+          cancelButtonText: "No, keep on",
+        });
+        if (!confirm.isConfirmed) return;
       }
     }
     // IMPORTANT: only flip axisById. selectedAttributeValues stays intact so
@@ -184,9 +358,12 @@ const StepOneVariation = ({
       .filter((attr) => axisById[attr?._id])
       .map((attr) => ({ attribute_id: attr?._id, is_mandatory: true }));
 
-    // Legacy free-text snapshot for backward-compat (admin search/list etc.)
+    // Legacy free-text snapshot for backward-compat (admin search/list etc.).
+    // Phase 0 fix — emit `attribute_id` (NOT `_id`, which Mongoose autogens for
+    // subdocs and overwrites on save). PDP picker matches variant_axes against
+    // this field.
     const attributes_details = selectedAttributes.map((attr, i) => ({
-      _id: attr?._id,
+      attribute_id: attr?._id,
       attribute_name: attr?.attribute_name,
       attribute_values: selectedAttributeValues[i] || [],
     }));
@@ -198,14 +375,65 @@ const StepOneVariation = ({
     });
   }, [selectedAttributes, selectedAttributeValues, axisById, showInFilterById, setDataToSubmit]);
 
+  // Phase 0.5 follow-up — bubble inactive-attribute state up to ProductForm so
+  // the sticky Publish button can disable for the same reason inactive
+  // category/brand does. List the offending names for the tooltip.
+  useEffect(() => {
+    if (!onInactiveAttributeChange) return;
+    const inactiveNames = (selectedAttributes || [])
+      .filter((a) => a?.attribute_status === "in-active")
+      .map((a) => a?.attribute_name);
+    onInactiveAttributeChange(inactiveNames);
+  }, [selectedAttributes, onInactiveAttributeChange]);
+
   if (isLoading) return <LoaderOverlay />;
 
   // The variation table needs ONLY the variant-axis attributes (so spec-only
   // attrs don't multiply combinations). Pass the legacy attributes_details
   // shape it already understands — but filtered to axes only.
+  // Phase 0 — match on attribute_id (was _id before; Mongoose subdoc autogen
+  // _id is unrelated to the source attribute, and Phase 0 stopped emitting it).
   const axisOnlyForMatrix = (dataToSubmit?.attributes_details || []).filter(
-    (a) => axisById[a._id],
+    (a) => axisById[a.attribute_id],
   );
+
+  // Phase 0.5 V2 — predict combination count (Cartesian product over
+  // variant_axes only). If any axis has 0 values picked yet, treat as 0 to
+  // avoid scaring the admin before they finish typing.
+  const predictedVariationCount = axisOnlyForMatrix.reduce((acc, row) => {
+    const n = row?.attribute_values?.length || 0;
+    return n > 0 ? acc * n : 0;
+  }, axisOnlyForMatrix.length > 0 ? 1 : 0);
+  // 500 = backend hard cap. Path A (2026-06-01) batched the per-row barcode
+  // + SKU collision checks into single bulk DB queries and switched to
+  // insertMany + parallel S3 uploads, so 500 rows now fits in the Mongo
+  // transaction window with headroom.
+  const exceedsVariationCap = predictedVariationCount > 500;
+
+  // Phase A — build a map of attribute_value._id → weight_grams_value across
+  // every selected attribute that is BOTH (a) a variant axis AND (b) flagged
+  // tracks_weight. The matrix table sums these per row (across the row's
+  // combination) to auto-fill variation_weight_grams for NEW rows.
+  // value_id can repeat across attributes (rare) so we key the map with the
+  // value id directly — last write wins, fine because a single value can't
+  // belong to two attributes anyway.
+  const weightAxisAttributes = (selectedAttributes || []).filter(
+    (a) => a?.tracks_weight && axisById[a?._id],
+  );
+  const valueIdToWeightGrams = {};
+  for (const attr of weightAxisAttributes) {
+    for (const v of attr.attribute_values || []) {
+      if (typeof v?.weight_grams_value === "number") {
+        valueIdToWeightGrams[String(v._id)] = v.weight_grams_value;
+      }
+    }
+  }
+  const weightAxisNames = weightAxisAttributes.map((a) => a?.attribute_name);
+
+  // Phase A MOD #5 — warn when 2+ axes both have tracks_weight=true. The
+  // matrix sums them, which is intentional (size + add-on), but unusual —
+  // surface it so admin knows what to expect.
+  const multiWeightAxisWarning = weightAxisAttributes.length >= 2;
 
   return (
     <div>
@@ -235,8 +463,33 @@ const StepOneVariation = ({
               hideSelectedOptions={false}
               onChange={handleAttributeChange}
               value={selectedAttributes}
+              // Phase 0.5 follow-up — mark inactive attributes visually so
+              // admin doesn't pick them by mistake (still selectable for
+              // draft saves, mirrors cat/brand pattern).
+              formatOptionLabel={(x) =>
+                x?.attribute_status === "in-active" ? (
+                  <span className="text-gray-400 italic">
+                    {x?.attribute_name}{" "}
+                    <span className="text-[10px] text-red-400">(inactive)</span>
+                  </span>
+                ) : (
+                  x?.attribute_name
+                )
+              }
             />
           </div>
+          {/* Phase E — "+ Create attribute" inline shortcut. Opens the full
+              AddAttribute modal; on success the new attribute is injected into
+              selectedAttributes via the EM1 onCreated callback. */}
+          {user?.role_id?.attribute_post && (
+            <button
+              type="button"
+              onClick={() => setShowCreateAttrModal(true)}
+              className="px-3 py-2 bg-primaryColor hover:bg-blue-500 text-white rounded text-sm flex items-center gap-1"
+            >
+              <FiPlus size={14} /> Create
+            </button>
+          )}
         </div>
 
         <p className="text-gray-600 text-sm mt-4">
@@ -258,9 +511,23 @@ const StepOneVariation = ({
                 >
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-700">
+                      <p
+                        className={`font-semibold ${
+                          attr?.attribute_status === "in-active"
+                            ? "text-gray-400 italic"
+                            : "text-gray-700"
+                        }`}
+                      >
                         {attr?.attribute_name}
                       </p>
+                      {attr?.attribute_status === "in-active" && (
+                        <span
+                          className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
+                          title="Inactive attribute — Publish disabled, only Save as Draft কাজ করবে।"
+                        >
+                          Inactive
+                        </span>
+                      )}
                       {!isAxis && (
                         <span
                           className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full"
@@ -281,11 +548,23 @@ const StepOneVariation = ({
                     <div className="flex items-center gap-3 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => setEditAttrFor(attr)}
+                        onClick={() =>
+                          setAddValueOpenId((cur) =>
+                            cur === attr?._id ? null : attr?._id,
+                          )
+                        }
                         className="text-sm text-primaryColor hover:opacity-80 flex items-center gap-1"
-                        title="Add new values OR edit existing ones (name, hex code, status)"
+                        title="Quick-add a new value to this attribute"
                       >
                         <FiPlus /> Add value
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditAttrFor(attr)}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                        title="Edit existing values (rename / hex / status / delete)"
+                      >
+                        Edit
                       </button>
                       <ToggleSwitch
                         checked={isAxis}
@@ -301,6 +580,79 @@ const StepOneVariation = ({
                       />
                     </div>
                   </div>
+
+                  {/* Phase E — inline add-value mini-form. Hex / weight inputs
+                      render conditionally based on parent attribute's display_type
+                      and tracks_weight flag. */}
+                  {addValueOpenId === attr?._id && (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-3">
+                      <div className="flex flex-wrap gap-2 items-start">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={addValueName}
+                          onChange={(e) => setAddValueName(e.target.value)}
+                          placeholder="Value name (e.g. XXL / নীল)"
+                          className="flex-1 min-w-[160px] px-3 py-1.5 border border-gray-300 rounded text-sm"
+                          disabled={addValueSaving}
+                        />
+                        {attr?.display_type === "swatch" && (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="color"
+                              value={/^#[0-9a-fA-F]{6}$/.test(addValueHex) ? addValueHex : "#000000"}
+                              onChange={(e) => setAddValueHex(e.target.value)}
+                              className="w-9 h-9 p-0.5 border border-gray-300 rounded cursor-pointer"
+                              disabled={addValueSaving}
+                              title="Pick color"
+                            />
+                            <input
+                              type="text"
+                              value={addValueHex}
+                              onChange={(e) => setAddValueHex(e.target.value)}
+                              placeholder="#ff0000"
+                              className="w-24 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                              disabled={addValueSaving}
+                            />
+                          </div>
+                        )}
+                        {attr?.tracks_weight && (
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={addValueWeight}
+                            onChange={(e) => setAddValueWeight(e.target.value)}
+                            placeholder="Grams"
+                            className="w-24 px-3 py-1.5 border border-gray-300 rounded text-sm"
+                            disabled={addValueSaving}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => submitAddValueInline(attr)}
+                          disabled={addValueSaving}
+                          className="px-3 py-1.5 bg-primaryColor hover:bg-blue-500 text-white rounded text-sm disabled:opacity-50"
+                        >
+                          {addValueSaving ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeAddValueInline}
+                          disabled={addValueSaving}
+                          className="px-3 py-1.5 border border-gray-300 hover:bg-gray-50 rounded text-sm disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-amber-700 mt-2">
+                        Display style: <strong>{attr?.display_type || "button"}</strong>
+                        {attr?.tracks_weight && " · Weight tracked"}
+                        {" · "}New value will auto-tick for this product.
+                      </p>
+                    </div>
+                  )}
+
                   <Select
                     aria-label={`${attr?.attribute_name} values`}
                     options={attr?.attribute_values || []}
@@ -352,12 +704,58 @@ const StepOneVariation = ({
           />
         )}
 
+        {/* Phase E — "+ Create attribute" modal (reuses AddAttribute). */}
+        {showCreateAttrModal && (
+          <AddAttribute
+            setAddAttributeModal={setShowCreateAttrModal}
+            user={user}
+            onCreated={handleAttributeCreated}
+          />
+        )}
+
       </section>
 
       {/* Base price card injected by ProductForm — sits between attribute
           block and the matrix so the flow reads top-to-bottom:
           attribute → values → axis → base prices → matrix. */}
       {basePriceSlot}
+
+      {/* Phase 0.5 V2 — surface the predicted combination count before the
+          admin tries to save. 100 is the backend hard cap; above it the save
+          will be rejected, so warn early. */}
+      {axisOnlyForMatrix.length > 0 && predictedVariationCount > 0 && (
+        <div
+          className={`mb-3 rounded-md border px-4 py-3 text-sm ${
+            exceedsVariationCap
+              ? "bg-red-50 border-red-200 text-red-700"
+              : predictedVariationCount > 50
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-blue-50 border-blue-200 text-blue-700"
+          }`}
+        >
+          <strong>Variations: {predictedVariationCount}</strong>
+          {exceedsVariationCap && (
+            <>
+              {" "}
+              — limit হলো <strong>500</strong>। Save করলে backend reject
+              করবে। কম values পছন্দ করুন বা কোনো axis OFF করুন।
+            </>
+          )}
+          {!exceedsVariationCap && predictedVariationCount > 300 && (
+            <> — অনেক variations, save 30-60 sec নিতে পারে। অপেক্ষা করুন।</>
+          )}
+        </div>
+      )}
+
+      {/* Phase A MOD #5 — multi-weight-axis warning. Not a blocker; just
+          surfaces the sum behavior so admin knows what to expect. */}
+      {axisOnlyForMatrix.length > 0 && multiWeightAxisWarning && (
+        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ <strong>{weightAxisAttributes.length}টা axis ({weightAxisNames.join(", ")})</strong>{" "}
+          এ weight tracking চালু — variation weight হবে এদের <strong>sum</strong>
+          (যেমন size + add-on)। Per row override করতে পারবেন matrix-এ।
+        </div>
+      )}
 
       {/* Variation combination matrix — only over the variant_axes. */}
       {axisOnlyForMatrix.length > 0 && (
@@ -369,6 +767,11 @@ const StepOneVariation = ({
           otherImages={otherImages}
           baseBuyingPrice={baseBuyingPrice}
           baseDiscountPrice={baseDiscountPrice}
+          // Phase A — value_id → grams map for matrix auto-fill on NEW rows.
+          // Empty {} when no axis has tracks_weight=true → matrix hides the
+          // Weight column entirely.
+          valueWeightMap={valueIdToWeightGrams}
+          weightAxisNames={weightAxisNames}
         />
       )}
     </div>

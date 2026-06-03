@@ -53,7 +53,33 @@ const StepOneVariationTable = ({
   // via context). Empty / blank base → don't touch existing rows.
   baseBuyingPrice = "",
   baseDiscountPrice = "",
+  // Phase A — { attribute_value._id (string): weight_grams } map built from
+  // every selected axis attribute that has tracks_weight=true. The row
+  // weight = sum of weights for value_ids in that row's combination. Empty
+  // map → Weight column hides. NEW rows auto-fill; existing rows preserved.
+  valueWeightMap = {},
+  // Names of the axes contributing to weight — used in the column tooltip.
+  weightAxisNames = [],
 }) => {
+  // Phase A — weight column only renders when at least one axis has weight.
+  const hasWeightAxis = Object.keys(valueWeightMap || {}).length > 0;
+  // Compute the sum-weight for a given combination of value_ids. Returns
+  // null when no value in the combo has a weight entry — that means the
+  // matrix shouldn't auto-fill (preserves manual overrides + handles
+  // partial weight data gracefully).
+  const sumWeightFor = (value_ids) => {
+    if (!value_ids?.length || !hasWeightAxis) return null;
+    let sum = 0;
+    let any = false;
+    for (const vid of value_ids) {
+      const w = valueWeightMap[String(vid)];
+      if (typeof w === "number") {
+        sum += w;
+        any = true;
+      }
+    }
+    return any ? sum : null;
+  };
   // Base price = the product-level price entered in StepOnePrice. We read it
   // from a context (falling back to 0 if context is absent) so we can render
   // the final-price calc without prop-drilling through StepOne.
@@ -103,12 +129,18 @@ const StepOneVariationTable = ({
         .join("-");
       if (existing) {
         // Preserve everything the admin/DB already has; just refresh name + base price.
+        // Phase A MOD #13 — existing variation_weight_grams preserved as-is
+        // even if tracks_weight flipped later; never overwritten by auto-fill.
         return {
           ...existing,
           combination: value_ids,
           variation_name,
         };
       }
+      // Phase A — auto-fill variation_weight_grams for NEW rows only,
+      // computed from the combination's weight axis values. null → blank
+      // input (admin can type a value manually).
+      const autoWeight = sumWeightFor(value_ids);
       return {
         combination: value_ids,
         variation_price_delta: 0,
@@ -122,10 +154,12 @@ const StepOneVariationTable = ({
         variation_sku: sku,
         variation_image: null,
         variation_video: null,
+        variation_weight_grams: autoWeight,
       };
     });
     setFormData(seeded);
     setLastShape(shape);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combinations, data, lastShape, basePrice, baseBuyingPrice, baseDiscountPrice, setFormData, inputValueData]);
 
   // Live-propagate the base buying / discount price to EVERY row whenever the
@@ -236,6 +270,24 @@ const StepOneVariationTable = ({
         </p>
       </div>
 
+      {/* Phase A A8 — multi weight-axis SUM hint. Surfaces the math so
+          admin knows the auto-filled Weight (g) column is base axis SUM,
+          not a single value lookup. 2026-06-02 owner feedback. */}
+      {weightAxisNames.length > 1 && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-[12px] text-amber-900 flex items-start gap-2">
+          <span className="text-base">⚖️</span>
+          <div>
+            <strong>Multiple weight axes detected:</strong>{" "}
+            {weightAxisNames.join(" + ")}
+            <div className="mt-1 italic text-amber-700">
+              Variation weight is auto-filled as the <strong>SUM</strong> of
+              every axis weight. Edit any row to override (e.g. add packaging
+              grams).
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4">
         <h3 className="font-semibold my-2">Bulk apply</h3>
         <div className="flex flex-wrap items-end gap-3">
@@ -269,9 +321,15 @@ const StepOneVariationTable = ({
       </div>
 
       <div className="rounded-lg border border-gray-200">
-        <div className="overflow-x-auto scrollbar-thin scrollbar-hide">
+        {/* Phase 0.5 follow-up — cap matrix height so 50-100 row tables don't
+            push the Save bar off-screen. Header sticks via thead z-index, body
+            scrolls vertically + horizontally. */}
+        <div
+          className="overflow-auto scrollbar-thin"
+          style={{ maxHeight: "60vh" }}
+        >
           <table className="w-full divide-y-2 divide-gray-200 bg-white text-sm">
-            <thead className="bg-[#fff9ee]">
+            <thead className="bg-[#fff9ee] sticky top-0 z-10">
               <tr className="divide-x divide-gray-300 font-semibold text-center text-gray-900">
                 <td className="whitespace-nowrap px-4 py-3">#</td>
                 <td className="whitespace-nowrap px-4 py-3">Combination</td>
@@ -290,6 +348,16 @@ const StepOneVariationTable = ({
                   Buying price ⓘ
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">Stock</td>
+                {/* Phase A — Weight column only when at least one axis
+                    contributes weight. Tooltip names the source axes. */}
+                {hasWeightAxis && (
+                  <td
+                    className="whitespace-nowrap px-4 py-3 cursor-help"
+                    title={`Auto-filled from ${weightAxisNames.join(" + ")}. Edit per row if needed (e.g. add packaging).`}
+                  >
+                    Weight (g) ⓘ
+                  </td>
+                )}
                 <td className="whitespace-nowrap px-4 py-3">Active</td>
                 <td className="whitespace-nowrap px-4 py-3">Image</td>
                 <td className="whitespace-nowrap px-4 py-3">Video</td>
@@ -324,8 +392,15 @@ const StepOneVariationTable = ({
                     <td className="py-1.5 text-center font-medium text-gray-700">
                       {idx + 1}
                     </td>
-                    <td className="py-1.5 text-center font-medium text-gray-700">
-                      {combo.map((v) => v?.attribute_value_name).join(" / ")}
+                    <td className="py-1.5 px-2 text-center">
+                      <div className="font-medium text-gray-700">
+                        {combo.map((v) => v?.attribute_value_name).join(" / ")}
+                      </div>
+                      {row.variation_sku && (
+                        <code className="block mt-0.5 text-[10px] font-mono text-gray-400 select-all">
+                          {row.variation_sku}
+                        </code>
+                      )}
                     </td>
                     <td className="py-1.5 text-center">
                       <input
@@ -374,6 +449,35 @@ const StepOneVariationTable = ({
                         className="p-1.5 border rounded-md text-center w-20"
                       />
                     </td>
+                    {/* Phase A — per-row weight. Empty string → null on
+                        submit (backend insertMany would NaN-throw otherwise,
+                        MOD #3). Auto-filled by seed effect for NEW rows;
+                        admin can override here. */}
+                    {hasWeightAxis && (
+                      <td className="py-1.5 text-center">
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={
+                            row.variation_weight_grams === null ||
+                            row.variation_weight_grams === undefined
+                              ? ""
+                              : row.variation_weight_grams
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            updateRow(
+                              idx,
+                              "variation_weight_grams",
+                              v === "" ? null : Number(v),
+                            );
+                          }}
+                          placeholder="—"
+                          className="p-1.5 border rounded-md text-center w-20"
+                        />
+                      </td>
+                    )}
                     <td className="py-1.5 text-center">
                       <div className="flex justify-center">
                         <ToggleSwitch

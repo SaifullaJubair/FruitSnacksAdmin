@@ -9,6 +9,7 @@ import { Tooltip } from "react-tooltip";
 import { BASE_URL } from "../../utils/baseURL";
 import { toast } from "react-toastify";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
+import AttributeDefaultsSelector from "./AttributeDefaultsSelector";
 
 const UpDateCategory = ({
   setCategoryUpdateModal,
@@ -27,6 +28,31 @@ const UpDateCategory = ({
   const [videoPreview, setVideoPreview] = useState(
     categoryUpdateData?.category_video
   );
+
+  // Phase B — controlled default attribute selections (seeded from existing doc).
+  const [attrDefaults, setAttrDefaults] = useState({
+    default_variant_attributes:
+      categoryUpdateData?.default_variant_attributes?.map((id) => String(id)) ||
+      [],
+    default_filter_attributes:
+      categoryUpdateData?.default_filter_attributes?.map((id) => String(id)) ||
+      [],
+  });
+
+  // Helper used inside every branch to append the multi-select ids onto the
+  // outbound FormData. Sent as JSON-stringified arrays (multer collapses
+  // repeated keys to last value, so per-id append doesn't work). Always sent
+  // so that clearing the list writes [] and removes stale ids.
+  const appendAttrDefaults = (fd) => {
+    fd.append(
+      "default_variant_attributes",
+      JSON.stringify(attrDefaults.default_variant_attributes || []),
+    );
+    fd.append(
+      "default_filter_attributes",
+      JSON.stringify(attrDefaults.default_filter_attributes || []),
+    );
+  };
 
   //
   const handleImageChange = (e) => {
@@ -72,6 +98,7 @@ const UpDateCategory = ({
       formData.append("category_slug", category_slug);
       formData.append("_id", categoryUpdateData?._id);
       formData.append("category_updated_by", user?._id);
+      appendAttrDefaults(formData);
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
         credentials: "include",
@@ -117,6 +144,7 @@ const UpDateCategory = ({
       formData.append("category_slug", category_slug);
       formData.append("_id", categoryUpdateData?._id);
       formData.append("category_updated_by", user?._id);
+      appendAttrDefaults(formData);
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
         credentials: "include",
@@ -162,6 +190,7 @@ const UpDateCategory = ({
       formData.append("category_slug", category_slug);
       formData.append("_id", categoryUpdateData?._id);
       formData.append("category_updated_by", user?._id);
+      appendAttrDefaults(formData);
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
         credentials: "include",
@@ -207,6 +236,11 @@ const UpDateCategory = ({
             ? data?.category_name
             : categoryUpdateData?.category_name
         ),
+        // Phase B — real arrays in JSON path; backend normalizer accepts both
+        // arrays and stringified arrays.
+        default_variant_attributes:
+          attrDefaults.default_variant_attributes || [],
+        default_filter_attributes: attrDefaults.default_filter_attributes || [],
       };
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
@@ -359,6 +393,18 @@ const UpDateCategory = ({
                   </div>
                 </div>
               </div>
+
+              {/* Phase B — Default attributes for products under this category */}
+              <AttributeDefaultsSelector
+                parentId={categoryUpdateData?.parent_id || null}
+                initialVariantIds={
+                  categoryUpdateData?.default_variant_attributes || []
+                }
+                initialFilterIds={
+                  categoryUpdateData?.default_filter_attributes || []
+                }
+                onChange={setAttrDefaults}
+              />
 
               {/* image */}
               <div className="mt-6 relative">

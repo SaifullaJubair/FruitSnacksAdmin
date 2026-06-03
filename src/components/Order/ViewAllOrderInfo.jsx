@@ -6,9 +6,16 @@ import { DateFormate } from "../../utils/DateFormate/DateFormate";
 import { useContext, useState } from "react";
 import { toast } from "react-toastify";
 import { FiRefreshCw, FiExternalLink, FiEdit2, FiX } from "react-icons/fi";
-import { FaTruck, FaCheckCircle, FaTimesCircle, FaClock } from "react-icons/fa";
+import {
+  FaTruck,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaClock,
+  FaPrint,
+} from "react-icons/fa";
 import { AuthContext } from "../../context/AuthProvider";
 import PaymentInfoCard from "./PaymentInfoCard";
+import PrintLabel from "../common/printLabel/PrintLabel";
 
 const STEADFAST_STATUS_COLOR = {
   delivered: "bg-green-100 text-green-700 border-green-200",
@@ -222,6 +229,8 @@ const ViewAllOrderInfo = () => {
   const { user } = useContext(AuthContext);
   const [syncing, setSyncing] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false); // ✅ নতুন
+  // Phase D Bug #3 — per-line print label modal target. `null` = closed.
+  const [labelLine, setLabelLine] = useState(null);
 
   const {
     data: orders,
@@ -651,53 +660,110 @@ const ViewAllOrderInfo = () => {
           <table className="min-w-full text-sm">
             <thead className="bg-white border-b">
               <tr className="text-gray-500 text-center">
-                {["SL", "Image", "Product", "Unit Price", "Qty", "Total"].map(
-                  (h) => (
-                    <th key={h} className="p-4 whitespace-nowrap">
-                      {h}
-                    </th>
-                  ),
-                )}
+                {[
+                  "SL",
+                  "Image",
+                  "Product",
+                  "SKU",
+                  "Unit Price",
+                  "Qty",
+                  "Total",
+                  "Label",
+                ].map((h) => (
+                  <th key={h} className="p-4 whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {orderProducts?.map((product, idx) => (
-                <tr
-                  key={idx}
-                  className={`text-center ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
-                >
-                  <td className="p-4">{idx + 1}</td>
-                  <td className="p-4 flex justify-center">
-                    <img
-                      src={
-                        product?.variation_id?.variation_image ||
-                        product?.product_id?.main_image
-                      }
-                      className="w-16 h-14 rounded border object-cover"
-                      alt=""
-                    />
-                  </td>
-                  <td className="p-4 text-left min-w-[200px]">
-                    <p className="font-medium text-gray-800">
-                      {product?.product_id?.product_name}
-                    </p>
-                    {product?.variation_id && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Variation: {product?.variation_id?.variation_name}
+              {orderProducts?.map((product, idx) => {
+                // Snapshot SKU is the source of truth (write-once at order
+                // placement). Live SKU is the printable-label source.
+                const displaySku =
+                  product?.variation_sku_snapshot ||
+                  product?.product_sku_snapshot ||
+                  product?.variation_id?.variation_sku ||
+                  product?.product_id?.product_sku;
+                return (
+                  <tr
+                    key={idx}
+                    className={`text-center ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                  >
+                    <td className="p-4">{idx + 1}</td>
+                    <td className="p-4 flex justify-center">
+                      <img
+                        src={
+                          product?.variation_id?.variation_image ||
+                          product?.product_id?.main_image
+                        }
+                        className="w-16 h-14 rounded border object-cover"
+                        alt=""
+                      />
+                    </td>
+                    <td className="p-4 text-left min-w-[200px]">
+                      <p className="font-medium text-gray-800">
+                        {product?.product_id?.product_name}
                       </p>
-                    )}
-                  </td>
-                  <td className="p-4 font-medium text-gray-700">
-                    ৳{product?.product_unit_final_price}
-                  </td>
-                  <td className="p-4 text-gray-700">
-                    {product?.product_quantity}
-                  </td>
-                  <td className="p-4 font-semibold text-gray-800">
-                    ৳{product?.product_grand_total_price}
-                  </td>
-                </tr>
-              ))}
+                      {product?.variation_id && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Variation: {product?.variation_id?.variation_name}
+                        </p>
+                      )}
+                    </td>
+                    <td className="p-4 whitespace-nowrap">
+                      {displaySku ? (
+                        <code className="text-xs font-mono text-gray-700 select-all">
+                          {displaySku}
+                        </code>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="p-4 font-medium text-gray-700">
+                      ৳{product?.product_unit_final_price}
+                    </td>
+                    <td className="p-4 text-gray-700">
+                      {product?.product_quantity}
+                    </td>
+                    <td className="p-4 font-semibold text-gray-800">
+                      ৳{product?.product_grand_total_price}
+                    </td>
+                    <td className="p-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLabelLine({
+                            // ids let PrintLabel call the lazy ensure-image
+                            // endpoint when the barcode_image field is null
+                            // (Phase 0.5+ Option 1 — images render at print
+                            // time, not save time).
+                            product_id: product?.product_id?._id,
+                            variation_id: product?.variation_id?._id,
+                            product_name: product?.product_id?.product_name,
+                            variation_name:
+                              product?.variation_id?.variation_name,
+                            product_sku: product?.product_id?.product_sku,
+                            variation_sku:
+                              product?.variation_id?.variation_sku,
+                            barcode: product?.product_id?.barcode,
+                            barcode_image: product?.product_id?.barcode_image,
+                            variation_barcode:
+                              product?.variation_id?.variation_barcode,
+                            variation_barcode_image:
+                              product?.variation_id?.variation_barcode_image,
+                          })
+                        }
+                        title="Print sticker label"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                      >
+                        <FaPrint size={11} />
+                        Label
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -730,6 +796,11 @@ const ViewAllOrderInfo = () => {
           onClose={() => setDeliveryModalOpen(false)}
           onSuccess={refetch}
         />
+      )}
+
+      {/* Phase D Bug #3 — single-line sticker label print modal */}
+      {labelLine && (
+        <PrintLabel line={labelLine} onClose={() => setLabelLine(null)} />
       )}
     </section>
   );
