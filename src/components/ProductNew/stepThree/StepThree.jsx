@@ -14,11 +14,33 @@ import { useQuery } from "@tanstack/react-query";
 import MiniSpinner from "../../../shared/MiniSpinner/MiniSpinner";
 import { useNavigate } from "react-router-dom";
 
+// Phase F+H — array/object fields the BE expects as JSON.parse'able strings.
+// The default `Object.entries(stepOneData)` loop below skips raw arrays/objects
+// (would stringify to "[object Object]") so each gets an explicit appender.
+// A2c adds custom_fields + bundle_items here.
+const PHASE_FH_JSON_FIELDS = [
+  "product_dimensions",
+  "tier_prices",
+  "group_prices",
+  "custom_fields",
+  "bundle_items",
+];
+const appendPhaseFHJsonFields = (formData, stepOneData) => {
+  PHASE_FH_JSON_FIELDS.forEach((k) => {
+    const v = stepOneData?.[k];
+    if (v === undefined || v === null) return;
+    // Skip empty arrays / empty objects to keep the request small.
+    if (Array.isArray(v) && v.length === 0) return;
+    if (!Array.isArray(v) && typeof v === "object" && Object.keys(v).length === 0)
+      return;
+    formData.append(k, JSON.stringify(v));
+  });
+};
+
 const StepThree = ({
   setCurrentStep,
   stepThreeData,
   stepOneData,
-  stepTwoData,
 }) => {
   const { user, loading } = useContext(AuthContext);
   const [saveAndPublish, setSaveAndPublish] = useState(true);
@@ -243,28 +265,14 @@ const StepThree = ({
       }
       formData.append("meta_keywords", JSON.stringify(keywords));
       formData.append("description", description);
-      // Append specifications
-      if (stepTwoData?.specifications?.length > 0) {
-        stepTwoData?.specifications?.forEach((spec, index) => {
-          // Append the main specification ID
-          formData.append(
-            `specifications[${index}][specification_id]`,
-            spec?._id
-          );
-
-          // Append each specification value's ID
-          spec?.attribute_values?.forEach((value, valueIndex) => {
-            formData.append(
-              `specifications[${index}][specification_values][${valueIndex}][specification_value_id]`,
-              value?._id
-            );
-          });
-        });
-      }
+      // (legacy `specifications` formData append removed — specification
+      // module retired in Phase 0; attribute payload now ships via
+      // product_attributes + variant_axes set from StepOne.)
 
       Object.entries(stepOneData).forEach(([key, value]) => {
         if (key === "variation_details" && Array.isArray(value)) {
           value.forEach((product, index) => {
+            // Legacy fields (kept additive — cart/order still read these).
             formData.append(
               `variation_details[${index}][variation_name]`,
               product.variation_name
@@ -289,12 +297,22 @@ const StepThree = ({
               `variation_details[${index}][variation_alert_quantity]`,
               product.variation_alert_quantity
             );
-            // formData.append(
-            //   `variation_details[${index}][variation_sku]`,
-            //   product.variation_sku
-            // );
+            // Phase-1 new shape:
+            formData.append(
+              `variation_details[${index}][variation_price_delta]`,
+              product.variation_price_delta ?? 0
+            );
+            formData.append(
+              `variation_details[${index}][is_active]`,
+              product.is_active !== false
+            );
+            (product.combination || []).forEach((valueId, ci) => {
+              formData.append(
+                `variation_details[${index}][combination][${ci}]`,
+                valueId
+              );
+            });
 
-            // If the product has an variation_image, append the variation_image file
             if (product.variation_image) {
               formData.append(
                 `variation_details[${index}][variation_image]`,
@@ -308,6 +326,38 @@ const StepThree = ({
               );
             }
           });
+        } else if (key === "product_attributes" && Array.isArray(value)) {
+          // Phase-2 single source of truth (spec table + filter facets).
+          value.forEach((pa, i) => {
+            formData.append(
+              `product_attributes[${i}][attribute_id]`,
+              pa.attribute_id
+            );
+            (pa.value_ids || []).forEach((vid, j) => {
+              formData.append(
+                `product_attributes[${i}][value_ids][${j}]`,
+                vid
+              );
+            });
+          });
+        } else if (key === "variant_axes" && Array.isArray(value)) {
+          value.forEach((va, i) => {
+            formData.append(
+              `variant_axes[${i}][attribute_id]`,
+              va.attribute_id
+            );
+            formData.append(
+              `variant_axes[${i}][is_mandatory]`,
+              va.is_mandatory !== false
+            );
+          });
+        } else if (key === "category_path" && Array.isArray(value)) {
+          value.forEach((id, i) => {
+            formData.append(`category_path[${i}]`, id);
+          });
+        } else if (Array.isArray(value) || (value && typeof value === "object")) {
+          // attributes_details handled separately below; skip raw object append
+          // (FormData would stringify objects to "[object Object]").
         } else {
           formData.append(key, value);
         }
@@ -334,6 +384,9 @@ const StepThree = ({
           });
         });
       }
+
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
 
       formData.append("trending_product", trending_product);
 
@@ -447,28 +500,14 @@ const StepThree = ({
       }
       formData.append("meta_keywords", JSON.stringify(keywords));
       formData.append("description", description);
-      // Append specifications
-      if (stepTwoData?.specifications?.length > 0) {
-        stepTwoData?.specifications?.forEach((spec, index) => {
-          // Append the main specification ID
-          formData.append(
-            `specifications[${index}][specification_id]`,
-            spec?._id
-          );
-
-          // Append each specification value's ID
-          spec?.attribute_values?.forEach((value, valueIndex) => {
-            formData.append(
-              `specifications[${index}][specification_values][${valueIndex}][specification_value_id]`,
-              value?._id
-            );
-          });
-        });
-      }
+      // (legacy `specifications` formData append removed — specification
+      // module retired in Phase 0; attribute payload now ships via
+      // product_attributes + variant_axes set from StepOne.)
 
       Object.entries(stepOneData).forEach(([key, value]) => {
         if (key === "variation_details" && Array.isArray(value)) {
           value.forEach((product, index) => {
+            // Legacy fields (kept additive — cart/order still read these).
             formData.append(
               `variation_details[${index}][variation_name]`,
               product.variation_name
@@ -493,12 +532,22 @@ const StepThree = ({
               `variation_details[${index}][variation_alert_quantity]`,
               product.variation_alert_quantity
             );
-            // formData.append(
-            //   `variation_details[${index}][variation_sku]`,
-            //   product.variation_sku
-            // );
+            // Phase-1 new shape:
+            formData.append(
+              `variation_details[${index}][variation_price_delta]`,
+              product.variation_price_delta ?? 0
+            );
+            formData.append(
+              `variation_details[${index}][is_active]`,
+              product.is_active !== false
+            );
+            (product.combination || []).forEach((valueId, ci) => {
+              formData.append(
+                `variation_details[${index}][combination][${ci}]`,
+                valueId
+              );
+            });
 
-            // If the product has an variation_image, append the variation_image file
             if (product.variation_image) {
               formData.append(
                 `variation_details[${index}][variation_image]`,
@@ -512,6 +561,38 @@ const StepThree = ({
               );
             }
           });
+        } else if (key === "product_attributes" && Array.isArray(value)) {
+          // Phase-2 single source of truth (spec table + filter facets).
+          value.forEach((pa, i) => {
+            formData.append(
+              `product_attributes[${i}][attribute_id]`,
+              pa.attribute_id
+            );
+            (pa.value_ids || []).forEach((vid, j) => {
+              formData.append(
+                `product_attributes[${i}][value_ids][${j}]`,
+                vid
+              );
+            });
+          });
+        } else if (key === "variant_axes" && Array.isArray(value)) {
+          value.forEach((va, i) => {
+            formData.append(
+              `variant_axes[${i}][attribute_id]`,
+              va.attribute_id
+            );
+            formData.append(
+              `variant_axes[${i}][is_mandatory]`,
+              va.is_mandatory !== false
+            );
+          });
+        } else if (key === "category_path" && Array.isArray(value)) {
+          value.forEach((id, i) => {
+            formData.append(`category_path[${i}]`, id);
+          });
+        } else if (Array.isArray(value) || (value && typeof value === "object")) {
+          // attributes_details handled separately below; skip raw object append
+          // (FormData would stringify objects to "[object Object]").
         } else {
           formData.append(key, value);
         }
@@ -538,6 +619,9 @@ const StepThree = ({
           });
         });
       }
+
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
 
       formData.append("trending_product", trending_product);
 

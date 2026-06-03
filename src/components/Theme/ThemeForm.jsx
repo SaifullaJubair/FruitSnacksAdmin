@@ -2,34 +2,27 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import {
-  FaSave,
-  FaPlus,
-  FaTrash,
-  FaImage,
-  FaCheckCircle,
-} from "react-icons/fa";
+import { FaSave, FaImage, FaUndo } from "react-icons/fa";
 import { BASE_URL } from "../../utils/baseURL";
 import ColorAutoPreview from "./ColorAutoPreview";
+import { PALETTE_PRESETS } from "./palettePresets";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 
-const FONT_OPTIONS = [
-  { key: "hind-siliguri", label: "Hind Siliguri" },
-  { key: "tiro-bangla", label: "Tiro Bangla" },
-  { key: "noto-sans-bengali", label: "Noto Sans Bengali" },
-  { key: "baloo-da-2", label: "Baloo Da 2" },
-  { key: "mina", label: "Mina" },
-];
+// Storefront base URL for the live-preview iframe. Falls back to localhost.
+const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
 
-const SECTION_OPTIONS = [
-  "hero",
-  "order",
-  "benefits",
-  "use_cases",
-  "nutrition",
-  "reviews",
-  "faq",
-  "any",
+const FONT_OPTIONS = [
+  // Bangla-first
+  { key: "hind-siliguri", label: "Hind Siliguri (Bangla)" },
+  { key: "tiro-bangla", label: "Tiro Bangla (Bangla)" },
+  { key: "noto-sans-bengali", label: "Noto Sans Bengali (Bangla)" },
+  { key: "baloo-da-2", label: "Baloo Da 2 (rounded)" },
+  { key: "mina", label: "Mina (Bangla)" },
+  // Latin-first (Bangla auto-falls back to Hind Siliguri)
+  { key: "poppins", label: "Poppins (English)" },
+  { key: "inter", label: "Inter (English)" },
+  { key: "montserrat", label: "Montserrat (English)" },
+  { key: "roboto", label: "Roboto (English)" },
 ];
 
 const slugify = (s = "") =>
@@ -44,10 +37,6 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState(null);
-
-  // Floating assets local state (uploaded to backend after theme save)
-  const [pendingAssets, setPendingAssets] = useState([]); // [{file, position, section, ...}]
-  const [existingAssets, setExistingAssets] = useState(initial?.floating_assets || []);
 
   const {
     register,
@@ -67,20 +56,18 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         accent: initial?.colors?.accent || "#F59E0B",
       },
       typography: {
-        font_key: initial?.typography?.font_key || "hind-siliguri",
+        heading_font:
+          initial?.typography?.heading_font ||
+          initial?.typography?.font_key ||
+          "hind-siliguri",
+        body_font:
+          initial?.typography?.body_font ||
+          initial?.typography?.font_key ||
+          "hind-siliguri",
         heading_weight: initial?.typography?.heading_weight || "700",
-        style: initial?.typography?.style || "rounded",
       },
       button_style: {
         border_radius: initial?.button_style?.border_radius || "8px",
-        variant: initial?.button_style?.variant || "filled",
-      },
-      preview_data: {
-        product_name: initial?.preview_data?.product_name || "",
-        short_description: initial?.preview_data?.short_description || "",
-        price: initial?.preview_data?.price || "",
-        discount_price: initial?.preview_data?.discount_price || "",
-        image_url: initial?.preview_data?.image_url || "",
       },
     },
   });
@@ -88,6 +75,46 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
   const watchedName = watch("theme_name");
   const watchedSlug = watch("theme_slug");
   const watchedColors = watch("colors");
+  const watchedHeadingFont = watch("typography.heading_font");
+  const watchedBodyFont = watch("typography.body_font");
+  const watchedHeadingWeight = watch("typography.heading_weight");
+  const watchedButtonRadius = watch("button_style.border_radius");
+
+  // Build the live-preview iframe URL from current form values. Debounced so we
+  // don't reload the iframe on every keystroke / color drag.
+  const buildPreviewUrl = () => {
+    const q = new URLSearchParams({
+      primary: watchedColors?.primary || "",
+      page_bg: watchedColors?.page_bg || "",
+      accent: watchedColors?.accent || "",
+      heading_font: watchedHeadingFont || "",
+      body_font: watchedBodyFont || "",
+      heading_weight: watchedHeadingWeight || "",
+      button_radius: watchedButtonRadius || "",
+    });
+    return `${FRONTEND_URL}/theme-preview?${q.toString()}`;
+  };
+  const [previewUrl, setPreviewUrl] = useState(buildPreviewUrl());
+  useEffect(() => {
+    const id = setTimeout(() => setPreviewUrl(buildPreviewUrl()), 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    watchedColors?.primary,
+    watchedColors?.page_bg,
+    watchedColors?.accent,
+    watchedHeadingFont,
+    watchedBodyFont,
+    watchedHeadingWeight,
+    watchedButtonRadius,
+  ]);
+
+  // Apply a curated palette's 3 base colors into the form.
+  const applyPalette = (p) => {
+    setValue("colors.primary", p.primary, { shouldDirty: true });
+    setValue("colors.page_bg", p.page_bg, { shouldDirty: true });
+    setValue("colors.accent", p.accent, { shouldDirty: true });
+  };
 
   // Auto-suggest slug from name when admin hasn't edited slug manually
   useEffect(() => {
@@ -97,51 +124,6 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
       setValue("theme_slug", slugify(watchedName));
     }
   }, [watchedName, mode, setValue, watchedSlug]);
-
-  const addPendingAsset = () => {
-    setPendingAssets((prev) => [
-      ...prev,
-      {
-        file: null,
-        position: "left",
-        section: "hero",
-        animation_type: "float",
-        animation_speed: "normal",
-        size: "md",
-        opacity: 1,
-        hide_on_mobile: true,
-      },
-    ]);
-  };
-
-  const updatePendingAsset = (idx, patch) => {
-    setPendingAssets((prev) =>
-      prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)),
-    );
-  };
-
-  const removePendingAsset = (idx) => {
-    setPendingAssets((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const removeExistingAsset = async (idx) => {
-    if (!initial?._id) return;
-    try {
-      const res = await fetch(
-        `${BASE_URL}/theme/${initial._id}/floating-asset/${idx}`,
-        { method: "DELETE", credentials: "include" },
-      );
-      const data = await res.json();
-      if (data?.success) {
-        setExistingAssets((prev) => prev.filter((_, i) => i !== idx));
-        toast.success("Floating asset removed");
-      } else {
-        toast.error(data?.message || "Failed");
-      }
-    } catch {
-      toast.error("Network error");
-    }
-  };
 
   const onSubmit = async (form) => {
     setSubmitting(true);
@@ -154,16 +136,6 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
       payload.append("colors", JSON.stringify(form.colors));
       payload.append("typography", JSON.stringify(form.typography));
       payload.append("button_style", JSON.stringify(form.button_style));
-      payload.append(
-        "preview_data",
-        JSON.stringify({
-          ...form.preview_data,
-          price: form.preview_data.price ? Number(form.preview_data.price) : undefined,
-          discount_price: form.preview_data.discount_price
-            ? Number(form.preview_data.discount_price)
-            : undefined,
-        }),
-      );
       if (thumbnailFile) {
         payload.append("thumbnail_preview", thumbnailFile);
       }
@@ -184,27 +156,6 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         return;
       }
 
-      const themeId = mode === "create" ? data?.data?._id : initial._id;
-
-      // Upload pending floating assets one by one
-      for (const a of pendingAssets) {
-        if (!a.file) continue;
-        const fd = new FormData();
-        fd.append("asset", a.file);
-        fd.append("position", a.position);
-        fd.append("section", a.section);
-        fd.append("animation_type", a.animation_type);
-        fd.append("animation_speed", a.animation_speed);
-        fd.append("size", a.size);
-        fd.append("opacity", String(a.opacity));
-        fd.append("hide_on_mobile", String(a.hide_on_mobile));
-        await fetch(`${BASE_URL}/theme/${themeId}/floating-asset`, {
-          method: "POST",
-          credentials: "include",
-          body: fd,
-        });
-      }
-
       toast.success(mode === "create" ? "Theme created" : "Theme updated");
       navigate("/theme");
     } catch (e) {
@@ -215,7 +166,10 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="pb-20">
+      <div className="lg:grid lg:grid-cols-[1fr_minmax(360px,42%)] lg:gap-6 lg:items-stretch">
+        {/* ── LEFT: the form ── */}
+        <div className="space-y-6 min-w-0">
       {/* Section 1 — Basic info */}
       <Section title="1. Basic Info" subtitle="Theme এর নাম, কোন fruit এর জন্য, status">
         <div className="grid md:grid-cols-2 gap-4">
@@ -274,6 +228,47 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         title="2. Colors"
         subtitle="তোমাকে শুধু ৩টা color দিতে হবে — বাকি 5 shade backend নিজে generate করবে।"
       >
+        {/* Curated palette presets — one click fills the 3 base colors */}
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-600 uppercase">
+              Suggested Palettes
+            </p>
+            <button
+              type="button"
+              onClick={() => applyPalette(PALETTE_PRESETS[0])}
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blueColor-600"
+              title="Reset to the default green palette"
+            >
+              <FaUndo size={10} /> Reset to suggested
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PALETTE_PRESETS.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                onClick={() => applyPalette(p)}
+                title={p.name}
+                className="group flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-full border border-gray-200 hover:border-blueColor-400 hover:bg-blueColor-50 transition"
+              >
+                <span className="flex">
+                  {[p.primary, p.accent, p.page_bg].map((c, i) => (
+                    <span
+                      key={i}
+                      className="w-3.5 h-3.5 rounded-full border border-white -ml-1 first:ml-0"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </span>
+                <span className="text-[11px] text-gray-600 group-hover:text-blueColor-700">
+                  {p.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           <Field label="Primary *">
             <div className="flex items-center gap-2">
@@ -284,6 +279,9 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
                 className="form-input flex-1 font-mono"
               />
             </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              বাটন, hero badge, accent bar, heading accent — main brand রং।
+            </p>
           </Field>
           <Field label="Page Background *">
             <div className="flex items-center gap-2">
@@ -294,6 +292,9 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
                 className="form-input flex-1 font-mono"
               />
             </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              পুরো page এর background — হালকা/নিউট্রাল রাখো।
+            </p>
           </Field>
           <Field label="Accent *">
             <div className="flex items-center gap-2">
@@ -304,6 +305,9 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
                 className="form-input flex-1 font-mono"
               />
             </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              রেটিং star, ছোট highlight — primary থেকে আলাদা রং।
+            </p>
           </Field>
         </div>
         <ColorAutoPreview
@@ -313,187 +317,40 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         />
       </Section>
 
-      {/* Section 3 — Floating images */}
+      {/* Section 3 — Floating images moved to per-product Page Content */}
       <Section
         title="3. Floating Images"
-        subtitle="প্রতিটা page section এ ভাসমান fruit image যোগ করো (transparent PNG/WebP)।"
+        subtitle="ভাসমান fruit ছবি এখন প্রতি product-এ আলাদা।"
       >
-        {existingAssets.length > 0 && (
-          <div className="space-y-2 mb-4">
-            <h4 className="text-xs font-semibold uppercase text-gray-500">
-              Existing Assets
-            </h4>
-            {existingAssets.map((a, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-2 bg-gray-50 rounded border"
-              >
-                <img
-                  src={a.asset_url}
-                  alt=""
-                  className="w-12 h-12 object-cover rounded border bg-white"
-                />
-                <div className="flex-1 text-xs text-gray-600">
-                  <div>
-                    <strong>{a.section}</strong> · {a.position} · {a.animation_type} ·{" "}
-                    {a.size}
-                  </div>
-                  <div className="text-gray-400">
-                    opacity {a.opacity} · {a.hide_on_mobile ? "hidden mobile" : "shown mobile"}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeExistingAsset(i)}
-                  className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100"
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="space-y-3">
-          {pendingAssets.map((a, idx) => (
-            <div key={idx} className="border rounded p-3 bg-white">
-              <div className="grid md:grid-cols-3 gap-3">
-                <Field label="File">
-                  <input
-                    type="file"
-                    accept="image/png,image/webp"
-                    onChange={(e) =>
-                      updatePendingAsset(idx, { file: e.target.files?.[0] || null })
-                    }
-                    className="form-input"
-                  />
-                </Field>
-                <Field label="Section">
-                  <select
-                    value={a.section}
-                    onChange={(e) =>
-                      updatePendingAsset(idx, { section: e.target.value })
-                    }
-                    className="form-input"
-                  >
-                    {SECTION_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Position">
-                  <select
-                    value={a.position}
-                    onChange={(e) =>
-                      updatePendingAsset(idx, { position: e.target.value })
-                    }
-                    className="form-input"
-                  >
-                    <option value="left">Left</option>
-                    <option value="right">Right</option>
-                  </select>
-                </Field>
-                <Field label="Animation">
-                  <select
-                    value={a.animation_type}
-                    onChange={(e) =>
-                      updatePendingAsset(idx, { animation_type: e.target.value })
-                    }
-                    className="form-input"
-                  >
-                    <option value="float">Float</option>
-                    <option value="spin">Spin</option>
-                    <option value="bounce">Bounce</option>
-                    <option value="sway">Sway</option>
-                    <option value="none">None</option>
-                  </select>
-                </Field>
-                <Field label="Speed">
-                  <select
-                    value={a.animation_speed}
-                    onChange={(e) =>
-                      updatePendingAsset(idx, { animation_speed: e.target.value })
-                    }
-                    className="form-input"
-                  >
-                    <option value="slow">Slow</option>
-                    <option value="normal">Normal</option>
-                    <option value="fast">Fast</option>
-                  </select>
-                </Field>
-                <Field label="Size">
-                  <select
-                    value={a.size}
-                    onChange={(e) => updatePendingAsset(idx, { size: e.target.value })}
-                    className="form-input"
-                  >
-                    <option value="xs">XS</option>
-                    <option value="sm">SM</option>
-                    <option value="md">MD</option>
-                    <option value="lg">LG</option>
-                  </select>
-                </Field>
-                <Field label="Opacity (0-1)">
-                  <input
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={a.opacity}
-                    onChange={(e) =>
-                      updatePendingAsset(idx, { opacity: Number(e.target.value) })
-                    }
-                    className="form-input"
-                  />
-                </Field>
-                <Field label="">
-                  <label className="inline-flex items-center gap-2 mt-7">
-                    <input
-                      type="checkbox"
-                      checked={a.hide_on_mobile}
-                      onChange={(e) =>
-                        updatePendingAsset(idx, {
-                          hide_on_mobile: e.target.checked,
-                        })
-                      }
-                    />
-                    <span className="text-sm text-gray-700">Hide on mobile</span>
-                  </label>
-                </Field>
-              </div>
-              <button
-                type="button"
-                onClick={() => removePendingAsset(idx)}
-                className="mt-2 text-xs text-red-600 hover:underline"
-              >
-                <FaTrash className="inline mr-1" /> Remove
-              </button>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={addPendingAsset}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-blueColor-50 text-blueColor-600 rounded text-sm hover:bg-blueColor-100"
-          >
-            <FaPlus /> Add Floating Image
-          </button>
-        </div>
+        <p className="text-sm text-gray-500">
+          Floating image এখন theme-এ নয় — প্রতিটি product-এর{" "}
+          <strong>Page Content → Floating Images</strong> tab থেকে আলাদাভাবে যোগ করা হয়
+          (যাতে আম পেজে আমের ছবি, আপেল পেজে আপেলের ছবি ভাসে)।
+        </p>
       </Section>
 
       {/* Section 4 — Typography & buttons */}
-      <Section title="4. Typography & Buttons">
+      <Section title="4. Typography & Roundness">
         <div className="grid md:grid-cols-3 gap-4">
-          <Field label="Font">
-            <select {...register("typography.font_key")} className="form-input">
+          <Field label="Heading Font">
+            <select {...register("typography.heading_font")} className="form-input">
               {FONT_OPTIONS.map((f) => (
                 <option key={f.key} value={f.key}>
                   {f.label}
                 </option>
               ))}
             </select>
+            <p className="text-[11px] text-gray-400 mt-1">সব title/heading এর font।</p>
+          </Field>
+          <Field label="Body Font">
+            <select {...register("typography.body_font")} className="form-input">
+              {FONT_OPTIONS.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">সব লেখা/details এর font।</p>
           </Field>
           <Field label="Heading Weight">
             <select {...register("typography.heading_weight")} className="form-input">
@@ -503,95 +360,69 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
               <option value="700">700</option>
             </select>
           </Field>
-          <Field label="Style">
-            <select {...register("typography.style")} className="form-input">
-              <option value="rounded">Rounded</option>
-              <option value="sharp">Sharp</option>
-              <option value="elegant">Elegant</option>
-              <option value="bold">Bold</option>
-            </select>
-          </Field>
-          <Field label="Button Border Radius">
+          <Field label="Corner Roundness">
             <select {...register("button_style.border_radius")} className="form-input">
-              <option value="0px">Square (0px)</option>
+              <option value="0px">Sharp (0px)</option>
               <option value="8px">Default (8px)</option>
-              <option value="24px">Pill (24px)</option>
-              <option value="9999px">Fully Rounded</option>
+              <option value="16px">Rounded (16px)</option>
+              <option value="24px">Extra Rounded (24px)</option>
             </select>
-          </Field>
-          <Field label="Button Variant">
-            <select {...register("button_style.variant")} className="form-input">
-              <option value="filled">Filled</option>
-              <option value="outlined">Outlined</option>
-              <option value="gradient">Gradient</option>
-            </select>
+            <p className="text-[11px] text-gray-400 mt-1">
+              বাটন, card, badge, image — পুরো page এর কোণার rounding।
+            </p>
           </Field>
         </div>
       </Section>
 
-      {/* Section 5 — Preview data */}
-      <Section
-        title="5. Preview Data"
-        subtitle="Theme preview এ যে dummy product দেখানো হবে তার তথ্য।"
-      >
-        <div className="grid md:grid-cols-2 gap-4">
-          <Field label="Product Name">
-            <input
-              type="text"
-              {...register("preview_data.product_name")}
-              className="form-input"
-              placeholder="শুকনো আপেল"
-            />
-          </Field>
-          <Field label="Image URL">
-            <input
-              type="text"
-              {...register("preview_data.image_url")}
-              className="form-input"
-              placeholder="https://..."
-            />
-          </Field>
-          <Field label="Short Description">
-            <input
-              type="text"
-              {...register("preview_data.short_description")}
-              className="form-input"
-              placeholder="স্বাস্থ্যকর স্ন্যাকস, প্রতিদিনের এনার্জি"
-            />
-          </Field>
-          <Field label="Price (BDT)">
-            <input
-              type="number"
-              {...register("preview_data.price")}
-              className="form-input"
-            />
-          </Field>
-          <Field label="Discount Price (BDT)">
-            <input
-              type="number"
-              {...register("preview_data.discount_price")}
-              className="form-input"
-            />
-          </Field>
         </div>
-      </Section>
+        {/* ── End LEFT form column ── */}
 
-      {/* Submit row */}
-      <div className="flex items-center justify-between pt-2 border-t">
-        {mode === "update" && initial?._id && (
-          <a
-            href={`/theme/preview/${initial._id}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-600 rounded hover:bg-purple-100"
-          >
-            <FaImage /> Open Preview
-          </a>
-        )}
+        {/* ── RIGHT: sticky live preview iframe ── */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-600 uppercase">
+                Live Preview
+              </p>
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blueColor-600"
+              >
+                <FaImage size={11} /> Full screen
+              </a>
+            </div>
+            <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+              <iframe
+                key={previewUrl}
+                src={previewUrl}
+                title="Theme live preview"
+                className="w-full"
+                style={{ height: "calc(100vh - 7rem)", border: 0 }}
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              রং/font বদলালে ~১ সেকেন্ড পর preview আপডেট হবে (dummy product দিয়ে)।
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      {/* Sticky save bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t shadow-lg px-4 py-3 flex items-center justify-end gap-3">
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="lg:hidden inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded"
+        >
+          <FaImage size={12} /> Preview
+        </a>
         <button
           type="submit"
           disabled={submitting}
-          className="ml-auto inline-flex items-center gap-2 px-4 py-2 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-5 py-2 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 disabled:opacity-60 text-sm font-semibold"
         >
           {submitting ? <MiniSpinner /> : <FaSave />}{" "}
           {mode === "create" ? "Create Theme" : "Update Theme"}

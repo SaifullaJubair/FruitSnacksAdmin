@@ -5,16 +5,13 @@ import BrandPage from "../pages/BrandPage/BrandPage";
 import AddCampaignPage from "../pages/CampaignPage/AddCampaignPage/AddCampaignPage";
 import CampaignListPage from "../pages/CampaignPage/CampaignListPage/CampaignListPage";
 import CategoryPage from "../pages/CategoryPage/CategoryPage";
-import ChildCategoryPage from "../pages/ChildCategoryPage/ChildCategoryPage";
 import AddProductPage from "../pages/ProductPage/AddProductPage/AddProductPage";
 import ProductListTablePage from "../pages/ProductPage/ProductListTablePage/ProductListTablePage";
 import ReviewPage from "../pages/ReviewPage/ReviewPage";
 import SignInPage from "../pages/SignInPage/SignInPage";
-import SpecificationPage from "../pages/SpecificationPage/SpecificationPage";
 import AddStaffRolePage from "../pages/StaffAndRolePage/AddStaffRolePage/AddStaffRolePage";
 import AllStaffPage from "../pages/StaffAndRolePage/AllStaffPage/AllStaffPage";
 import StaffRoleTablePage from "../pages/StaffAndRolePage/StaffRoleTablePage/StaffRoleTablePage";
-import SubcategoryPage from "../pages/SubCategoryPage/SubcategoryPage";
 import NotFound from "../shared/NotFound/NotFound";
 
 import ProductUpdatePage from "../pages/ProductPage/ProductUpdatePage/ProductUpdatePage";
@@ -51,7 +48,15 @@ import ThemeAddPage from "../pages/ThemePage/ThemeAddPage";
 import ThemeUpdatePage from "../pages/ThemePage/ThemeUpdatePage";
 import ThemePreviewPage from "../pages/ThemePage/ThemePreviewPage";
 import FaqTemplateListPage from "../pages/FaqTemplatePage/FaqTemplateListPage";
+import TrustPointPage from "../pages/TrustPointPage/TrustPointPage";
 import ProductPageContentEditPage from "../pages/ProductPage/ProductPageContentEditPage/ProductPageContentEditPage";
+import FlashSalePage from "../pages/FlashSalePage/FlashSalePage";
+import WarehousePage from "../pages/WarehousePage/WarehousePage";
+import WishlistPage from "../pages/WishlistPage/WishlistPage";
+import AbandonedCartPage from "../pages/AbandonedCartPage/AbandonedCartPage";
+import LoyaltyPage from "../pages/LoyaltyPage/LoyaltyPage";
+import LowStockPage from "../pages/LowStockPage/LowStockPage";
+import WalletPage from "../pages/WalletPage/WalletPage";
 
 const route = createBrowserRouter([
   {
@@ -73,20 +78,8 @@ const route = createBrowserRouter([
         element: <CategoryPage />,
       },
       {
-        path: "/sub-category",
-        element: <SubcategoryPage />,
-      },
-      {
-        path: "/child-category",
-        element: <ChildCategoryPage />,
-      },
-      {
         path: "/brand-category",
         element: <BrandPage />,
-      },
-      {
-        path: "/specification-list",
-        element: <SpecificationPage />,
       },
       {
         path: "/attribute",
@@ -167,6 +160,12 @@ const route = createBrowserRouter([
         element: <AddCoupon />,
       },
       //------Coupon End-----//
+
+      //------Flash Sale (Phase E)-----//
+      {
+        path: "/flash-sale",
+        element: <FlashSalePage />,
+      },
 
       //----sell start----//
 
@@ -265,10 +264,44 @@ const route = createBrowserRouter([
         element: <ThemePreviewPage />,
       },
 
+      // ......Warehouses (Phase H).......//
+      {
+        path: "/warehouse",
+        element: <WarehousePage />,
+      },
+
+      // ......A3b admin viewer pages........//
+      {
+        path: "/wishlist",
+        element: <WishlistPage />,
+      },
+      {
+        path: "/abandoned-cart",
+        element: <AbandonedCartPage />,
+      },
+      {
+        path: "/loyalty",
+        element: <LoyaltyPage />,
+      },
+      {
+        path: "/wallet",
+        element: <WalletPage />,
+      },
+      {
+        path: "/low-stock",
+        element: <LowStockPage />,
+      },
+
       // ......FAQ Templates.......//
       {
         path: "/faq-template",
         element: <FaqTemplateListPage />,
+      },
+
+      // ......Brand Promise (Trust Points).......//
+      {
+        path: "/trust-point",
+        element: <TrustPointPage />,
       },
 
       // ......Product Page Content.......//

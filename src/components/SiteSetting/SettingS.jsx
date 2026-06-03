@@ -11,6 +11,11 @@ import CurrencySymbol from "./CurrencySymbol";
 import ShippingConFiguration from "./ShippingConFiguration";
 import AnalyticsSettings from "./AnalyticsSettings";
 import AnnouncementBarSettings from "./AnnouncementBarSettings";
+import OfferBannerSettings from "./OfferBannerSettings";
+import PaymentMethodsSettings from "./PaymentMethodsSettings";
+import VatSettings from "./VatSettings";
+import LoyaltySettings from "./LoyaltySettings";
+import SmsSettings from "./SmsSettings";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -79,6 +84,42 @@ const SettingS = () => {
           />
         );
 
+      // ✅ Phase C — payment methods (cod / manual MFS / bank / SSLCommerz / advance)
+      case "payment-methods":
+        return (
+          <PaymentMethodsSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // ✅ Phase H — site-wide VAT
+      case "vat":
+        return (
+          <VatSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // ✅ Phase G3 — loyalty points config
+      case "loyalty":
+        return (
+          <LoyaltySettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // ✅ Phase G5 — SMS provider creds from settings
+      case "sms":
+        return (
+          <SmsSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
       // ✅ নতুন analytics tab
       case "analytics":
         return (
@@ -91,6 +132,14 @@ const SettingS = () => {
       case "announcement-bar":
         return (
           <AnnouncementBarSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      case "offer-banner":
+        return (
+          <OfferBannerSettings
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />

@@ -19,8 +19,10 @@ import { ChildMenuItem, DropdownMenu, MenuItem } from "./DropdownAndMenuItem";
 import { IoSettings } from "react-icons/io5";
 
 import { RiCoupon3Line, RiShieldCheckLine } from "react-icons/ri";
-import { FaBorderAll, FaQuestion } from "react-icons/fa";
+import { FaBorderAll, FaQuestion, FaHandshake, FaWarehouse, FaHeart, FaGift, FaWallet } from "react-icons/fa";
 import { FaUsers } from "react-icons/fa6";
+import { MdFlashOn } from "react-icons/md";
+import { FiAlertTriangle, FiShoppingCart } from "react-icons/fi";
 
 import { TfiLayoutSliderAlt } from "react-icons/tfi";
 import { IoColorPaletteOutline } from "react-icons/io5";
@@ -85,10 +87,7 @@ const SideNavBar = () => {
             onClick={closeAllDropdowns} // Close all dropdowns when clicked
           />
           {(user?.role_id?.category_show === true ||
-            user?.role_id?.sub_category_show === true ||
-            // user?.role_id?.child_category_show === true ||
             user?.role_id?.brand_show === true ||
-            user?.role_id?.specification_show === true ||
             user?.role_id?.attribute_show === true) && (
             <DropdownMenu
               label="Task"
@@ -96,6 +95,7 @@ const SideNavBar = () => {
               isOpen={activeDropdown === "task"}
               onClick={() => toggleDropdown("task")}
             >
+              {/* Category is now a nested tree — Sub/Child Category pages retired. */}
               {user?.role_id?.category_show === true && (
                 <ChildMenuItem
                   to="/category"
@@ -105,23 +105,6 @@ const SideNavBar = () => {
                 />
               )}
 
-              {user?.role_id?.sub_category_show === true && (
-                <ChildMenuItem
-                  to="/sub-category"
-                  icon={TbCategoryPlus}
-                  label="Sub Category"
-                  isActive={isActive("/sub-category")}
-                />
-              )}
-              {/* {user?.role_id?.child_category_show === true && (
-                <ChildMenuItem
-                  to="/child-category"
-                  icon={TbCategoryPlus}
-                  label="Child Category"
-                  isActive={isActive("/child-category")}
-                />
-              )} */}
-
               {user?.role_id?.brand_show === true && (
                 <ChildMenuItem
                   to="/brand-category"
@@ -130,14 +113,6 @@ const SideNavBar = () => {
                   isActive={isActive("/brand-category")}
                 />
               )}
-              {/* {user?.role_id?.specification_show === true && (
-                <ChildMenuItem
-                  to="/specification-list"
-                  icon={TbCategoryPlus}
-                  label="Specification"
-                  isActive={isActive("/specification-list")} 
-                />
-              )} */}
 
               {user?.role_id?.attribute_show === true && (
                 <ChildMenuItem
@@ -170,6 +145,15 @@ const SideNavBar = () => {
                   icon={TbCategoryPlus}
                   label="Add Product"
                   isActive={isActive("/product/product-create")}
+                />
+              )}
+              {/* A3b — Low-stock list (Phase B4). product_show flag. */}
+              {user?.role_id?.product_show === true && (
+                <ChildMenuItem
+                  to="/low-stock"
+                  icon={FiAlertTriangle}
+                  label="Low Stock"
+                  isActive={isActive("/low-stock")}
                 />
               )}
             </DropdownMenu>
@@ -309,6 +293,19 @@ const SideNavBar = () => {
               )}
             </DropdownMenu>
           )}
+          {/* Flash Sale — Phase E. Gated by offer_show/_create/_update so a
+              viewer role still sees the list. */}
+          {(user?.role_id?.offer_show === true ||
+            user?.role_id?.offer_create === true ||
+            user?.role_id?.offer_update === true) && (
+            <MenuItem
+              to="/flash-sale"
+              icon={MdFlashOn}
+              label="Flash Sale"
+              isActive={isActive("/flash-sale")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {user?.role_id?.banner_show === true && (
             <MenuItem
               to="/banner"
@@ -333,6 +330,25 @@ const SideNavBar = () => {
               icon={FaQuestion}
               label="FAQ Templates"
               isActive={isActive("/faq-template")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* Warehouse — Phase H. Gated by setting_show (matches BE). */}
+          {user?.role_id?.setting_show === true && (
+            <MenuItem
+              to="/warehouse"
+              icon={FaWarehouse}
+              label="Warehouses"
+              isActive={isActive("/warehouse")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {user?.role_id?.trust_point_show === true && (
+            <MenuItem
+              to="/trust-point"
+              icon={FaHandshake}
+              label="Brand Promise"
+              isActive={isActive("/trust-point")}
               onClick={closeAllDropdowns}
             />
           )}
@@ -401,6 +417,14 @@ const SideNavBar = () => {
                 isActive={isActive("/pathao-order")}
                 onClick={closeAllDropdowns}
               />
+              {/* A3b — Abandoned Cart (Phase G2). Same order_show flag. */}
+              <MenuItem
+                to="/abandoned-cart"
+                icon={FiShoppingCart}
+                label="Abandoned Carts"
+                isActive={isActive("/abandoned-cart")}
+                onClick={closeAllDropdowns}
+              />
               {/* <MenuItem
                 to="/delivery-order"
                 icon={FaBorderAll}
@@ -440,6 +464,36 @@ const SideNavBar = () => {
               icon={FaUsers}
               label="Customer"
               isActive={isActive("/customer")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* A3b — Wishlist viewer (Phase G1). user_show flag (matches BE). */}
+          {user?.role_id?.user_show === true && (
+            <MenuItem
+              to="/wishlist"
+              icon={FaHeart}
+              label="Wishlists"
+              isActive={isActive("/wishlist")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* A3b — Loyalty viewer + adjust (Phase G3). user_show flag. */}
+          {user?.role_id?.user_show === true && (
+            <MenuItem
+              to="/loyalty"
+              icon={FaGift}
+              label="Loyalty Points"
+              isActive={isActive("/loyalty")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* V fix — Wallet viewer + adjust (Phase E). user_show flag. */}
+          {user?.role_id?.user_show === true && (
+            <MenuItem
+              to="/wallet"
+              icon={FaWallet}
+              label="Wallet"
+              isActive={isActive("/wallet")}
               onClick={closeAllDropdowns}
             />
           )}

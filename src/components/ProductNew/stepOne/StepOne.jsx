@@ -7,6 +7,10 @@ import StepOneVariation from "./StepOneVariation";
 import { toast } from "react-toastify";
 import { BASE_URL } from "../../../utils/baseURL";
 import { LoaderOverlay } from "../../common/loader/LoderOverley";
+import CategoryTreePicker from "../../Category/CategoryTreePicker";
+import { StepOneBaseContext } from "./StepOneBaseContext";
+import StepOneAdvanced from "./StepOneAdvanced";
+import StepOneProductType from "./StepOneProductType";
 
 const StepOne = ({
   setCurrentStep,
@@ -18,39 +22,31 @@ const StepOne = ({
   setSelectedAttributeValues,
   dataToSubmit,
   setDataToSubmit,
-  setStepTwoData,
 }) => {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm();
+  // Live base-price feed for the variation matrix (StepOneVariationTable reads
+  // it via StepOneBaseContext to render per-row "Final = base + delta").
+  const watchedBasePrice = Number(watch("product_price")) || 0;
 
+  // Single-leaf category from the nested tree (replaces the old 3-dropdown
+  // category/sub/child chain). category_path is the ancestor chain (root → …)
+  // sent for fast subtree filtering on the backend (it also recomputes the
+  // path on save, but we send it so the form state is complete).
   const [category_id, setCategory_id] = useState(
     stepOneData?.category_id ? stepOneData?.category_id : ""
   );
-
   const [category_name, setCategory_name] = useState(
     stepOneData?.category_name ? stepOneData?.category_name : ""
   );
-  const [isSub_CategoryOpen, setIsSub_CategoryOpen] = useState(true);
-  const [subCategoryData, setSubCategoryData] = useState([]);
-  const [sub_category_id, setSub_Category_id] = useState(
-    stepOneData?.sub_category_id ? stepOneData?.sub_category_id : ""
+  const [category_path, setCategoryPath] = useState(
+    stepOneData?.category_path ?? []
   );
-  const [sub_category_name, setSub_Category_name] = useState(
-    stepOneData?.sub_category_name ? stepOneData?.sub_category_name : ""
-  );
-  const [isChild_CategoryOpen, setIsChild_CategoryOpen] = useState(true);
-  const [childCategoryData, setChildCategoryData] = useState([]);
-  const [child_category_id, setChild_Category_id] = useState(
-    stepOneData?.child_category_id ? stepOneData?.child_category_id : ""
-  );
-  const [child_category_name, setChild_Category_name] = useState(
-    stepOneData?.child_category_name ? stepOneData?.child_category_name : ""
-  );
-  const [isBrandOpen, setIsBrandOpen] = useState(true);
-  const [brandData, setBrandData] = useState([]);
+
   const [brand_id, setBrand_id] = useState(
     stepOneData?.brand_id ? stepOneData?.brand_id : ""
   );
@@ -59,33 +55,8 @@ const StepOne = ({
   );
 
   // set default value
-  const categoryNameValue = stepOneData?.category_name
-    ? stepOneData?.category_name
-    : "";
-  const categoryNameId = stepOneData?.category_id
-    ? stepOneData?.category_id
-    : "";
-
-  const sub_categoryNameValue = stepOneData?.sub_category_name
-    ? stepOneData?.sub_category_name
-    : "";
-  const sub_categoryNameId = stepOneData?.sub_category_id
-    ? stepOneData?.sub_category_id
-    : "";
-
-  const child_categoryNameValue = stepOneData?.child_category_name
-    ? stepOneData?.child_category_name
-    : "";
-  const child_categoryNameId = stepOneData?.child_category_id
-    ? stepOneData?.child_category_id
-    : "";
-
   const brandNameValue = stepOneData?.brand_name ? stepOneData?.brand_name : "";
   const brandNameId = stepOneData?.brand_id ? stepOneData?.brand_id : "";
-
-  // set  change value state
-  const [isChangeCategory, setIsChangeCategory] = useState(false);
-  const [isChangeSub_Category, setIsChangeSub_Category] = useState(false);
 
   // set show product variation status
   const [showProductVariation, setShowProductVariation] = useState(
@@ -104,42 +75,8 @@ const StepOne = ({
     }
   }, [stepOneData?.variation_details]);
 
-  const { data: categories = [], isLoading: categoryLoading } = useQuery({
-    queryKey: [`/api/v1/category/dashboard`],
-    queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/category/dashboard`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      return data;
-    },
-  }); // get all category for select
-
-  const { data: sub_categories = [], isLoading: subCategoryLoading } = useQuery(
-    {
-      queryKey: [`/api/v1/sub_category/dashboard`],
-      queryFn: async () => {
-        const res = await fetch(`${BASE_URL}/sub_category/dashboard`, {
-          credentials: "include",
-        });
-        const data = await res.json();
-        return data;
-      },
-    }
-  ); // get all Sub category for select
-
-  const { data: child_categories = [], isLoading: childCategoryLoading } =
-    useQuery({
-      queryKey: [`/api/v1/child_category/dashboard`],
-      queryFn: async () => {
-        const res = await fetch(`${BASE_URL}/child_category/dashboard`, {
-          credentials: "include",
-        });
-        const data = await res.json();
-        return data;
-      },
-    }); // get all Child category for select
-
+  // CategoryTreePicker fetches /category/tree itself — no flat dashboard fetch
+  // needed here. (sub_category & child_category endpoints retired in Phase 0.)
   const { data: brands = [], isLoading: brandLoading } = useQuery({
     queryKey: [`/api/v1/brand/dashboard`],
     queryFn: async () => {
@@ -149,38 +86,52 @@ const StepOne = ({
       const data = await res.json();
       return data;
     },
-  }); // get all Brand for select
+  });
+  const brandData = brands?.data ?? [];
 
-  //   set sub category
-  useEffect(() => {
-    const getSubCategoryData = sub_categories?.data?.filter(
-      (sub_category) => sub_category?.category_id?._id === category_id
-    );
-    setSubCategoryData(getSubCategoryData);
-  }, [sub_categories?.data, category_id]);
+  // ── Phase F + H state (A2a + A2b) — lifted here so handleDataPost can pack
+  //    them into sendData; rendered by <StepOneAdvanced /> below.
+  const [videoLink, setVideoLink] = useState(stepOneData?.video_link || "");
+  const [condition, setCondition] = useState(stepOneData?.condition || "new");
+  const [weightGrams, setWeightGrams] = useState(
+    stepOneData?.product_weight_grams ?? "",
+  );
+  const [vatOverride, setVatOverride] = useState(
+    stepOneData?.vat_percentage_override ?? "",
+  );
+  const [warehouseId, setWarehouseId] = useState(
+    stepOneData?.warehouse_id || "",
+  );
+  const [dimensions, setDimensions] = useState(
+    stepOneData?.product_dimensions || {},
+  );
+  const [tierPrices, setTierPrices] = useState(
+    Array.isArray(stepOneData?.tier_prices) ? stepOneData.tier_prices : [],
+  );
+  const [groupPrices, setGroupPrices] = useState(
+    Array.isArray(stepOneData?.group_prices) ? stepOneData.group_prices : [],
+  );
 
-  //   set child category
-  useEffect(() => {
-    const getChildCategoryData = child_categories?.data?.filter(
-      (child_category) =>
-        child_category?.category_id?._id === category_id &&
-        child_category?.sub_category_id?._id === sub_category_id
-    );
-    setChildCategoryData(getChildCategoryData);
-  }, [child_categories?.data, category_id, sub_category_id]);
-
-  //   set brand
-  useEffect(() => {
-    if (brands?.data) {
-      // const getBrandData = brands?.data?.filter((brand) => {
-      //   // Check if the brand's category_id matches the current category_id
-      //   const categoryMatch = brand?.category_id?._id === category_id;
-      //   return categoryMatch;
-      // });
-      // setBrandData(getBrandData);
-      setBrandData(brands?.data);
-    }
-  }, [brands?.data, category_id]);
+  // ── Phase F (A2c) — product_type machinery + custom_fields ─────────
+  const [productType, setProductType] = useState(
+    stepOneData?.product_type || "simple",
+  );
+  const [downloadUrl, setDownloadUrl] = useState(
+    stepOneData?.download_url || "",
+  );
+  const [licenseKey, setLicenseKey] = useState(stepOneData?.license_key || "");
+  const [bundleItems, setBundleItems] = useState(
+    Array.isArray(stepOneData?.bundle_items) ? stepOneData.bundle_items : [],
+  );
+  const [availableFrom, setAvailableFrom] = useState(
+    stepOneData?.available_from || "",
+  );
+  const [billingInterval, setBillingInterval] = useState(
+    stepOneData?.billing_interval || "",
+  );
+  const [customFields, setCustomFields] = useState(
+    Array.isArray(stepOneData?.custom_fields) ? stepOneData.custom_fields : [],
+  );
 
   function validateProductData(data) {
     const {
@@ -434,10 +385,7 @@ const StepOne = ({
     const sendData = {
       category_id: category_id,
       category_name: category_name,
-      sub_category_id: sub_category_id,
-      sub_category_name: sub_category_name,
-      child_category_id: child_category_id,
-      child_category_name: child_category_name,
+      category_path: category_path,
       brand_id: brand_id,
       brand_name: brand_name,
       product_name: data?.product_name,
@@ -448,29 +396,51 @@ const StepOne = ({
       // product_alert_quantity: data?.product_alert_quantity,
       product_buying_price: data?.product_buying_price,
       showProductVariation: showProductVariation,
-      variation_details: inputValueData?.map((item) => ({
-        ...item,
-      })),
-      attributes_details: dataToSubmit?.map((item) => ({
-        attribute_name: item?.attribute_name,
-        attribute_values: item?.attribute_values?.map((att_val) => ({
-          attribute_value_name: att_val?.attribute_value_name,
-          attribute_value_code: att_val?.attribute_value_code,
-        })),
-      })),
+      variation_details: inputValueData?.map((item) => ({ ...item })),
+      // Phase 2 attribute payload (new shape, single source of truth):
+      product_attributes: dataToSubmit?.product_attributes ?? [],
+      variant_axes: dataToSubmit?.variant_axes ?? [],
+      // Legacy free-text snapshot (kept for backward-compat until consumers
+      // migrate to product_attributes).
+      attributes_details: (dataToSubmit?.attributes_details ?? []).map(
+        (item) => ({
+          attribute_name: item?.attribute_name,
+          attribute_values: item?.attribute_values?.map((av) => ({
+            attribute_value_name: av?.attribute_value_name,
+            attribute_value_code: av?.attribute_value_code,
+          })),
+        }),
+      ),
+      // ── Phase F + H additions (A2a + A2b)
+      video_link: videoLink || "",
+      condition: condition || "new",
+      product_weight_grams: weightGrams === "" ? undefined : weightGrams,
+      vat_percentage_override: vatOverride === "" ? undefined : vatOverride,
+      warehouse_id: warehouseId || undefined,
+      product_dimensions:
+        dimensions &&
+        (dimensions.length || dimensions.width || dimensions.height)
+          ? dimensions
+          : undefined,
+      tier_prices: (tierPrices || []).filter(
+        (r) => r.min_qty !== "" && r.price !== "",
+      ),
+      group_prices: (groupPrices || []).filter((r) => r.price !== ""),
+      // ── Phase F (A2c) — product_type + per-type fields + custom_fields
+      product_type: productType || "simple",
+      download_url: downloadUrl || "",
+      license_key: licenseKey || "",
+      bundle_items: (bundleItems || []).filter(
+        (r) => r.product_id && Number(r.quantity) > 0,
+      ),
+      available_from: availableFrom
+        ? new Date(availableFrom).toISOString()
+        : undefined,
+      billing_interval: billingInterval || undefined,
+      custom_fields: (customFields || []).filter(
+        (r) => r.label?.trim() && r.value?.trim(),
+      ),
     };
-    if (!sendData?.sub_category_id) {
-      delete sendData?.sub_category_id;
-    }
-    if (!sendData?.sub_category_name) {
-      delete sendData?.sub_category_name;
-    }
-    if (!sendData?.child_category_id) {
-      delete sendData?.child_category_id;
-    }
-    if (!sendData?.child_category_name) {
-      delete sendData?.child_category_name;
-    }
     if (!sendData?.brand_id) {
       delete sendData?.brand_id;
     }
@@ -478,7 +448,8 @@ const StepOne = ({
       delete sendData?.brand_name;
     }
     if (showProductVariation == true) {
-      delete sendData?.product_price;
+      // KEEP product_price — variation rows use it as the base for
+      // variation_price_delta. Only drop fields that the variation rows REPLACE.
       delete sendData?.product_discount_price;
       delete sendData?.product_quantity;
       delete sendData?.product_alert_quantity;
@@ -497,12 +468,7 @@ const StepOne = ({
   };
 
   // loading set
-  if (
-    categoryLoading ||
-    subCategoryLoading ||
-    childCategoryLoading ||
-    brandLoading
-  ) {
+  if (brandLoading) {
     return <LoaderOverlay />;
   }
 
@@ -549,200 +515,108 @@ const StepOne = ({
                 className="block w-full p-2.5 outline-primaryColor text-gray-800 bg-white border border-gray-300 rounded-lg mt-2"
               />
             </div> */}
-            {/* Category Name */}
-            <div className=" space-y-2">
-              <label htmlFor="category_name" className="font-medium">
-                Category Name<span className="text-red-500">*</span>
+            {/* Category — nested tree single-leaf picker. Replaces the old
+                category → sub → child 3-dropdown (those modules are retired). */}
+            <div className="space-y-2">
+              <label className="font-medium">
+                Category<span className="text-red-500">*</span>
               </label>
-
-              <Select
-                id="category_id"
-                name="category_id"
-                required
-                isClearable
-                defaultValue={{
-                  _id: categoryNameId,
-                  category_name: categoryNameValue,
-                }}
-                aria-label="Select a Category"
-                options={categories?.data}
-                getOptionLabel={(x) => x?.category_name}
-                getOptionValue={(x) => x?._id}
-                onChange={(selectedOption) => {
-                  setIsChangeCategory(true);
-                  setIsChild_CategoryOpen(false);
-                  setIsSub_CategoryOpen(false);
-                  setIsBrandOpen(false);
-                  setCategory_id(selectedOption?._id);
-                  setCategory_name(selectedOption?.category_name);
+              <CategoryTreePicker
+                value={category_id}
+                onChange={(node) => {
+                  if (!node) {
+                    setCategory_id("");
+                    setCategory_name("");
+                    setCategoryPath([]);
+                    setStepOneData({
+                      ...stepOneData,
+                      category_id: "",
+                      category_name: "",
+                      category_path: [],
+                    });
+                    return;
+                  }
+                  setCategory_id(node._id);
+                  setCategory_name(node.category_name);
+                  // category_path is built from the node's stored ancestor chain
+                  // (+ self), giving the leaf-inclusive root→leaf id list.
+                  const nextPath = [...(node.category_path ?? []), node._id];
+                  setCategoryPath(nextPath);
                   setStepOneData({
                     ...stepOneData,
-                    category_id: selectedOption?._id,
+                    category_id: node._id,
+                    category_name: node.category_name,
+                    category_path: nextPath,
                   });
-                  setSub_Category_name("");
-                  setSub_Category_id("");
-                  setChild_Category_name("");
-                  setChild_Category_id("");
-                  setBrand_name("");
-                  setBrand_id("");
-                  setTimeout(() => {
-                    setIsSub_CategoryOpen(true);
-                    setIsChild_CategoryOpen(true);
-                    setIsBrandOpen(true);
-                  }, 100);
+                }}
+              />
+            </div>
+
+            {/* Brand Name */}
+            <div className="space-y-2">
+              <label htmlFor="brand_name" className="font-medium">
+                Brand Name
+              </label>
+              <Select
+                id="brand_id"
+                name="brand_id"
+                aria-label="Select a Brand"
+                isClearable
+                defaultValue={
+                  brandNameId
+                    ? { _id: brandNameId, brand_name: brandNameValue }
+                    : null
+                }
+                options={brandData}
+                getOptionLabel={(x) => x?.brand_name}
+                getOptionValue={(x) => x?._id}
+                onChange={(selectedOption) => {
+                  setBrand_id(selectedOption?._id ?? "");
+                  setBrand_name(selectedOption?.brand_name ?? "");
                 }}
               ></Select>
             </div>
-            {/* Sub Category Name */}
-            {isSub_CategoryOpen && (
-              <div className=" space-y-2 ">
-                <label htmlFor="sub_category_name" className="font-medium">
-                  Sub Category Name
-                </label>
-                {isChangeCategory == true ? (
-                  <Select
-                    id="sub_category_id"
-                    name="sub_category_id"
-                    aria-label="Select a Sub Category"
-                    isClearable
-                    options={subCategoryData}
-                    getOptionLabel={(x) => x?.sub_category_name}
-                    getOptionValue={(x) => x?._id}
-                    onChange={(selectedOption) => {
-                      setIsChangeSub_Category(true);
-                      setIsChild_CategoryOpen(false);
-                      setSub_Category_id(selectedOption?._id);
-                      setStepOneData({
-                        ...stepOneData,
-                        sub_category_id: selectedOption?._id,
-                      });
-                      setSub_Category_name(selectedOption?.sub_category_name);
-                      setChild_Category_name("");
-                      setChild_Category_id("");
-                      setTimeout(() => {
-                        setIsChild_CategoryOpen(true);
-                      }, 100);
-                    }}
-                  ></Select>
-                ) : (
-                  <Select
-                    id="sub_category_id"
-                    name="sub_category_id"
-                    defaultValue={{
-                      _id: sub_categoryNameId,
-                      sub_category_name: sub_categoryNameValue,
-                    }}
-                    isClearable
-                    aria-label="Select a Sub Category"
-                    options={subCategoryData}
-                    getOptionLabel={(x) => x?.sub_category_name}
-                    getOptionValue={(x) => x?._id}
-                    onChange={(selectedOption) => {
-                      setIsChangeSub_Category(true);
-                      setIsChild_CategoryOpen(false);
-                      setSub_Category_id(selectedOption?._id);
-                      setStepOneData({
-                        ...stepOneData,
-                        sub_category_id: selectedOption?._id,
-                      });
-                      setSub_Category_name(selectedOption?.sub_category_name);
-                      setTimeout(() => {
-                        setIsChild_CategoryOpen(true);
-                      }, 100);
-                    }}
-                  ></Select>
-                )}
-              </div>
-            )}
-            {/* Child Category Name */}
-            {/* {isChild_CategoryOpen && (
-              <div className="space-y-2">
-                <label htmlFor="child_category_name" className="font-medium">
-                  Child Category Name
-                </label>
-                {isChangeCategory == true || isChangeSub_Category == true ? (
-                  <Select
-                    id="child_category_id"
-                    name="child_category_id"
-                    aria-label="Select a Child Category"
-                    isClearable
-                    options={childCategoryData}
-                    getOptionLabel={(x) => x?.child_category_name}
-                    getOptionValue={(x) => x?._id}
-                    onChange={(selectedOption) => {
-                      setChild_Category_id(selectedOption?._id);
-                      setChild_Category_name(
-                        selectedOption?.child_category_name
-                      );
-                    }}
-                  ></Select>
-                ) : (
-                  <Select
-                    id="child_category_id"
-                    name="child_category_id"
-                    isClearable
-                    defaultValue={{
-                      _id: child_categoryNameId,
-                      child_category_name: child_categoryNameValue,
-                    }}
-                    aria-label="Select a Child Category"
-                    options={childCategoryData}
-                    getOptionLabel={(x) => x?.child_category_name}
-                    getOptionValue={(x) => x?._id}
-                    onChange={(selectedOption) => {
-                      setChild_Category_id(selectedOption?._id);
-                      setChild_Category_name(
-                        selectedOption?.child_category_name
-                      );
-                    }}
-                  ></Select>
-                )}
-              </div>
-            )} */}
-
-            {/* Brand Name */}
-            {isBrandOpen && (
-              <div className="space-y-2">
-                <label htmlFor="brand_name" className="font-medium">
-                  Brand Name
-                </label>
-                {isChangeCategory == true ? (
-                  <Select
-                    id="brand_id"
-                    name="brand_id"
-                    aria-label="Select a Brand"
-                    isClearable
-                    options={brandData}
-                    getOptionLabel={(x) => x?.brand_name}
-                    getOptionValue={(x) => x?._id}
-                    onChange={(selectedOption) => {
-                      setBrand_id(selectedOption?._id);
-                      setBrand_name(selectedOption?.brand_name);
-                    }}
-                  ></Select>
-                ) : (
-                  <Select
-                    id="brand_id"
-                    name="brand_id"
-                    aria-label="Select a Brand"
-                    isClearable
-                    defaultValue={{
-                      _id: brandNameId,
-                      brand_name: brandNameValue,
-                    }}
-                    options={brandData}
-                    getOptionLabel={(x) => x?.brand_name}
-                    getOptionValue={(x) => x?._id}
-                    onChange={(selectedOption) => {
-                      setBrand_id(selectedOption?._id);
-                      setBrand_name(selectedOption?.brand_name);
-                    }}
-                  ></Select>
-                )}
-              </div>
-            )}
           </div>
         </section>
+
+        {/* Phase F + H — Advanced (logistics, tax, tier/group prices). */}
+        <StepOneAdvanced
+          videoLink={videoLink}
+          setVideoLink={setVideoLink}
+          condition={condition}
+          setCondition={setCondition}
+          weightGrams={weightGrams}
+          setWeightGrams={setWeightGrams}
+          vatOverride={vatOverride}
+          setVatOverride={setVatOverride}
+          warehouseId={warehouseId}
+          setWarehouseId={setWarehouseId}
+          dimensions={dimensions}
+          setDimensions={setDimensions}
+          tierPrices={tierPrices}
+          setTierPrices={setTierPrices}
+          groupPrices={groupPrices}
+          setGroupPrices={setGroupPrices}
+        />
+
+        {/* Phase F (A2c) — product_type + conditional per-type fields + custom_fields. */}
+        <StepOneProductType
+          productType={productType}
+          setProductType={setProductType}
+          downloadUrl={downloadUrl}
+          setDownloadUrl={setDownloadUrl}
+          licenseKey={licenseKey}
+          setLicenseKey={setLicenseKey}
+          bundleItems={bundleItems}
+          setBundleItems={setBundleItems}
+          availableFrom={availableFrom}
+          setAvailableFrom={setAvailableFrom}
+          billingInterval={billingInterval}
+          setBillingInterval={setBillingInterval}
+          customFields={customFields}
+          setCustomFields={setCustomFields}
+        />
+
         {/* Product Variation */}
         <section className=" shadow-md bg-gray-50 rounded-lg p-4 sm:p-8 md:p-12 py-6 flex justify-between  gap-2 items-center">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-textColor whitespace-nowrap">
@@ -760,7 +634,6 @@ const StepOne = ({
                   className="hidden peer"
                   checked={showProductVariation}
                   onChange={() => {
-                    setStepTwoData();
                     setShowProductVariation(!showProductVariation);
                   }}
                 />
@@ -773,17 +646,41 @@ const StepOne = ({
 
         {/* Product Price and variation */}
         {showProductVariation === true ? (
-          <StepOneVariation
-            inputValueData={inputValueData}
-            setFormData={setFormData}
-            stepOneData={stepOneData}
-            selectedAttributes={selectedAttributes}
-            selectedAttributeValues={selectedAttributeValues}
-            setSelectedAttributes={setSelectedAttributes}
-            setSelectedAttributeValues={setSelectedAttributeValues}
-            setDataToSubmit={setDataToSubmit}
-            dataToSubmit={dataToSubmit}
-          />
+          <StepOneBaseContext.Provider value={{ basePrice: watchedBasePrice }}>
+            {/* Variation mode still needs a product base price — the per-row
+                delta is added on top of this. Keep stock fields too (admin
+                may want to track a base SKU separately from variation stocks). */}
+            <section className="shadow-md bg-gray-50 rounded-lg p-4 sm:p-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="product_price" className="font-medium">
+                  Variation base price<span className="text-red-500">*</span>
+                </label>
+                <input
+                  defaultValue={stepOneData?.product_price}
+                  {...register("product_price", { required: true })}
+                  id="product_price"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 1000"
+                  className="mt-2 block w-full p-2.5 outline-primaryColor bg-white border border-gray-300 rounded-lg"
+                />
+                {errors.product_price && (
+                  <p className="text-red-600">Base price is required</p>
+                )}
+              </div>
+            </section>
+            <StepOneVariation
+              inputValueData={inputValueData}
+              setFormData={setFormData}
+              stepOneData={stepOneData}
+              selectedAttributes={selectedAttributes}
+              selectedAttributeValues={selectedAttributeValues}
+              setSelectedAttributes={setSelectedAttributes}
+              setSelectedAttributeValues={setSelectedAttributeValues}
+              setDataToSubmit={setDataToSubmit}
+              dataToSubmit={dataToSubmit}
+            />
+          </StepOneBaseContext.Provider>
         ) : (
           <StepOnePrice
             stepOneData={stepOneData}

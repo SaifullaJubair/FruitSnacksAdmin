@@ -14,12 +14,27 @@ import { LoaderOverlay } from "../../../common/loader/LoderOverley";
 import { useNavigate } from "react-router-dom";
 import MiniSpinner from "../../../../shared/MiniSpinner/MiniSpinner";
 
+// Phase F+H — array/object fields BE expects as JSON.parse'able strings.
+// The default stepOneData loop further down skips raw arrays/objects (would
+// stringify to "[object Object]"), so each gets an explicit appender.
+const PHASE_FH_JSON_FIELDS = ["product_dimensions", "tier_prices", "group_prices"];
+const appendPhaseFHJsonFields = (formData, stepOneData) => {
+  PHASE_FH_JSON_FIELDS.forEach((k) => {
+    const v = stepOneData?.[k];
+    if (v === undefined || v === null) return;
+    if (Array.isArray(v) && v.length === 0) return;
+    if (!Array.isArray(v) && typeof v === "object" && Object.keys(v).length === 0)
+      return;
+    formData.append(k, JSON.stringify(v));
+  });
+};
+
 const UpdateStepThree = ({
   setCurrentStep,
   stepThreeData,
   stepOneData,
-  stepTwoData,
   productData,
+  refetch,
 }) => {
   const { user, loading } = useContext(AuthContext);
   const [saveAndPublish, setSaveAndPublish] = useState(true);
@@ -281,26 +296,9 @@ const UpdateStepThree = ({
 
       formData.append("meta_keywords", JSON.stringify(keywords));
       formData.append("description", description);
-      // Append specifications
-      if (stepTwoData?.specifications?.length > 0) {
-        stepTwoData?.specifications?.forEach((spec, index) => {
-          if (spec?.attribute_values?.length) {
-            // Append the main specification ID
-            formData.append(
-              `specifications[${index}][specification_id]`,
-              spec?._id
-            );
-
-            // Append each specification value's ID
-            spec?.attribute_values?.forEach((value, valueIndex) => {
-              formData.append(
-                `specifications[${index}][specification_values][${valueIndex}][specification_value_id]`,
-                value?._id
-              );
-            });
-          }
-        });
-      }
+      // (legacy `specifications` formData append removed — specification
+      // module retired in Phase 0; attribute payload now ships via
+      // product_attributes + variant_axes set from UpdateStepOne.)
 
       Object.entries(stepOneData).forEach(([key, value]) => {
         if (
@@ -372,6 +370,9 @@ const UpdateStepThree = ({
           formData.append(key, value);
         }
       });
+
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
 
       formData.append("trending_product", trending_product);
 
@@ -514,26 +515,9 @@ const UpdateStepThree = ({
 
       formData.append("meta_keywords", JSON.stringify(keywords));
       formData.append("description", description);
-      // Append specifications
-      if (stepTwoData?.specifications?.length > 0) {
-        stepTwoData?.specifications?.forEach((spec, index) => {
-          if (spec?.attribute_values?.length) {
-            // Append the main specification ID
-            formData.append(
-              `specifications[${index}][specification_id]`,
-              spec?._id
-            );
-
-            // Append each specification value's ID
-            spec?.attribute_values?.forEach((value, valueIndex) => {
-              formData.append(
-                `specifications[${index}][specification_values][${valueIndex}][specification_value_id]`,
-                value?._id
-              );
-            });
-          }
-        });
-      }
+      // (legacy `specifications` formData append removed — specification
+      // module retired in Phase 0; attribute payload now ships via
+      // product_attributes + variant_axes set from UpdateStepOne.)
 
       Object.entries(stepOneData).forEach(([key, value]) => {
         if (
@@ -605,6 +589,9 @@ const UpdateStepThree = ({
           formData.append(key, value);
         }
       });
+
+      // Phase F+H — arrays/objects (skipped by default loop) packed as JSON strings.
+      appendPhaseFHJsonFields(formData, stepOneData);
 
       formData.append("trending_product", trending_product);
 

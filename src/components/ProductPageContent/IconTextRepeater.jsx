@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
+import { FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { BASE_URL } from "../../utils/baseURL";
+import IconPicker from "../common/IconPicker/IconPicker";
 
 // Reusable repeater for arrays of {icon_url, icon_key, text}
 // Used for: short_features, process_steps, use_cases
+//
+// Each row offers TWO ways to set an icon:
+//   1. IconPicker — pick a curated icon (saved as icon_key, e.g. "lu:Leaf")
+//   2. File upload — custom SVG/PNG (saved as icon_url)
+// icon_url (custom upload) takes priority over icon_key at render time, so
+// uploading clears any picked key and vice-versa to avoid ambiguity.
 const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper }) => {
   const [uploading, setUploading] = useState(false);
 
@@ -37,9 +45,10 @@ const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper }) => {
       });
       const data = await res.json();
       if (data?.success && data?.data) {
+        // Custom upload wins — clear any picked curated icon.
         updateRow(i, {
           icon_url: data.data.Location,
-          icon_key: data.data.Key,
+          icon_key: "",
         });
       } else {
         toast.error("Upload failed");
@@ -77,24 +86,42 @@ const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper }) => {
             key={i}
             className="flex items-center gap-2 p-2 bg-white border rounded"
           >
-            {row.icon_url ? (
-              <img
-                src={row.icon_url}
-                alt=""
-                className="w-10 h-10 object-cover rounded border bg-white"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded border bg-gray-50 flex items-center justify-center text-gray-300 text-xs">
-                icon
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleIconUpload(i, e.target.files?.[0])}
-              className="text-xs flex-shrink-0 w-32"
-              disabled={uploading}
+            {/* Icon picker — choose a curated icon. Picking clears any custom upload. */}
+            <IconPicker
+              value={row.icon_key || null}
+              uploadUrl={row.icon_url || undefined}
+              onChange={(key) => updateRow(i, { icon_key: key || "", icon_url: "" })}
             />
+
+            {/* Custom upload (SVG/PNG) — alternative to the picker */}
+            <label
+              className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded border cursor-pointer flex-shrink-0 ${
+                uploading
+                  ? "opacity-50 cursor-wait"
+                  : "text-gray-600 border-gray-200 hover:border-blueColor-400 hover:text-blueColor-600"
+              }`}
+              title="Upload a custom SVG/PNG instead"
+            >
+              <FiUpload size={12} /> Upload
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleIconUpload(i, e.target.files?.[0])}
+                className="hidden"
+                disabled={uploading}
+              />
+            </label>
+            {row.icon_url && (
+              <button
+                type="button"
+                onClick={() => updateRow(i, { icon_url: "" })}
+                className="text-gray-400 hover:text-red-500 flex-shrink-0"
+                title="Remove uploaded icon"
+              >
+                <FiX size={14} />
+              </button>
+            )}
+
             <input
               type="text"
               value={row.text}
@@ -105,7 +132,7 @@ const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper }) => {
             <button
               type="button"
               onClick={() => removeRow(i)}
-              className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100"
+              className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 flex-shrink-0"
             >
               <FaTrash />
             </button>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { FaPlus, FaTrash, FaSave } from "react-icons/fa";
+import { FiUpload, FiX } from "react-icons/fi";
 import { BASE_URL } from "../../utils/baseURL";
+import IconPicker from "../common/IconPicker/IconPicker";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 
 // Top-of-page rolling banner (3 items in design, but admin can add up to 5)
@@ -12,6 +14,7 @@ const AnnouncementBarSettings = ({ getInitialCurrencyData, refetch }) => {
   const initial = getInitialCurrencyData?.announcement_bar || [];
   const [items, setItems] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState(null);
 
   useEffect(() => {
     setItems(getInitialCurrencyData?.announcement_bar || []);
@@ -22,12 +25,35 @@ const AnnouncementBarSettings = ({ getInitialCurrencyData, refetch }) => {
       toast.info(`Max ${MAX_ITEMS} items`);
       return;
     }
-    setItems((prev) => [...prev, { text: "", icon: "" }]);
+    setItems((prev) => [...prev, { text: "", icon_key: "", icon_url: "" }]);
   };
   const updateItem = (i, patch) =>
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   const removeItem = (i) =>
     setItems((prev) => prev.filter((_, idx) => idx !== i));
+
+  // Custom SVG/PNG upload for one item; uploading clears any picked icon_key.
+  const handleIconUpload = async (i, file) => {
+    if (!file) return;
+    setUploadingIdx(i);
+    const fd = new FormData();
+    fd.append("image", file);
+    try {
+      const res = await fetch(`${BASE_URL}/image_upload`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const data = await res.json();
+      if (data?.success && data?.data) {
+        updateItem(i, { icon_url: data.data.Location, icon_key: "" });
+      } else toast.error("Upload failed");
+    } catch {
+      toast.error("Upload error");
+    } finally {
+      setUploadingIdx(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!settingId) {
@@ -35,7 +61,12 @@ const AnnouncementBarSettings = ({ getInitialCurrencyData, refetch }) => {
       return;
     }
     const cleaned = items
-      .map((it) => ({ text: (it.text || "").trim(), icon: (it.icon || "").trim() }))
+      .map((it) => ({
+        text: (it.text || "").trim(),
+        icon: (it.icon || "").trim(), // preserve any legacy emoji
+        icon_key: it.icon_key || "",
+        icon_url: it.icon_url || "",
+      }))
       .filter((it) => it.text);
 
     setSaving(true);
@@ -85,13 +116,42 @@ const AnnouncementBarSettings = ({ getInitialCurrencyData, refetch }) => {
               key={i}
               className="flex items-center gap-2 p-2 bg-white border rounded"
             >
-              <input
-                type="text"
-                value={it.icon || ""}
-                onChange={(e) => updateItem(i, { icon: e.target.value })}
-                placeholder="Icon (emoji বা URL, optional)"
-                className="form-input w-48"
+              {/* Curated icon (optional) — picking clears any custom upload */}
+              <IconPicker
+                value={it.icon_key || null}
+                uploadUrl={it.icon_url || undefined}
+                onChange={(key) => updateItem(i, { icon_key: key || "", icon_url: "" })}
               />
+
+              {/* Custom SVG/PNG upload — alternative to the picker */}
+              <label
+                className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded border cursor-pointer flex-shrink-0 ${
+                  uploadingIdx === i
+                    ? "opacity-50 cursor-wait"
+                    : "text-gray-600 border-gray-200 hover:border-blueColor-400 hover:text-blueColor-600"
+                }`}
+                title="Upload a custom SVG/PNG instead"
+              >
+                <FiUpload size={12} /> Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleIconUpload(i, e.target.files?.[0])}
+                  className="hidden"
+                  disabled={uploadingIdx === i}
+                />
+              </label>
+              {it.icon_url && (
+                <button
+                  type="button"
+                  onClick={() => updateItem(i, { icon_url: "" })}
+                  className="text-gray-400 hover:text-red-500 flex-shrink-0"
+                  title="Remove uploaded icon"
+                >
+                  <FiX size={14} />
+                </button>
+              )}
+
               <input
                 type="text"
                 value={it.text || ""}
@@ -102,7 +162,7 @@ const AnnouncementBarSettings = ({ getInitialCurrencyData, refetch }) => {
               <button
                 type="button"
                 onClick={() => removeItem(i)}
-                className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100"
+                className="px-2 py-1 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 flex-shrink-0"
               >
                 <FaTrash />
               </button>

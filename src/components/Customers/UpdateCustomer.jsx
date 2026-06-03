@@ -32,6 +32,7 @@ const UpdateCustomer = ({
       user_name: customerUpdateModalData?.user_name,
       user_status: data?.user_status,
       user_password: data?.user_password,
+      customer_group: data?.customer_group || "retail",
     };
     const response = await fetch(`${BASE_URL}/user`, {
       method: "PATCH",
@@ -141,18 +142,38 @@ const UpdateCustomer = ({
             </div>
           )}
 
-          <div className="mt-4">
-            <label className="block text-xs font-medium text-gray-700">
-              User Status
-            </label>
-            <select
-              {...register("user_status")}
-              defaultValue={customerUpdateModalData?.user_status}
-              className="mt-2 rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2 w-full"
-            >
-              <option value="active">Active</option>
-              <option value="in-active">In-Active</option>
-            </select>
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                User Status
+              </label>
+              <select
+                {...register("user_status")}
+                defaultValue={customerUpdateModalData?.user_status}
+                className="mt-2 rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2 w-full"
+              >
+                <option value="active">Active</option>
+                <option value="in-active">In-Active</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Customer Group
+              </label>
+              <select
+                {...register("customer_group")}
+                defaultValue={customerUpdateModalData?.customer_group || "retail"}
+                className="mt-2 rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2 w-full"
+              >
+                <option value="retail">Retail</option>
+                <option value="wholesale">Wholesale</option>
+                <option value="vip">VIP</option>
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Non-retail picks the matching <code>group_prices</code> entry on
+                a product when it beats the current price.
+              </p>
+            </div>
           </div>
           <div className="flex items-center justify-end mt-4 gap-2 mb-4">
             {loading == true ? (
