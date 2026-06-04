@@ -204,7 +204,9 @@ const AnalyticsSettings = ({ refetch, getInitialCurrencyData: d }) => {
     });
   }, [d]);
 
-  // Load lastFour summary of secrets on mount if user has the flag.
+  // Load lastFour summary of secrets on mount. BE returns a
+  // `secrets_summary` object with the last-4 chars of each secret —
+  // raw token values never reach the browser.
   useEffect(() => {
     if (!canEditSecrets) return;
     (async () => {
@@ -213,12 +215,13 @@ const AnalyticsSettings = ({ refetch, getInitialCurrencyData: d }) => {
           credentials: "include",
         });
         const result = await res.json();
-        if (result?.success && result?.data) {
+        const summary = result?.data?.secrets_summary || {};
+        if (result?.success) {
           setSecretsLastFour({
-            meta_capi_access_token: lastFourOf(result.data.meta_capi_access_token),
-            tiktok_capi_access_token: lastFourOf(result.data.tiktok_capi_access_token),
-            meta_test_event_code: lastFourOf(result.data.meta_test_event_code),
-            tiktok_test_event_code: lastFourOf(result.data.tiktok_test_event_code),
+            meta_capi_access_token: summary.meta_capi_access_token || "",
+            tiktok_capi_access_token: summary.tiktok_capi_access_token || "",
+            meta_test_event_code: summary.meta_test_event_code || "",
+            tiktok_test_event_code: summary.tiktok_test_event_code || "",
           });
         }
       } catch {
