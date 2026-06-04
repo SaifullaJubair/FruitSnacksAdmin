@@ -21,6 +21,8 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
     defaultValues: {
       currency_symbol: getInitialCurrencyData?.currency_symbol || "",
       currency_code: getInitialCurrencyData?.currency_code || "",
+      // M28: spelled-out name ("টাকা" / "Dollar") for prose contexts.
+      currency_name: getInitialCurrencyData?.currency_name || "",
     },
   });
 
@@ -29,19 +31,21 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
 
   const currencySymbol = watch("currency_symbol");
   const currencyCode = watch("currency_code");
+  const currencyName = watch("currency_name");
 
-  // Common currency examples
+  // Common currency examples (M28: + name field for spelled-out display)
   const currencyExamples = [
-    { symbol: "$", code: "USD", name: "US Dollar", icon: FaDollarSign },
-    { symbol: "€", code: "EUR", name: "Euro", icon: FaEuroSign },
-    { symbol: "£", code: "GBP", name: "British Pound", icon: FaPoundSign },
-    { symbol: "¥", code: "JPY", name: "Japanese Yen", icon: FaYenSign },
-    { symbol: "₹", code: "INR", name: "Indian Rupee", icon: BiRupee },
-    { symbol: "₿", code: "BTC", name: "Bitcoin", icon: BsCurrencyBitcoin },
+    { symbol: "$", code: "USD", name: "Dollar", label: "US Dollar", icon: FaDollarSign },
+    { symbol: "€", code: "EUR", name: "Euro", label: "Euro", icon: FaEuroSign },
+    { symbol: "£", code: "GBP", name: "Pound", label: "British Pound", icon: FaPoundSign },
+    { symbol: "¥", code: "JPY", name: "Yen", label: "Japanese Yen", icon: FaYenSign },
+    { symbol: "₹", code: "INR", name: "Rupee", label: "Indian Rupee", icon: BiRupee },
+    { symbol: "₿", code: "BTC", name: "Bitcoin", label: "Bitcoin", icon: BsCurrencyBitcoin },
     {
       symbol: "৳",
       code: "BDT",
-      name: "Bangladeshi Taka",
+      name: "টাকা",
+      label: "Bangladeshi Taka",
       icon: FaMoneyBillWave,
     },
   ];
@@ -53,6 +57,7 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
         getInitialCurrencyData?.currency_symbol || "",
       );
       setValue("currency_code", getInitialCurrencyData?.currency_code || "");
+      setValue("currency_name", getInitialCurrencyData?.currency_name || "");
     }
   }, [getInitialCurrencyData, setValue]);
 
@@ -60,12 +65,13 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
     setIsEditing(false);
     setValue("currency_symbol", getInitialCurrencyData?.currency_symbol || "");
     setValue("currency_code", getInitialCurrencyData?.currency_code || "");
+    setValue("currency_name", getInitialCurrencyData?.currency_name || "");
   };
 
   const handleDataPost = async (data) => {
     // Validate inputs
     if (!data.currency_symbol || !data.currency_code) {
-      toast.error("Both currency symbol and code are required");
+      toast.error("Currency symbol and code are required");
       return;
     }
 
@@ -75,6 +81,8 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
         _id: getInitialCurrencyData?._id,
         currency_symbol: data?.currency_symbol,
         currency_code: data?.currency_code?.toUpperCase(),
+        // M28: name is optional — backend defaults "টাকা" if blank.
+        currency_name: data?.currency_name || "",
       };
 
       const response = await fetch(`${BASE_URL}/setting`, {
@@ -105,6 +113,7 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
   const handleExampleClick = (example) => {
     setValue("currency_symbol", example.symbol);
     setValue("currency_code", example.code);
+    setValue("currency_name", example.name);
   };
 
   return (
@@ -179,7 +188,7 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
             )}
 
             {/* Input Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Currency Symbol */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
@@ -199,8 +208,8 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
                     type="text"
                     maxLength={3}
                     disabled={!isEditing}
-                    placeholder="Enter currency symbol"
-                    className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-all duration-200 
+                    placeholder="৳"
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-all duration-200
                       ${
                         isEditing
                           ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white hover:border-gray-400"
@@ -210,7 +219,7 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
                 </div>
                 {isEditing && (
                   <p className="text-xs text-gray-400">
-                    Maximum 3 characters (e.g., $, USD$, ৳)
+                    Prefix display: ৳500
                   </p>
                 )}
               </div>
@@ -220,7 +229,7 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
                 <label className="block text-sm font-medium text-gray-700">
                   Currency Code
                   <span className="ml-2 text-xs text-gray-400 font-normal">
-                    (ISO 4217 code)
+                    (ISO 4217)
                   </span>
                 </label>
                 <div className="relative group">
@@ -240,7 +249,7 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
                     type="text"
                     maxLength={3}
                     disabled={!isEditing}
-                    placeholder="Enter currency code (e.g., USD, EUR, BDT)"
+                    placeholder="BDT"
                     className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-all duration-200 uppercase
                       ${
                         isEditing
@@ -251,7 +260,42 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
                 </div>
                 {isEditing && (
                   <p className="text-xs text-gray-400">
-                    3-letter ISO currency code (e.g., USD, EUR, GBP, BDT)
+                    Payment gateways: BDT 500
+                  </p>
+                )}
+              </div>
+
+              {/* Currency Name (M28 — spelled-out, e.g. "টাকা") */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Currency Name
+                  <span className="ml-2 text-xs text-gray-400 font-normal">
+                    (spelled out)
+                  </span>
+                </label>
+                <div className="relative group">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                    <FaMoneyBillWave
+                      className={`text-lg ${isEditing ? "text-green-500" : "text-gray-400"}`}
+                    />
+                  </div>
+                  <input
+                    {...register("currency_name")}
+                    type="text"
+                    maxLength={20}
+                    disabled={!isEditing}
+                    placeholder="টাকা"
+                    className={`w-full pl-10 pr-4 py-3 rounded-lg border transition-all duration-200
+                      ${
+                        isEditing
+                          ? "border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white hover:border-gray-400"
+                          : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
+                      }`}
+                  />
+                </div>
+                {isEditing && (
+                  <p className="text-xs text-gray-400">
+                    Prose contexts: 500 টাকা
                   </p>
                 )}
               </div>
@@ -291,28 +335,32 @@ const CurrencySymbol = ({ refetch, getInitialCurrencyData }) => {
               </div>
             )}
 
-            {/* Preview Card */}
-            {(currencySymbol || currencyCode) && (
+            {/* Preview Card — M28: shows all 3 modes side by side */}
+            {(currencySymbol || currencyCode || currencyName) && (
               <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-purple-700 mb-2">
-                  Live Preview
+                <p className="text-sm font-medium text-purple-700 mb-3">
+                  Live Preview — all 3 display modes
                 </p>
-                <div className="flex items-center space-x-4">
-                  <div className="text-3xl font-bold text-purple-700">
-                    {currencySymbol || "$"}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <p className="text-xs text-gray-500 mb-1">Symbol mode</p>
+                    <p className="text-xl font-bold text-purple-700">
+                      {currencySymbol || "৳"}500
+                    </p>
                   </div>
-                  <div className="text-lg text-gray-600">
-                    <span className="font-semibold">
-                      {currencyCode?.toUpperCase() || "USD"}
-                    </span>
-                    <span className="mx-2">•</span>
-                    <span className="text-purple-600">99.99</span>
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <p className="text-xs text-gray-500 mb-1">Code mode</p>
+                    <p className="text-xl font-bold text-purple-700">
+                      {currencyCode?.toUpperCase() || "BDT"} 500
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <p className="text-xs text-gray-500 mb-1">Name mode</p>
+                    <p className="text-xl font-bold text-purple-700">
+                      500 {currencyName || "টাকা"}
+                    </p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Products will be displayed as: {currencySymbol || "$"}99.99{" "}
-                  {currencyCode?.toUpperCase() || "USD"}
-                </p>
               </div>
             )}
           </div>
