@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { FaSave } from "react-icons/fa";
 import { BASE_URL } from "../../utils/baseURL";
+import IconPicker from "../common/IconPicker/IconPicker";
 
 // Convert grams to display value + unit
 const gramsToDisplay = (g) => {
@@ -66,6 +67,7 @@ const VariationWeightEditor = ({ productId }) => {
         body: JSON.stringify({
           variation_weight_grams: grams,
           variation_badge_text: v.variation_badge_text || null,
+          variation_badge_icon_key: v.variation_badge_icon_key || null,
         }),
       });
       const data = await res.json();
@@ -96,6 +98,7 @@ const VariationWeightEditor = ({ productId }) => {
             <th className="px-3 py-2 text-left">Variation</th>
             <th className="px-3 py-2 text-left">Weight</th>
             <th className="px-3 py-2 text-left">Badge Text</th>
+            <th className="px-3 py-2 text-left">Badge Icon</th>
             <th className="px-3 py-2 text-left">Price</th>
             <th className="px-3 py-2 text-left">Stock</th>
             <th className="px-3 py-2 text-right"></th>
@@ -129,12 +132,21 @@ const VariationWeightEditor = ({ productId }) => {
               <td className="px-3 py-2">
                 <input
                   type="text"
+                  maxLength={20}
                   value={v.variation_badge_text || ""}
                   onChange={(e) =>
                     updateLocal(v._id, { variation_badge_text: e.target.value })
                   }
                   placeholder="সেরা প্যাক / জনপ্রিয় (optional)"
                   className="form-input"
+                />
+              </td>
+              <td className="px-3 py-2">
+                <IconPicker
+                  value={v.variation_badge_icon_key || null}
+                  onChange={(k) =>
+                    updateLocal(v._id, { variation_badge_icon_key: k || null })
+                  }
                 />
               </td>
               <td className="px-3 py-2 text-gray-700">

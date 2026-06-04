@@ -175,6 +175,50 @@ const AttributeTable = ({
               text: `${attribute?.attribute_name} Attribute has been deleted!`,
               icon: 'success',
             })
+          } else if (result?.statusCode === 409) {
+            // B2 — attribute referenced by N products. Show count + clickable
+            // sample product links so the admin can clear references first.
+            const sampleIds = Array.isArray(result?.data?.sample_ids)
+              ? result.data.sample_ids
+              : []
+            const count = result?.data?.count || 0
+            const linksHtml = sampleIds.length
+              ? `
+                <div style="margin-top:12px;text-align:left;">
+                  <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">
+                    Affected products (showing ${sampleIds.length} of ${count}) — click to edit and remove the attribute:
+                  </div>
+                  <ul style="list-style:none;padding:0;margin:0;max-height:200px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;">
+                    ${sampleIds
+                      .map(
+                        (id, i) => `
+                      <li style="border-bottom:1px solid #f3f4f6;">
+                        <a href="/product/product-update/${id}" target="_blank" rel="noopener noreferrer"
+                           style="display:block;padding:8px 12px;color:#2563eb;font-family:monospace;font-size:12px;text-decoration:none;">
+                          ${i + 1}. ${id} ↗
+                        </a>
+                      </li>`
+                      )
+                      .join('')}
+                  </ul>
+                </div>
+              `
+              : ''
+            Swal.fire({
+              title: `Cannot delete — in use by ${count} product${count === 1 ? '' : 's'}`,
+              html: `
+                <div style="font-size:14px;color:#374151;">
+                  <strong>${attribute?.attribute_name}</strong> is referenced by
+                  product attributes. Remove it from the listed products first,
+                  then retry the delete.
+                </div>
+                ${linksHtml}
+              `,
+              icon: 'warning',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#3085d6',
+              width: 520,
+            })
           } else {
             toast.error(result?.message, {
               autoClose: 1000,

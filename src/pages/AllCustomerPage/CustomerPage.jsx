@@ -11,6 +11,8 @@ const CustomerPage = () => {
   const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchValue, setSearchValue] = useState("");
+  // B1 (2026-06-04) — Type filter: "" (all) | "guest" | "registered".
+  const [userTypeFilter, setUserTypeFilter] = useState("");
   const { user } = useContext(AuthContext);
 
   const searchText = useDebounced({ searchQuery: searchValue, delay: 500 });
@@ -29,22 +31,20 @@ const CustomerPage = () => {
   const [customerCreateModal, setCustomerCreateModal] = useState(false);
 
   //data fetching of Child Category by Tans Teck Query
+  const queryStr = `page=${page}&limit=${limit}&searchTerm=${searchTerm}${
+    userTypeFilter ? `&user_type=${userTypeFilter}` : ""
+  }`;
   const {
     data: customers = [],
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: [
-      `/api/v1/user?page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
-    ],
+    queryKey: [`/api/v1/user?${queryStr}`],
     queryFn: async () => {
       try {
-        const res = await fetch(
-          `${BASE_URL}/user?page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
-          {
-            credentials: "include",
-          }
-        );
+        const res = await fetch(`${BASE_URL}/user?${queryStr}`, {
+          credentials: "include",
+        });
 
         if (!res.ok) {
           const errorData = await res.text(); // Get more info about the error
@@ -81,8 +81,8 @@ const CustomerPage = () => {
               </div>
             )}
           </div>
-          {/* search Customer... */}
-          <div className="mt-3">
+          {/* search + B1 Type filter chip */}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <input
               type="text"
               defaultValue={searchTerm}
@@ -90,6 +90,34 @@ const CustomerPage = () => {
               placeholder="Search Customer..."
               className="w-full sm:w-[350px] px-4 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
             />
+            {/* B1 — guest vs registered filter. "" sends nothing → BE returns all. */}
+            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg text-sm">
+              {[
+                { v: "", label: "All" },
+                { v: "registered", label: "Registered" },
+                { v: "guest", label: "Guest" },
+              ].map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => {
+                    setUserTypeFilter(opt.v);
+                    setPage(1);
+                  }}
+                  className={`px-3 py-1 rounded-md transition ${
+                    userTypeFilter === opt.v
+                      ? "bg-white text-primaryColor shadow font-semibold"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-gray-500">
+              {customers?.totalData || 0} customer
+              {(customers?.totalData || 0) === 1 ? "" : "s"}
+            </span>
           </div>
 
           {/* Show Customer  table data */}

@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { StepOneBaseContext } from "./StepOneBaseContext";
 import VariationImageModal from "./VariationImageModal";
 import ToggleSwitch from "../sections/ToggleSwitch";
+import IconPicker from "../../common/IconPicker/IconPicker";
 
 // Phase 2 combination matrix.
 //
@@ -155,6 +156,8 @@ const StepOneVariationTable = ({
         variation_image: null,
         variation_video: null,
         variation_weight_grams: autoWeight,
+        variation_badge_text: null,
+        variation_badge_icon_key: null,
       };
     });
     setFormData(seeded);
@@ -359,6 +362,12 @@ const StepOneVariationTable = ({
                   </td>
                 )}
                 <td className="whitespace-nowrap px-4 py-3">Active</td>
+                <td
+                  className="whitespace-nowrap px-4 py-3 cursor-help"
+                  title="Optional badge shown on PDP variation chip. Text (max 20 chars) + optional icon. Color = theme primary."
+                >
+                  Badge ⓘ
+                </td>
                 <td className="whitespace-nowrap px-4 py-3">Image</td>
                 <td className="whitespace-nowrap px-4 py-3">Video</td>
               </tr>
@@ -486,6 +495,22 @@ const StepOneVariationTable = ({
                           size="sm"
                         />
                       </div>
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <VariationBadgeCell
+                        text={row.variation_badge_text}
+                        iconKey={row.variation_badge_icon_key}
+                        onTextChange={(v) =>
+                          updateRow(
+                            idx,
+                            "variation_badge_text",
+                            v === "" ? null : v,
+                          )
+                        }
+                        onIconChange={(k) =>
+                          updateRow(idx, "variation_badge_icon_key", k || null)
+                        }
+                      />
                     </td>
                     <td className="py-1.5 text-center">
                       <VariationImageCell
@@ -779,6 +804,29 @@ const VariationVideoCell = ({ value, onChange }) => {
           ✕
         </button>
       )}
+    </div>
+  );
+};
+
+// ── Per-cell badge editor ───────────────────────────────────────────────────
+// Compact 2-input cell: text (max 20) + icon picker. Both optional — either
+// alone is enough to render a badge on PDP. Background color comes from the
+// theme primary at render time, so admin doesn't pick color here. Owner-locked
+// decision 2026-06-04. Reuses the shared IconPicker (which owns its own modal).
+const VariationBadgeCell = ({ text, iconKey, onTextChange, onIconChange }) => {
+  return (
+    <div className="flex items-center gap-2 min-w-[260px]">
+      <input
+        type="text"
+        maxLength={20}
+        value={text || ""}
+        onChange={(e) => onTextChange(e.target.value)}
+        placeholder="e.g. সেরা প্যাক"
+        className="p-1.5 border rounded-md text-xs flex-1 min-w-0"
+      />
+      <div className="shrink-0">
+        <IconPicker value={iconKey} onChange={onIconChange} />
+      </div>
     </div>
   );
 };

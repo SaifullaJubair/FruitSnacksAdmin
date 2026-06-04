@@ -13,6 +13,7 @@ import UpdateAttribute from "../../Attribute/UpdateAttribute";
 import AddAttribute from "../../Attribute/AddAttribute";
 import { AuthContext } from "../../../context/AuthProvider";
 import { useQueryClient } from "@tanstack/react-query";
+import SortableValueChips from "./SortableValueChips";
 
 // Phase 2 unified attribute block.
 //
@@ -685,6 +686,26 @@ const StepOneVariation = ({
                       </span>
                     )}
                   />
+
+                  {/* A3 — DnD reorder strip. Customer-facing display order =
+                      this array order (PDP picker + filter sidebar). Drag to
+                      reorder, click ✕ to remove. Mirrors the Select picks. */}
+                  {(selectedAttributeValues[index] || []).length >= 2 && (
+                    <SortableValueChips
+                      values={selectedAttributeValues[index]}
+                      onReorder={(reordered) =>
+                        handleValueChange(index, reordered)
+                      }
+                      onRemove={(valueId) =>
+                        handleValueChange(
+                          index,
+                          (selectedAttributeValues[index] || []).filter(
+                            (v) => v?._id !== valueId,
+                          ),
+                        )
+                      }
+                    />
+                  )}
                 </div>
               );
             })}
