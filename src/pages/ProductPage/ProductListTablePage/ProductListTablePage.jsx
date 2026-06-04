@@ -81,6 +81,10 @@ const ProductListTablePage = () => {
 
   // Modal state — only one open at a time, single source of truth.
   const [modal, setModal] = useState(null); // { type, product }
+  // Per-row toggle in-flight guard (Set of product _ids currently in PATCH).
+  // Prevents rapid-click double-fire where the 2nd click reads stale cached
+  // status and sends the wrong target value.
+  const [togglingIds, setTogglingIds] = useState(new Set());
 
   const searchText = useDebounced({ searchQuery: searchValue, delay: 400 });
   useEffect(() => {
@@ -117,6 +121,14 @@ const ProductListTablePage = () => {
   });
 
   const quickPatch = async (productId, body, optimisticLabel = "Updated") => {
+    // In-flight guard — block re-fire on the same product until current
+    // request completes.
+    if (togglingIds.has(productId)) return;
+    setTogglingIds((prev) => {
+      const copy = new Set(prev);
+      copy.add(productId);
+      return copy;
+    });
     try {
       const res = await fetch(`${BASE_URL}/product/quick`, {
         method: "PATCH",
@@ -133,6 +145,12 @@ const ProductListTablePage = () => {
       }
     } catch {
       toast.error("Network error", { autoClose: 1500 });
+    } finally {
+      setTogglingIds((prev) => {
+        const copy = new Set(prev);
+        copy.delete(productId);
+        return copy;
+      });
     }
   };
 
@@ -477,7 +495,10 @@ const ProductListTablePage = () => {
                     <td className="p-2 text-center">
                       <button
                         type="button"
-                        disabled={!user?.role_id?.product_update}
+                        disabled={
+                          !user?.role_id?.product_update ||
+                          togglingIds.has(p._id)
+                        }
                         onClick={() => handleToggleStatus(p)}
                         className={`text-[10px] px-2 py-1 rounded font-semibold ${
                           p.product_status === "active"
@@ -491,7 +512,10 @@ const ProductListTablePage = () => {
                     <td className="p-2 text-center">
                       <button
                         type="button"
-                        disabled={!user?.role_id?.product_update}
+                        disabled={
+                          !user?.role_id?.product_update ||
+                          togglingIds.has(p._id)
+                        }
                         onClick={() => handleToggleTrending(p)}
                         title="Toggle trending"
                         className="disabled:opacity-50"

@@ -36,11 +36,14 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
         setMainImage(data?.data?.main_image || "");
         setMainImageKey(data?.data?.main_image_key || "");
         onSaved?.();
+        return true;
       } else {
         toast.error(data?.message || "Update failed", { autoClose: 1500 });
+        return false;
       }
     } catch (err) {
       toast.error("Network error", { autoClose: 1500 });
+      return false;
     } finally {
       setBusy(false);
     }
@@ -95,7 +98,10 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
     const tgt = idx + dir;
     if (tgt < 0 || tgt >= newOrder.length) return;
     [newOrder[idx], newOrder[tgt]] = [newOrder[tgt], newOrder[idx]];
-    setOtherImages(newOrder); // optimistic
+    // Snapshot pre-swap order so we can rollback on network/server failure —
+    // otherwise the optimistic UI lies until modal close.
+    const prevOrder = otherImages;
+    setOtherImages(newOrder);
     const fd = new FormData();
     fd.append("_id", product._id);
     fd.append("mode", "reorder");
@@ -103,7 +109,8 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
       "ordered_keys",
       JSON.stringify(newOrder.map((o) => o.other_image_key).filter(Boolean)),
     );
-    await apiCall(fd);
+    const ok = await apiCall(fd);
+    if (!ok) setOtherImages(prevOrder);
   };
 
   return (
