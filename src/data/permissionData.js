@@ -10,6 +10,13 @@ const permissionsData = [
     Name: "Site Setting Update",
     Type: [
       { type_name: " Update Site Setting", type_value: "site_setting_update" },
+      // S4+S5 Phase 1A — separate from site_setting_update so general
+      // admins cannot rotate CAPI tokens or read SMS/email/courier
+      // credentials. Owner / superadmin only by default.
+      {
+        type_name: "Update Setting Secrets (CAPI tokens, SMS, courier)",
+        type_value: "setting_secrets_update",
+      },
     ],
   },
   {
