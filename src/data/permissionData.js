@@ -426,6 +426,39 @@ const permissionsData = [
       },
     ],
   },
+
+  // M2: Supplier (previously used empty flag — any logged-in admin could CRUD)
+  {
+    Name: "Supplier Create And Update",
+    Type: [
+      { type_name: "Supplier Show", type_value: "supplier_show" },
+      { type_name: "Supplier Create", type_value: "supplier_create" },
+      { type_name: "Supplier Update", type_value: "supplier_update" },
+      { type_name: "Supplier Delete", type_value: "supplier_delete" },
+    ],
+  },
+
+  // M3: Payment Withdraw (previously had NO auth — anyone could submit)
+  {
+    Name: "Payment Withdraw Create And Update",
+    Type: [
+      { type_name: "Withdraw Show", type_value: "payment_withdraw_show" },
+      { type_name: "Withdraw Create", type_value: "payment_withdraw_create" },
+      { type_name: "Withdraw Update", type_value: "payment_withdraw_update" },
+      { type_name: "Withdraw Delete", type_value: "payment_withdraw_delete" },
+    ],
+  },
+
+  // M3: Payment Method (previously had NO auth — anyone could create/edit)
+  {
+    Name: "Payment Method Create And Update",
+    Type: [
+      { type_name: "Payment Method Show", type_value: "payment_method_show" },
+      { type_name: "Payment Method Create", type_value: "payment_method_create" },
+      { type_name: "Payment Method Update", type_value: "payment_method_update" },
+      { type_name: "Payment Method Delete", type_value: "payment_method_delete" },
+    ],
+  },
 ];
 
 export default permissionsData;
