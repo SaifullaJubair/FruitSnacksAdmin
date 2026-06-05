@@ -100,49 +100,6 @@ const permissionsData = [
     ],
   },
   {
-    Name: "Sub Category Create And Update",
-    Type: [
-      {
-        type_name: "Sub Category Create",
-        type_value: "sub_category_post",
-      },
-      {
-        type_name: "Sub Category Update",
-        type_value: "sub_category_update",
-      },
-      {
-        type_name: "Sub Category Show",
-        type_value: "sub_category_show",
-      },
-      {
-        type_name: "Sub Category Delete",
-        type_value: "sub_category_delete",
-      },
-    ],
-  },
-  // {
-  //   Name: "Child Category Create And Update",
-  //   Type: [
-  //     {
-  //       type_name: "Child Category Create",
-  //       type_value: "child_category_post",
-  //     },
-  //     {
-  //       type_name: "Child Category Update",
-  //       type_value: "child_category_update",
-  //     },
-  //     {
-  //       type_name: "Child Category Show",
-  //       type_value: "child_category_show",
-  //     },
-  //     {
-  //       type_name: "Child Category Delete",
-  //       type_value: "child_category_delete",
-  //     },
-  //   ],
-  // },
-
-  {
     Name: "Brand Category Create And Update",
     Type: [
       {
