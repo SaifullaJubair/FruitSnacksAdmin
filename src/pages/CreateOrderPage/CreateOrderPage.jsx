@@ -1,4 +1,4 @@
-import { useContext, useState, useCallback, useRef, useEffect } from "react";
+import { useContext, useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
@@ -27,13 +27,8 @@ function useDebounce(value, delay = 400) {
 
 const SHIPPING_INSIDE = 60;
 const SHIPPING_OUTSIDE = 120;
-const DHAKA_DIVISION_ID = "6";
 const DHAKA_DISTRICT_ID = "47";
 const PER_PAGE_OPTIONS = [20, 50, 100];
-
-// Derive inside_dhaka / outside_dhaka from selected district
-const getShippingLocation = (districtId) =>
-  districtId === DHAKA_DISTRICT_ID ? "inside_dhaka" : "outside_dhaka";
 
 const SkeletonCard = () => (
   <div className="border border-gray-200 rounded-xl p-2.5 animate-pulse">
@@ -44,11 +39,31 @@ const SkeletonCard = () => (
   </div>
 );
 
+// Pure helper — no state
+function resolveCustomerDivDistrict(customer) {
+  if (!customer?.user_division) return { divId: "", distId: "" };
+  const div = divisions.find(
+    (d) =>
+      d.name.toLowerCase() === (customer.user_division || "").toLowerCase() ||
+      d.bn_name === customer.user_division,
+  );
+  if (!div) return { divId: "", distId: "" };
+  if (!customer.user_district) return { divId: div.id, distId: "" };
+  const dist = districts.find(
+    (d) =>
+      d.division_id === div.id &&
+      (d.name.toLowerCase() === (customer.user_district || "").toLowerCase() ||
+        d.bn_name === customer.user_district),
+  );
+  return { divId: div.id, distId: dist?.id || "" };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 const CreateOrderPage = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // ── Product grid ────────────────────────────────────────────────
+  // ── Product grid state ───────────────────────────────────────────
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput);
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -56,26 +71,24 @@ const CreateOrderPage = () => {
   const [stockFilter, setStockFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => { setPage(1); }, [debouncedSearch, categoryFilter, brandFilter, stockFilter, perPage]);
 
-  // ── Quick view modal ────────────────────────────────────────────
+  // ── Modal ────────────────────────────────────────────────────────
   const [modalProduct, setModalProduct] = useState(null);
 
   // ── Cart ────────────────────────────────────────────────────────
   const [lines, setLines] = useState([]);
 
   // ── Customer ────────────────────────────────────────────────────
+  const [isWalkIn, setIsWalkIn] = useState(true);
+  const [walkInName, setWalkInName] = useState("");
+  const [walkInPhone, setWalkInPhone] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const debouncedCustomer = useDebounce(customerQuery);
   const [customerResults, setCustomerResults] = useState([]);
   const [customerSearching, setCustomerSearching] = useState(false);
   const [showCustomerDrop, setShowCustomerDrop] = useState(false);
-  const customerRef = useRef(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [walkInName, setWalkInName] = useState("");
-  const [walkInPhone, setWalkInPhone] = useState("");
-  const [isWalkIn, setIsWalkIn] = useState(true);
+  const customerRef = useRef(null);
 
   // ── Delivery ────────────────────────────────────────────────────
   const [deliveryType, setDeliveryType] = useState("delivery");
@@ -83,73 +96,31 @@ const CreateOrderPage = () => {
   const [selectedDistrictId, setSelectedDistrictId] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
 
-  const filteredDistricts = selectedDivisionId
-    ? districts.filter((d) => d.division_id === selectedDivisionId)
-    : [];
-
-  const shippingLocation = selectedDistrictId
-    ? getShippingLocation(selectedDistrictId)
-    : "outside_dhaka";
-
-  const selectedDivisionName = divisions.find((d) => d.id === selectedDivisionId)?.name || "";
-  const selectedDistrictName = districts.find((d) => d.id === selectedDistrictId)?.name || "";
-
-  // When existing customer selected → auto-fill division/district/address
-  const applyCustomerAddress = (customer) => {
-    if (customer?.user_division) {
-      const div = divisions.find(
-        (d) => d.name.toLowerCase() === customer.user_division.toLowerCase() ||
-               d.bn_name === customer.user_division,
-      );
-      if (div) {
-        setSelectedDivisionId(div.id);
-        if (customer?.user_district) {
-          const dist = districts.find(
-            (d) => d.division_id === div.id && (
-              d.name.toLowerCase() === customer.user_district.toLowerCase() ||
-              d.bn_name === customer.user_district
-            ),
-          );
-          if (dist) setSelectedDistrictId(dist.id);
-        }
-      }
-    }
-    if (customer?.user_address) setBillingAddress(customer.user_address);
-  };
-
   // ── Discount ────────────────────────────────────────────────────
-  const [discountType, setDiscountType] = useState("flat"); // "flat" | "percent"
+  const [discountType, setDiscountType] = useState("flat");
   const [discountInput, setDiscountInput] = useState("");
   const [discountReason, setDiscountReason] = useState("");
 
-  // ── Payment note (informational only — method always COD) ───────
+  // ── Payment ──────────────────────────────────────────────────────
   const [paymentNote, setPaymentNote] = useState("");
-
-  // ── Paid amount (advance / cash received) ───────────────────────
   const [paidAmount, setPaidAmount] = useState("");
 
   // ── Submit ──────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false);
   const [lastInvoiceId, setLastInvoiceId] = useState(null);
 
-  if (!user?.role_id?.order_create_admin) {
-    return (
-      <div className="flex items-center justify-center h-40 text-red-500 font-medium">
-        Access Denied — You need &quot;Create Order (POS)&quot; permission.
-      </div>
-    );
-  }
+  // ── Reset page on filter change ──────────────────────────────────
+  useEffect(() => { setPage(1); }, [debouncedSearch, categoryFilter, brandFilter, stockFilter, perPage]);
 
-  // ── Product grid query ──────────────────────────────────────────
-  const productParams = new URLSearchParams({
+  // ── Product query ────────────────────────────────────────────────
+  const productParams = useMemo(() => new URLSearchParams({
     page: String(page), limit: String(perPage),
     ...(debouncedSearch && { searchTerm: debouncedSearch }),
     ...(categoryFilter && { category_id: categoryFilter }),
     ...(brandFilter && { brand_id: brandFilter }),
     ...(stockFilter !== "all" && { stock_filter: stockFilter }),
-  });
+  }), [page, perPage, debouncedSearch, categoryFilter, brandFilter, stockFilter]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data: productData, isLoading: productsLoading } = useQuery({
     queryKey: ["pos-products", page, perPage, debouncedSearch, categoryFilter, brandFilter, stockFilter],
     queryFn: async () => {
@@ -157,17 +128,11 @@ const CreateOrderPage = () => {
       return res.json();
     },
     staleTime: 30_000,
+    keepPreviousData: true,
   });
-  const products = productData?.data || [];
-  const totalProducts = productData?.totalData || 0;
-  const totalPages = Math.ceil(totalProducts / perPage);
 
-  // ── Category + Brand ────────────────────────────────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // ── Category + Brand queries ─────────────────────────────────────
   const { data: categoryData } = useGetCategory();
-  const categories = (categoryData?.data || []).filter((c) => !c.parent_id);
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data: brandData } = useQuery({
     queryKey: ["pos-brands"],
     queryFn: async () => {
@@ -176,10 +141,8 @@ const CreateOrderPage = () => {
     },
     staleTime: 300_000,
   });
-  const brands = brandData?.data || [];
 
-  // ── Customer search ─────────────────────────────────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // ── Customer search ──────────────────────────────────────────────
   useEffect(() => {
     if (!debouncedCustomer.trim()) { setCustomerResults([]); return; }
     setCustomerSearching(true);
@@ -190,7 +153,6 @@ const CreateOrderPage = () => {
       .finally(() => setCustomerSearching(false));
   }, [debouncedCustomer]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     const handler = (e) => {
       if (customerRef.current && !customerRef.current.contains(e.target)) setShowCustomerDrop(false);
@@ -199,87 +161,108 @@ const CreateOrderPage = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Add to cart ─────────────────────────────────────────────────
-  const handleAddToCart = useCallback((product, selectedVar, qty = 1) => {
-    const unitPrice = selectedVar
-      ? (selectedVar.variation_sale_price || selectedVar.variation_discount_price || selectedVar.variation_price)
-      : (product.product_sale_price || product.product_price);
-
-    setLines((prev) => {
-      const existIdx = prev.findIndex(
-        (l) => l.product_id === product._id && l.variation_id === (selectedVar?._id || null),
-      );
-      if (existIdx >= 0) {
-        return prev.map((l, i) =>
-          i === existIdx ? { ...l, product_quantity: l.product_quantity + qty } : l,
-        );
-      }
-      return [
-        ...prev,
-        {
-          _lineId: Date.now() + Math.random(),
-          product_id: product._id,
-          product_name: product.product_name,
-          product_thumbnail: selectedVar?.variation_image || selectedVar?.variation_images?.[0] || product.main_image,
-          product_type: selectedVar ? "variation" : "simple",
-          variations: product.variations || [],
-          variation_id: selectedVar?._id || null,
-          variation_label: selectedVar?.variation_name || "",
-          unit_price: unitPrice,
-          product_quantity: qty,
-        },
-      ];
-    });
-  }, []);
-
-  const updateLineQty = (lineId, delta) =>
-    setLines((prev) =>
-      prev.map((l) => l._lineId === lineId ? { ...l, product_quantity: Math.max(1, l.product_quantity + delta) } : l),
-    );
-
-  const updateLineVariation = (lineId, varId) =>
-    setLines((prev) =>
-      prev.map((l) => {
-        if (l._lineId !== lineId) return l;
-        const chosen = l.variations.find((v) => v._id === varId);
-        return {
-          ...l,
-          variation_id: varId,
-          variation_label: chosen?.variation_name || "",
-          unit_price: chosen?.variation_sale_price || chosen?.variation_discount_price || chosen?.variation_price || l.unit_price,
-        };
-      }),
-    );
-
-  const removeLine = (lineId) => setLines((prev) => prev.filter((l) => l._lineId !== lineId));
-
-  // ── Totals ──────────────────────────────────────────────────────
-  const subTotal = lines.reduce((s, l) => s + l.unit_price * l.product_quantity, 0);
+  // ── Derived data (memoized) ──────────────────────────────────────
+  const products = useMemo(() => productData?.data || [], [productData]);
+  const totalProducts = productData?.totalData || 0;
+  const totalPages = Math.ceil(totalProducts / perPage);
+  const categories = useMemo(() => (categoryData?.data || []).filter((c) => !c.parent_id), [categoryData]);
+  const brands = useMemo(() => brandData?.data || [], [brandData]);
+  const filteredDistricts = useMemo(
+    () => selectedDivisionId ? districts.filter((d) => d.division_id === selectedDivisionId) : [],
+    [selectedDivisionId],
+  );
+  const shippingLocation = selectedDistrictId === DHAKA_DISTRICT_ID ? "inside_dhaka" : "outside_dhaka";
   const shippingCost = deliveryType === "pickup" ? 0 : shippingLocation === "inside_dhaka" ? SHIPPING_INSIDE : SHIPPING_OUTSIDE;
 
+  // ── Totals ───────────────────────────────────────────────────────
+  const subTotal = useMemo(
+    () => lines.reduce((s, l) => s + l.unit_price * l.product_quantity, 0),
+    [lines],
+  );
   const rawDiscountInput = Number(discountInput) || 0;
-  const discount = discountType === "percent"
-    ? Math.round(subTotal * Math.min(rawDiscountInput, 100) / 100)
-    : Math.max(0, rawDiscountInput);
-
+  const discount = useMemo(() => {
+    if (!rawDiscountInput) return 0;
+    return discountType === "percent"
+      ? Math.round(subTotal * Math.min(rawDiscountInput, 100) / 100)
+      : Math.max(0, rawDiscountInput);
+  }, [discountType, rawDiscountInput, subTotal]);
   const grandTotal = Math.max(0, subTotal + shippingCost - discount);
   const paidNum = Number(paidAmount) || 0;
   const returnAmount = Math.max(0, paidNum - grandTotal);
   const dueAmount = Math.max(0, grandTotal - paidNum);
 
-  const handlePrint = () => {
+  // ── Handlers ─────────────────────────────────────────────────────
+  const handleAddToCart = useCallback((product, selectedVar, qty = 1) => {
+    const unitPrice = selectedVar
+      ? (selectedVar.variation_sale_price || selectedVar.variation_discount_price || selectedVar.variation_price)
+      : (product.product_sale_price || product.product_price);
+    setLines((prev) => {
+      const existIdx = prev.findIndex(
+        (l) => l.product_id === product._id && l.variation_id === (selectedVar?._id || null),
+      );
+      if (existIdx >= 0) {
+        return prev.map((l, i) => i === existIdx ? { ...l, product_quantity: l.product_quantity + qty } : l);
+      }
+      return [...prev, {
+        _lineId: Date.now() + Math.random(),
+        product_id: product._id,
+        product_name: product.product_name,
+        product_thumbnail: selectedVar?.variation_image || selectedVar?.variation_images?.[0] || product.main_image,
+        product_type: selectedVar ? "variation" : "simple",
+        variations: product.variations || [],
+        variation_id: selectedVar?._id || null,
+        variation_label: selectedVar?.variation_name || "",
+        unit_price: unitPrice,
+        product_quantity: qty,
+      }];
+    });
+  }, []);
+
+  const updateLineQty = useCallback((lineId, delta) =>
+    setLines((prev) => prev.map((l) => l._lineId === lineId ? { ...l, product_quantity: Math.max(1, l.product_quantity + delta) } : l)),
+  []);
+
+  const updateLineVariation = useCallback((lineId, varId) =>
+    setLines((prev) => prev.map((l) => {
+      if (l._lineId !== lineId) return l;
+      const chosen = l.variations.find((v) => v._id === varId);
+      return {
+        ...l,
+        variation_id: varId,
+        variation_label: chosen?.variation_name || "",
+        unit_price: chosen?.variation_sale_price || chosen?.variation_discount_price || chosen?.variation_price || l.unit_price,
+      };
+    })),
+  []);
+
+  const removeLine = useCallback((lineId) => setLines((prev) => prev.filter((l) => l._lineId !== lineId)), []);
+
+  const selectCustomer = useCallback((c) => {
+    setSelectedCustomer(c);
+    setCustomerQuery(`${c.user_name || ""} — ${c.user_phone}`);
+    setShowCustomerDrop(false);
+    // Auto-fill address
+    if (c.user_address) setBillingAddress(c.user_address);
+    const { divId, distId } = resolveCustomerDivDistrict(c);
+    if (divId) setSelectedDivisionId(divId);
+    if (distId) setSelectedDistrictId(distId);
+  }, []);
+
+  const handlePrint = useCallback(() => {
     if (lines.length === 0) { toast.error("Add products before printing."); return; }
     window.print();
-  };
+  }, [lines.length]);
 
-  // ── Submit ──────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (lines.length === 0) { toast.error("Please add at least one product."); return; }
     const customerName = isWalkIn ? walkInName || "Walk-in Customer" : selectedCustomer?.user_name || "Customer";
     const customerPhone = isWalkIn ? walkInPhone : selectedCustomer?.user_phone;
-    if (!customerPhone?.trim()) { toast.error("Customer phone number is required."); return; }
+    if (!customerPhone?.trim()) { toast.error("Customer phone is required."); return; }
     if (deliveryType === "delivery" && !billingAddress.trim()) { toast.error("Delivery address is required."); return; }
+
+    const divName = divisions.find((d) => d.id === selectedDivisionId)?.name || "Dhaka";
+    const distName = districts.find((d) => d.id === selectedDistrictId)?.name || "Dhaka";
 
     const orderPayload = {
       order_source: "admin",
@@ -287,8 +270,8 @@ const CreateOrderPage = () => {
       customer_name: customerName,
       customer_phone: customerPhone,
       billing_country: "Bangladesh",
-      billing_city: selectedDivisionName || "Dhaka",
-      billing_state: selectedDistrictName || "Dhaka",
+      billing_city: divName,
+      billing_state: distName,
       billing_address: deliveryType === "pickup" ? "Pickup" : billingAddress,
       shipping_location: shippingLocation,
       shipping_cost: shippingCost,
@@ -298,6 +281,7 @@ const CreateOrderPage = () => {
       admin_manual_discount: discount,
       manual_discount_reason: discountReason,
       grand_total_amount: grandTotal,
+      paid_amount: paidNum,
       payment_method: "cod",
       payment_method_note: paymentNote || "cash",
       order_products: lines.map((l) => ({
@@ -326,7 +310,7 @@ const CreateOrderPage = () => {
       const data = await res.json();
       if (data?.success) {
         setLastInvoiceId(data?.data?.invoice_id);
-        toast.success(`POS Order Created! Invoice: ${data?.data?.invoice_id}`);
+        toast.success(`Order Created! Invoice: ${data?.data?.invoice_id}`);
         navigate(`/order?tab=all`);
       } else {
         throw new Error(data?.message || "Order creation failed");
@@ -338,14 +322,23 @@ const CreateOrderPage = () => {
     }
   };
 
+  // ── Permission guard — AFTER all hooks ───────────────────────────
+  if (!user?.role_id?.order_create_admin) {
+    return (
+      <div className="flex items-center justify-center h-40 text-red-500 font-medium">
+        Access Denied — You need &quot;Create Order (POS)&quot; permission.
+      </div>
+    );
+  }
+
   const receiptCustomer = {
     name: isWalkIn ? walkInName || "Walk-in Customer" : selectedCustomer?.user_name,
     phone: isWalkIn ? walkInPhone : selectedCustomer?.user_phone,
   };
 
+  // ─────────────────────────────────────────────────────────────────
   return (
     <div className="h-[calc(100vh-64px)] bg-gray-50 flex flex-col overflow-hidden">
-      {/* Print receipt */}
       <POSReceipt
         lines={lines} customer={receiptCustomer}
         delivery={{ address: deliveryType === "pickup" ? "Pickup" : billingAddress }}
@@ -353,7 +346,6 @@ const CreateOrderPage = () => {
         invoiceId={lastInvoiceId} shopName={user?.admin_name}
       />
 
-      {/* Quick view modal */}
       {modalProduct && (
         <ProductQuickViewModal
           product={modalProduct}
@@ -362,7 +354,7 @@ const CreateOrderPage = () => {
         />
       )}
 
-      {/* Page header */}
+      {/* Header */}
       <div className="shrink-0 px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 bg-blueColor-600 rounded-lg">
@@ -379,13 +371,12 @@ const CreateOrderPage = () => {
         </button>
       </div>
 
-      {/* Main 2-col layout */}
       <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden min-h-0">
 
         {/* ── LEFT — Product grid ── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden border-r border-gray-200 bg-white">
 
-          {/* Filters bar */}
+          {/* Filters */}
           <div className="shrink-0 p-3 border-b border-gray-100 bg-white">
             <div className="flex flex-wrap gap-2">
               <div className="flex-1 min-w-[160px] flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blueColor-500 bg-white">
@@ -421,7 +412,7 @@ const CreateOrderPage = () => {
             </div>
           </div>
 
-          {/* Grid — scrollable */}
+          {/* Grid */}
           <div className="flex-1 overflow-y-auto p-3">
             {productsLoading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
@@ -439,20 +430,15 @@ const CreateOrderPage = () => {
                   const totalStock = hasVariations
                     ? p.variations.reduce((s, v) => s + (v.variation_quantity || 0), 0)
                     : p.product_quantity || 0;
-                  const availableVars = hasVariations
-                    ? p.variations.filter((v) => v.variation_quantity > 0).length
-                    : null;
+                  const availableVars = hasVariations ? p.variations.filter((v) => v.variation_quantity > 0).length : null;
                   const allVarsOOS = hasVariations && availableVars === 0;
                   const someVarsOOS = hasVariations && availableVars > 0 && availableVars < p.variations.length;
                   const isOOS = hasVariations ? allVarsOOS : totalStock <= 0;
-
                   const simplePrice = p.product_sale_price || p.product_price;
                   const simpleOrig = p.product_sale_price ? p.product_price : null;
                   let priceDisplay, origDisplay;
                   if (hasVariations) {
-                    const vPrices = p.variations.map(
-                      (v) => v.variation_sale_price || v.variation_discount_price || v.variation_price,
-                    ).filter(Boolean);
+                    const vPrices = p.variations.map((v) => v.variation_sale_price || v.variation_discount_price || v.variation_price).filter(Boolean);
                     const minP = Math.min(...vPrices);
                     const maxP = Math.max(...vPrices);
                     priceDisplay = minP === maxP ? `৳${minP?.toLocaleString()}` : `৳${minP?.toLocaleString()} – ৳${maxP?.toLocaleString()}`;
@@ -461,7 +447,6 @@ const CreateOrderPage = () => {
                     priceDisplay = `৳${simplePrice?.toLocaleString()}`;
                     origDisplay = simpleOrig;
                   }
-
                   const inCart = lines.some((l) => l.product_id === p._id);
                   const cartQty = lines.filter((l) => l.product_id === p._id).reduce((s, l) => s + l.product_quantity, 0);
 
@@ -512,29 +497,21 @@ const CreateOrderPage = () => {
                         <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-1">{p.product_name}</p>
                         <div className="flex items-center gap-1 mb-1 flex-wrap">
                           <span className="text-sm font-bold text-blueColor-700">{priceDisplay}</span>
-                          {origDisplay && (
-                            <span className="text-[10px] text-gray-400 line-through">৳{origDisplay?.toLocaleString()}</span>
-                          )}
+                          {origDisplay && <span className="text-[10px] text-gray-400 line-through">৳{origDisplay?.toLocaleString()}</span>}
                         </div>
                         {p.product_sku && <p className="text-[9px] text-gray-400 mb-1">SKU: {p.product_sku}</p>}
                         {hasVariations ? (
                           <button type="button"
                             onClick={(e) => { e.stopPropagation(); setModalProduct(p); }}
                             disabled={isOOS}
-                            className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all
-                              ${isOOS ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
-                                : inCart ? "bg-blueColor-600 text-white"
-                                : "border border-purple-400 text-purple-600 hover:bg-purple-600 hover:text-white"}`}>
+                            className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${isOOS ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50" : inCart ? "bg-blueColor-600 text-white" : "border border-purple-400 text-purple-600 hover:bg-purple-600 hover:text-white"}`}>
                             {isOOS ? "Out of Stock" : inCart ? "＋ More Variant" : "Select Variant"}
                           </button>
                         ) : (
                           <button type="button"
                             onClick={(e) => { e.stopPropagation(); if (!isOOS) handleAddToCart(p, null, 1); }}
                             disabled={isOOS}
-                            className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all
-                              ${isOOS ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
-                                : inCart ? "bg-blueColor-600 text-white"
-                                : "border border-blueColor-400 text-blueColor-600 hover:bg-blueColor-600 hover:text-white"}`}>
+                            className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${isOOS ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50" : inCart ? "bg-blueColor-600 text-white" : "border border-blueColor-400 text-blueColor-600 hover:bg-blueColor-600 hover:text-white"}`}>
                             <FiPlus size={10} /> {isOOS ? "Out of Stock" : inCart ? "Add More" : "Add"}
                           </button>
                         )}
@@ -545,7 +522,6 @@ const CreateOrderPage = () => {
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
                 <p className="text-xs text-gray-500">
@@ -575,7 +551,7 @@ const CreateOrderPage = () => {
           </div>
         </div>
 
-        {/* ── RIGHT — Fixed width, overflow scroll ── */}
+        {/* ── RIGHT panel ── */}
         <div className="w-80 xl:w-96 shrink-0 flex flex-col overflow-hidden bg-gray-50">
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
 
@@ -663,7 +639,6 @@ const CreateOrderPage = () => {
                       setIsWalkIn(t === "walkin");
                       setSelectedCustomer(null);
                       setCustomerQuery("");
-                      // clear address when switching
                       setSelectedDivisionId("");
                       setSelectedDistrictId("");
                       setBillingAddress("");
@@ -696,16 +671,11 @@ const CreateOrderPage = () => {
                   {showCustomerDrop && customerResults.length > 0 && (
                     <ul className="absolute z-30 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto">
                       {customerResults.map((c) => (
-                        <li key={c._id}
-                          onClick={() => {
-                            setSelectedCustomer(c);
-                            setCustomerQuery(`${c.user_name || ""} — ${c.user_phone}`);
-                            setShowCustomerDrop(false);
-                            applyCustomerAddress(c);
-                          }}
+                        <li key={c._id} onClick={() => selectCustomer(c)}
                           className="px-3 py-2 hover:bg-blueColor-50 cursor-pointer">
                           <p className="text-xs font-medium">{c.user_name}</p>
-                          <p className="text-[10px] text-gray-500">{c.user_phone}
+                          <p className="text-[10px] text-gray-500">
+                            {c.user_phone}
                             {c.user_division && <span className="ml-1 text-gray-400">· {c.user_division}{c.user_district ? `, ${c.user_district}` : ""}</span>}
                           </p>
                         </li>
@@ -737,47 +707,27 @@ const CreateOrderPage = () => {
                   </button>
                 ))}
               </div>
-
               {deliveryType === "delivery" && (
                 <div className="space-y-2">
-                  {/* Division */}
-                  <select
-                    value={selectedDivisionId}
+                  <select value={selectedDivisionId}
                     onChange={(e) => { setSelectedDivisionId(e.target.value); setSelectedDistrictId(""); }}
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white">
                     <option value="">Select Division</option>
-                    {divisions.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name} — {d.bn_name}</option>
-                    ))}
+                    {divisions.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.bn_name}</option>)}
                   </select>
-
-                  {/* District */}
-                  <div className="relative">
-                    <select
-                      value={selectedDistrictId}
-                      onChange={(e) => setSelectedDistrictId(e.target.value)}
-                      disabled={!selectedDivisionId}
-                      className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white disabled:opacity-50">
-                      <option value="">Select District</option>
-                      {filteredDistricts.map((d) => (
-                        <option key={d.id} value={d.id}>{d.name} — {d.bn_name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Auto-resolved shipping tag */}
+                  <select value={selectedDistrictId}
+                    onChange={(e) => setSelectedDistrictId(e.target.value)}
+                    disabled={!selectedDivisionId}
+                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white disabled:opacity-50">
+                    <option value="">Select District</option>
+                    {filteredDistricts.map((d) => <option key={d.id} value={d.id}>{d.name} — {d.bn_name}</option>)}
+                  </select>
                   {selectedDistrictId && (
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${shippingLocation === "inside_dhaka" ? "bg-green-50 text-green-700 border border-green-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
                       <span>{shippingLocation === "inside_dhaka" ? "✓" : "→"}</span>
-                      <span>
-                        {shippingLocation === "inside_dhaka"
-                          ? `Inside Dhaka — ৳${SHIPPING_INSIDE} delivery`
-                          : `Outside Dhaka — ৳${SHIPPING_OUTSIDE} delivery`}
-                      </span>
+                      <span>{shippingLocation === "inside_dhaka" ? `Inside Dhaka — ৳${SHIPPING_INSIDE}` : `Outside Dhaka — ৳${SHIPPING_OUTSIDE}`}</span>
                     </div>
                   )}
-
-                  {/* Address */}
                   <input type="text" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)}
                     placeholder="Full address (Road, Area, Flat...) *"
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
@@ -792,21 +742,22 @@ const CreateOrderPage = () => {
                   <FiTag size={13} className="text-blueColor-600" />
                   <span className="text-sm font-semibold text-gray-700">Discount</span>
                 </div>
-                {/* Flat / % toggle */}
                 <div className="flex border border-gray-300 rounded-lg overflow-hidden text-[10px] font-semibold">
-                  {["flat", "percent"].map((t) => (
-                    <button key={t} type="button"
-                      onClick={() => { setDiscountType(t); setDiscountInput(""); }}
-                      className={`px-2.5 py-1 transition-all ${discountType === t ? "bg-blueColor-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
-                      {t === "flat" ? "৳ Flat" : "% Off"}
-                    </button>
-                  ))}
+                  <button type="button"
+                    onClick={() => setDiscountType("flat")}
+                    className={`px-2.5 py-1 transition-all ${discountType === "flat" ? "bg-blueColor-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+                    ৳ Flat
+                  </button>
+                  <button type="button"
+                    onClick={() => setDiscountType("percent")}
+                    className={`px-2.5 py-1 transition-all ${discountType === "percent" ? "bg-blueColor-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+                    % Off
+                  </button>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none select-none">
                     {discountType === "percent" ? "%" : "৳"}
                   </span>
                   <input
@@ -824,8 +775,6 @@ const CreateOrderPage = () => {
                   placeholder="Reason (optional)"
                   className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
               </div>
-
-              {/* Live discount preview */}
               {discount > 0 && (
                 <div className="mt-2 text-[11px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
                   {discountType === "percent"
@@ -838,32 +787,22 @@ const CreateOrderPage = () => {
             {/* Payment */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
               <p className="text-sm font-semibold text-gray-700 mb-2.5">Payment</p>
-
-              {/* COD only — note field */}
               <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-blueColor-50 border border-blueColor-200 mb-3">
-                <span className="text-[11px] font-bold text-blueColor-700">COD</span>
-                <span className="text-[10px] text-blueColor-600">Cash on Delivery</span>
-                <input
-                  type="text"
-                  value={paymentNote}
-                  onChange={(e) => setPaymentNote(e.target.value)}
-                  placeholder="Note: cash / bKash / bank etc."
-                  className="flex-1 ml-1 text-[11px] border-0 border-b border-blueColor-200 bg-transparent focus:outline-none text-gray-600 placeholder-gray-400"
-                />
+                <span className="text-[11px] font-bold text-blueColor-700 shrink-0">COD</span>
+                <input type="text" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)}
+                  placeholder="Note: cash / bKash / bank..."
+                  className="flex-1 text-[11px] border-0 border-b border-blueColor-200 bg-transparent focus:outline-none text-gray-600 placeholder-gray-400" />
               </div>
-
-              {/* Paid amount + change/due */}
               <div className="space-y-2">
                 <div>
                   <label className="text-[10px] text-gray-500 block mb-1 font-medium">
                     Advance / Cash Received (৳)
-                    <span className="ml-1 font-normal text-gray-400">— কত টাকা পেয়েছেন?</span>
+                    <span className="ml-1 font-normal text-gray-400">— কত পেয়েছেন?</span>
                   </label>
                   <input type="number" min={0} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)}
                     placeholder="0"
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
                 </div>
-
                 {paidNum > 0 && (
                   <div className="grid grid-cols-2 gap-2">
                     {returnAmount > 0 && (
@@ -888,7 +827,7 @@ const CreateOrderPage = () => {
               </div>
             </div>
 
-            {/* Order summary */}
+            {/* Order Summary */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-3 py-2.5 bg-blueColor-600">
                 <p className="text-sm font-semibold text-white">Order Summary</p>
@@ -913,19 +852,12 @@ const CreateOrderPage = () => {
                   <div className="flex justify-between text-xs text-gray-600">
                     <span>Shipping</span>
                     <span className="font-medium">
-                      {deliveryType === "pickup"
-                        ? <span className="text-green-600">Free</span>
-                        : `৳${shippingCost}`}
+                      {deliveryType === "pickup" ? <span className="text-green-600">Free</span> : `৳${shippingCost}`}
                     </span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600">
-                      <span>
-                        Discount
-                        {discountType === "percent" && rawDiscountInput > 0 && (
-                          <span className="ml-1 text-[10px]">({rawDiscountInput}%)</span>
-                        )}
-                      </span>
+                      <span>Discount{discountType === "percent" && rawDiscountInput > 0 && <span className="ml-1 text-[10px]">({rawDiscountInput}%)</span>}</span>
                       <span>− ৳{discount.toLocaleString()}</span>
                     </div>
                   )}
