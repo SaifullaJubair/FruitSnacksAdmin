@@ -9,6 +9,7 @@ import AddProductPage from "../pages/ProductPage/AddProductPage/AddProductPage";
 import ProductListTablePage from "../pages/ProductPage/ProductListTablePage/ProductListTablePage";
 import ReviewPage from "../pages/ReviewPage/ReviewPage";
 import SignInPage from "../pages/SignInPage/SignInPage";
+import ForgetPasswordPage from "../pages/ForgetPasswordPage/ForgetPasswordPage";
 import AddStaffRolePage from "../pages/StaffAndRolePage/AddStaffRolePage/AddStaffRolePage";
 import AllStaffPage from "../pages/StaffAndRolePage/AllStaffPage/AllStaffPage";
 import StaffRoleTablePage from "../pages/StaffAndRolePage/StaffRoleTablePage/StaffRoleTablePage";
@@ -325,6 +326,10 @@ const route = createBrowserRouter([
   {
     path: "/sign-in",
     element: <SignInPage />,
+  },
+  {
+    path: "/forget-password",
+    element: <ForgetPasswordPage />,
   },
 ]);
 
