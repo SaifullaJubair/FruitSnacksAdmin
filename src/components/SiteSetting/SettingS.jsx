@@ -16,6 +16,8 @@ import PaymentMethodsSettings from "./PaymentMethodsSettings";
 import VatSettings from "./VatSettings";
 import LoyaltySettings from "./LoyaltySettings";
 import SmsSettings from "./SmsSettings";
+import EmailSettings from "./EmailSettings";
+import StorefrontBehaviourTab from "./StorefrontBehaviourTab";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -120,6 +122,15 @@ const SettingS = () => {
           />
         );
 
+      // H-B — Email provider (SMTP for admin OTP emails)
+      case "email":
+        return (
+          <EmailSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
       // ✅ নতুন analytics tab
       case "analytics":
         return (
@@ -140,6 +151,15 @@ const SettingS = () => {
       case "offer-banner":
         return (
           <OfferBannerSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // ✅ C13 — Storefront behaviour toggles (13 fields)
+      case "storefront-behaviour":
+        return (
+          <StorefrontBehaviourTab
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />

@@ -2,6 +2,7 @@ import { RxCross1 } from "react-icons/rx";
 
 import { useForm } from "react-hook-form";
 import { useState } from "react";
+import Swal from "sweetalert2-optimized";
 import { generateSlug } from "./../../utils/generateSlug";
 //import ReactTooltip from 'react-tooltip'
 import { GrUpdate } from "react-icons/gr";
@@ -10,6 +11,7 @@ import { BASE_URL } from "../../utils/baseURL";
 import { toast } from "react-toastify";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 import AttributeDefaultsSelector from "./AttributeDefaultsSelector";
+import CategoryTreePicker from "./CategoryTreePicker";
 
 const UpDateCategory = ({
   setCategoryUpdateModal,
@@ -39,6 +41,13 @@ const UpDateCategory = ({
       [],
   });
 
+  // M24 — re-parent. Seeded from the existing doc; null = root. Tracked
+  // separately from form state so we can compare and gate confirmation.
+  const originalParentId = categoryUpdateData?.parent_id
+    ? String(categoryUpdateData.parent_id)
+    : null;
+  const [selectedParentId, setSelectedParentId] = useState(originalParentId);
+
   // Helper used inside every branch to append the multi-select ids onto the
   // outbound FormData. Sent as JSON-stringified arrays (multer collapses
   // repeated keys to last value, so per-id append doesn't work). Always sent
@@ -52,6 +61,56 @@ const UpDateCategory = ({
       "default_filter_attributes",
       JSON.stringify(attrDefaults.default_filter_attributes || []),
     );
+  };
+
+  // M24 — append parent_id only when explicitly set (sending "" wipes parent
+  // to root, which is intentional when admin clears the picker).
+  const appendParent = (fd) => {
+    fd.append("parent_id", selectedParentId || "");
+  };
+
+  // M24 — confirm re-parent with admin BEFORE submit. Fetches impact counts
+  // from BE (cheap pair of countDocuments) and shows a SweetAlert. Returns
+  // true if admin confirmed OR no re-parent happened, false on cancel.
+  const confirmReparentIfNeeded = async () => {
+    const isReparent = selectedParentId !== originalParentId;
+    if (!isReparent) return true;
+    // Client-side self-pick guard (BE also rejects this with a clear error).
+    if (selectedParentId && selectedParentId === String(categoryUpdateData?._id)) {
+      toast.error("A category cannot be its own parent", { autoClose: 2000 });
+      return false;
+    }
+    try {
+      const res = await fetch(
+        `${BASE_URL}/category/reparent-impact/${categoryUpdateData?._id}`,
+        { credentials: "include" },
+      );
+      const json = await res.json();
+      const { descendant_count = 0, product_count = 0 } = json?.data || {};
+      const oldLabel = originalParentId ? "current parent" : "Root";
+      const newLabel = selectedParentId ? "new parent" : "Root";
+      const confirm = await Swal.fire({
+        title: "Move this category?",
+        html:
+          `Moving <strong>"${categoryUpdateData?.category_name}"</strong> from ${oldLabel} → ${newLabel}.<br/><br/>` +
+          `This will also move:<br/>` +
+          `• <strong>${descendant_count}</strong> nested categor${descendant_count === 1 ? "y" : "ies"}<br/>` +
+          `• <strong>${product_count}</strong> attached product${product_count === 1 ? "" : "s"}<br/><br/>` +
+          `<span style="color:#b91c1c">Category paths will be re-snapshot on every affected document. This cannot be undone in one click.</span>`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, move",
+        cancelButtonText: "Cancel",
+      });
+      return !!confirm.isConfirmed;
+    } catch {
+      toast.error("Failed to compute move impact — try again", {
+        autoClose: 2000,
+      });
+      return false;
+    }
   };
 
   //
@@ -70,6 +129,10 @@ const UpDateCategory = ({
 
   // Handle Update Category
   const handleDataPost = async (data) => {
+    // M24 — if parent changed, confirm with admin before submitting.
+    const ok = await confirmReparentIfNeeded();
+    if (!ok) return;
+
     if (data?.category_logo[0] && data?.category_video[0]) {
       setLoading(true);
       const formData = new FormData();
@@ -99,6 +162,7 @@ const UpDateCategory = ({
       formData.append("_id", categoryUpdateData?._id);
       formData.append("category_updated_by", user?._id);
       appendAttrDefaults(formData);
+      appendParent(formData);
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
         credentials: "include",
@@ -145,6 +209,7 @@ const UpDateCategory = ({
       formData.append("_id", categoryUpdateData?._id);
       formData.append("category_updated_by", user?._id);
       appendAttrDefaults(formData);
+      appendParent(formData);
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
         credentials: "include",
@@ -191,6 +256,7 @@ const UpDateCategory = ({
       formData.append("_id", categoryUpdateData?._id);
       formData.append("category_updated_by", user?._id);
       appendAttrDefaults(formData);
+      appendParent(formData);
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
         credentials: "include",
@@ -241,6 +307,8 @@ const UpDateCategory = ({
         default_variant_attributes:
           attrDefaults.default_variant_attributes || [],
         default_filter_attributes: attrDefaults.default_filter_attributes || [],
+        // M24 — explicit parent_id: null wipes parent → root.
+        parent_id: selectedParentId || null,
       };
       const response = await fetch(`${BASE_URL}/category`, {
         method: "PATCH",
@@ -392,6 +460,31 @@ const UpDateCategory = ({
                     </label>
                   </div>
                 </div>
+              </div>
+
+              {/* M24 — Parent category picker. Default = current parent (or root).
+                  Changing this triggers the confirm-impact modal on submit. */}
+              <div className="mt-6">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Parent category{" "}
+                  <span className="text-gray-400 font-normal">
+                    (leave empty for root level)
+                  </span>
+                </label>
+                <CategoryTreePicker
+                  value={selectedParentId}
+                  includeInactive
+                  onChange={(node) =>
+                    setSelectedParentId(node ? String(node._id) : null)
+                  }
+                  placeholder="Root (no parent)"
+                />
+                {selectedParentId !== originalParentId && (
+                  <p className="mt-1.5 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                    ⚠️ Parent changed — confirmation dialog will show how many
+                    nested categories + products move with this on save.
+                  </p>
+                )}
               </div>
 
               {/* Phase B — Default attributes for products under this category */}

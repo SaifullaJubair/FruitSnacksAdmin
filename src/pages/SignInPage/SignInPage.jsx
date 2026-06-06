@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { BASE_URL } from '../../utils/baseURL'
 import MiniSpinner from '../../shared/MiniSpinner/MiniSpinner'
@@ -205,6 +205,14 @@ const SignInPage = () => {
           >
             {loading ? <MiniSpinner /> : 'Login'}
           </button>
+          <div className='text-center text-sm mt-3'>
+            <Link
+              to='/forget-password'
+              className='text-primaryColor underline hover:opacity-80'
+            >
+              Forgot password?
+            </Link>
+          </div>
         </form>
       </div>
     </div>

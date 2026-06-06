@@ -115,6 +115,10 @@ const CustomerTable = ({
                       <th className="whitespace-nowrap p-4 font-medium text-gray-900">
                         User Status
                       </th>
+                      {/* B1 (2026-06-04) — guest vs registered visibility. */}
+                      <th className="whitespace-nowrap p-4 font-medium text-gray-900">
+                        Type
+                      </th>
                       <th className="whitespace-nowrap p-4 font-medium text-gray-900">
                         Group
                       </th>
@@ -165,6 +169,28 @@ const CustomerTable = ({
                           )}
                         </td>
 
+                        {/* B1 — Type column (guest / registered). */}
+                        <td className="whitespace-nowrap px-4 py-1.5">
+                          {(() => {
+                            const t = customer?.user_type || "registered";
+                            const styles =
+                              t === "guest"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-green-100 text-green-700";
+                            return (
+                              <span
+                                className={`inline-block px-2 py-0.5 text-xs font-medium rounded capitalize ${styles}`}
+                                title={
+                                  t === "guest"
+                                    ? "Auto-created during anonymous (FB-ads) checkout"
+                                    : "Self-registered customer"
+                                }
+                              >
+                                {t}
+                              </span>
+                            );
+                          })()}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-1.5">
                           {(() => {
                             const g = customer?.customer_group || "retail";

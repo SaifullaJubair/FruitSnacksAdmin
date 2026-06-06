@@ -8,7 +8,9 @@ import CategoryPage from "../pages/CategoryPage/CategoryPage";
 import AddProductPage from "../pages/ProductPage/AddProductPage/AddProductPage";
 import ProductListTablePage from "../pages/ProductPage/ProductListTablePage/ProductListTablePage";
 import ReviewPage from "../pages/ReviewPage/ReviewPage";
+import PendingReviewsPage from "../pages/ReviewPage/PendingReviewsPage";
 import SignInPage from "../pages/SignInPage/SignInPage";
+import ForgetPasswordPage from "../pages/ForgetPasswordPage/ForgetPasswordPage";
 import AddStaffRolePage from "../pages/StaffAndRolePage/AddStaffRolePage/AddStaffRolePage";
 import AllStaffPage from "../pages/StaffAndRolePage/AllStaffPage/AllStaffPage";
 import StaffRoleTablePage from "../pages/StaffAndRolePage/StaffRoleTablePage/StaffRoleTablePage";
@@ -28,6 +30,7 @@ import PrivateRoute from "./privateRoute/PrivateRoute";
 import AddCoupon from "../components/Coupon/AddCoupon";
 import ViewAllOrderInfo from "../components/Order/ViewAllOrderInfo";
 import OrderPage from "../pages/OrderPage/OrderPage";
+import CreateOrderPage from "../pages/CreateOrderPage/CreateOrderPage";
 
 import OfferTablePage from "../pages/OfferPage/OfferTablePage/OfferTablePage";
 
@@ -143,6 +146,10 @@ const route = createBrowserRouter([
         path: "/review",
         element: <ReviewPage />,
       },
+      {
+        path: "/review/pending",
+        element: <PendingReviewsPage />,
+      },
       //question.....
       {
         path: "/question",
@@ -212,6 +219,11 @@ const route = createBrowserRouter([
       {
         path: "/order",
         element: <OrderPage />,
+      },
+      // D18 — POS admin order create
+      {
+        path: "/order/create",
+        element: <CreateOrderPage />,
       },
       {
         path: "/pathao-order",
@@ -325,6 +337,10 @@ const route = createBrowserRouter([
   {
     path: "/sign-in",
     element: <SignInPage />,
+  },
+  {
+    path: "/forget-password",
+    element: <ForgetPasswordPage />,
   },
 ]);
 
