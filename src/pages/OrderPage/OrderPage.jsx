@@ -23,6 +23,8 @@ const TABS = [
   { label: "Delivered", value: "delivered" },
   { label: "Cancelled", value: "cancelled" },
   { label: "All", value: "all" },
+  // D18 M3 — POS Orders filter tab
+  { label: "POS Orders", value: "pos" },
 ];
 
 const STEADFAST_SUB_TABS = [
@@ -177,6 +179,9 @@ const OrderPage = () => {
       return `${base}/dashboard?${common}&order_status=delivered`;
     if (activeTab === "cancelled")
       return `${base}/dashboard?${common}&order_status=cancel`;
+    // D18 M3 — POS Orders: dedicated order_source filter
+    if (activeTab === "pos")
+      return `${base}/dashboard?${common}&order_source=admin`;
     return `${base}/dashboard?${common}&order_status=pending`;
   };
 

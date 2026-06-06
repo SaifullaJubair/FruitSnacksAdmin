@@ -64,10 +64,14 @@ const permissionsData = [
         type_name: "Order Update",
         type_value: "order_update",
       },
-
       {
         type_name: "Order Show",
         type_value: "order_show",
+      },
+      // D18: POS admin order create
+      {
+        type_name: "Create Order (POS)",
+        type_value: "order_create_admin",
       },
     ],
   },

@@ -391,6 +391,16 @@ const SideNavBar = () => {
             />
           )}
           {/* ......Order....  */}
+          {/* D18 — POS Create Order (separate permission) */}
+          {user?.role_id?.order_create_admin === true && (
+            <MenuItem
+              to="/order/create"
+              icon={FaBorderAll}
+              label="Create POS Order"
+              isActive={isActive("/order/create")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {user?.role_id?.order_show === true && (
             <>
               <MenuItem

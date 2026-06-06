@@ -30,6 +30,7 @@ import PrivateRoute from "./privateRoute/PrivateRoute";
 import AddCoupon from "../components/Coupon/AddCoupon";
 import ViewAllOrderInfo from "../components/Order/ViewAllOrderInfo";
 import OrderPage from "../pages/OrderPage/OrderPage";
+import CreateOrderPage from "../pages/CreateOrderPage/CreateOrderPage";
 
 import OfferTablePage from "../pages/OfferPage/OfferTablePage/OfferTablePage";
 
@@ -218,6 +219,11 @@ const route = createBrowserRouter([
       {
         path: "/order",
         element: <OrderPage />,
+      },
+      // D18 — POS admin order create
+      {
+        path: "/order/create",
+        element: <CreateOrderPage />,
       },
       {
         path: "/pathao-order",
