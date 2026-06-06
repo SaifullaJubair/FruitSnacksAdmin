@@ -68,3 +68,9 @@
 .custom-input input {
   outline: none !important;
 }
+
+/* POS receipt print — hide everything except the receipt */
+@media print {
+  body > * { display: none !important; }
+  .receipt-print { display: block !important; }
+}
