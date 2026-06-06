@@ -255,8 +255,17 @@ const SideNavBar = () => {
               to="/review"
               icon={MdOutlineReviews}
               label="Review"
-              isActive={isActive("/review")}
-              onClick={closeAllDropdowns} // Close all dropdowns when clicked
+              isActive={isActive("/review") && !isActive("/review/pending")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {user?.role_id?.review_show === true && (
+            <MenuItem
+              to="/review/pending"
+              icon={MdOutlineReviews}
+              label="Pending Reviews"
+              isActive={isActive("/review/pending")}
+              onClick={closeAllDropdowns}
             />
           )}
           {/* {user?.role_id?.question_show === true && (

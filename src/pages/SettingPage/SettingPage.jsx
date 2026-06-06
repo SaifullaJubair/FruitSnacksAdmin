@@ -18,6 +18,7 @@ const SettingPage = () => {
     { id: "loyalty", label: "Loyalty", icon: "🎁" }, // ✅ Phase G3
     { id: "sms", label: "SMS Provider", icon: "✉️" }, // ✅ Phase G5
     { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
+    { id: "storefront-behaviour", label: "Storefront Behaviour", icon: "🛒" }, // ✅ C13
     { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },
     { id: "offer-banner", label: "Offer Banner", icon: "⏰" },
     { id: "policies", label: "Policies", icon: "📜" },

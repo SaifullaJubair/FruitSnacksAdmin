@@ -16,6 +16,7 @@ import PaymentMethodsSettings from "./PaymentMethodsSettings";
 import VatSettings from "./VatSettings";
 import LoyaltySettings from "./LoyaltySettings";
 import SmsSettings from "./SmsSettings";
+import StorefrontBehaviourTab from "./StorefrontBehaviourTab";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -140,6 +141,15 @@ const SettingS = () => {
       case "offer-banner":
         return (
           <OfferBannerSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // ✅ C13 — Storefront behaviour toggles (13 fields)
+      case "storefront-behaviour":
+        return (
+          <StorefrontBehaviourTab
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
