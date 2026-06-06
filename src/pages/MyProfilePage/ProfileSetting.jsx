@@ -58,6 +58,7 @@ const ProfileSetting = ({ setUserupdateModalOpen, user }) => {
       admin_name: data?.admin_name,
       admin_address: data?.admin_address,
       admin_phone: user?.admin_phone,
+      admin_email: data?.admin_email || "",
       _id: user?._id,
     };
     if (user_logo) {
@@ -147,7 +148,6 @@ const ProfileSetting = ({ setUserupdateModalOpen, user }) => {
               <label className="block text-xs font-medium text-gray-700">
                 Phone Number
               </label>
-
               <input
                 {...register("admin_phone")}
                 type="text"
@@ -156,8 +156,26 @@ const ProfileSetting = ({ setUserupdateModalOpen, user }) => {
                 className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
                 readOnly
               />
-              {errors.name && (
-                <p className="text-red-600">{errors.name?.message}</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-gray-700">
+                Email <span className="text-gray-400 font-normal">(for password reset)</span>
+              </label>
+              <input
+                {...register("admin_email", {
+                  pattern: {
+                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                    message: "Enter a valid email address",
+                  },
+                })}
+                type="email"
+                placeholder="your@email.com"
+                defaultValue={user?.admin_email}
+                className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
+              />
+              {errors.admin_email && (
+                <p className="text-red-600 text-xs mt-1">{errors.admin_email?.message}</p>
               )}
             </div>
 
