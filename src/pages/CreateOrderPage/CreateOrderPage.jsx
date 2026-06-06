@@ -142,8 +142,9 @@ const CreateOrderPage = () => {
     staleTime: 300_000,
   });
 
-  // ── Customer search ──────────────────────────────────────────────
+  // ── Customer search — block search if a customer is already selected ──
   useEffect(() => {
+    if (selectedCustomer) return;           // already locked, don't re-search
     if (!debouncedCustomer.trim()) { setCustomerResults([]); return; }
     setCustomerSearching(true);
     fetch(`${BASE_URL}/user?page=1&limit=8&searchTerm=${encodeURIComponent(debouncedCustomer)}`, { credentials: "include" })
@@ -151,7 +152,7 @@ const CreateOrderPage = () => {
       .then((d) => { setCustomerResults(d?.data || []); setShowCustomerDrop(true); })
       .catch(() => {})
       .finally(() => setCustomerSearching(false));
-  }, [debouncedCustomer]);
+  }, [debouncedCustomer, selectedCustomer]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -683,10 +684,31 @@ const CreateOrderPage = () => {
                     </ul>
                   )}
                   {selectedCustomer && (
-                    <div className="mt-1.5 px-2.5 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center gap-1.5">
-                      <span>✓</span>
-                      <span className="font-medium">{selectedCustomer.user_name}</span>
-                      <span className="text-green-600/70">{selectedCustomer.user_phone}</span>
+                    <div className="mt-1.5 px-2.5 py-1.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="shrink-0">✓</span>
+                          <span className="font-medium truncate">{selectedCustomer.user_name}</span>
+                          <span className="text-green-600/70 shrink-0">{selectedCustomer.user_phone}</span>
+                        </div>
+                        <button type="button"
+                          onClick={() => {
+                            setSelectedCustomer(null);
+                            setCustomerQuery("");
+                            setSelectedDivisionId("");
+                            setSelectedDistrictId("");
+                            setBillingAddress("");
+                          }}
+                          className="shrink-0 p-0.5 rounded hover:bg-red-100 text-green-600 hover:text-red-500 transition-colors">
+                          <FiX size={12} />
+                        </button>
+                      </div>
+                      {(selectedCustomer.user_division || selectedCustomer.user_district) && (
+                        <p className="text-[10px] text-green-600/70 mt-0.5 ml-4">
+                          {[selectedCustomer.user_division, selectedCustomer.user_district].filter(Boolean).join(", ")}
+                          {selectedCustomer.user_address && ` — ${selectedCustomer.user_address}`}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
