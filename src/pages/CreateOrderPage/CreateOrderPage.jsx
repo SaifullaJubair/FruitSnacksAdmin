@@ -7,6 +7,8 @@ import { BASE_URL } from "../../utils/baseURL";
 import useGetCategory from "../../hooks/useGetCategory";
 import POSReceipt from "./POSReceipt";
 import ProductQuickViewModal from "./ProductQuickViewModal";
+import { divisions } from "../../data/division-data";
+import { districts } from "../../data/district-data";
 import {
   FiSearch, FiX, FiPlus, FiMinus, FiShoppingCart,
   FiUser, FiTruck, FiTag, FiPrinter,
@@ -25,14 +27,13 @@ function useDebounce(value, delay = 400) {
 
 const SHIPPING_INSIDE = 60;
 const SHIPPING_OUTSIDE = 120;
-const PAYMENT_METHODS = [
-  { key: "cash", label: "Cash" },
-  { key: "bkash", label: "bKash" },
-  { key: "nagad", label: "Nagad" },
-  { key: "card", label: "Card" },
-  { key: "bank", label: "Bank" },
-];
+const DHAKA_DIVISION_ID = "6";
+const DHAKA_DISTRICT_ID = "47";
 const PER_PAGE_OPTIONS = [20, 50, 100];
+
+// Derive inside_dhaka / outside_dhaka from selected district
+const getShippingLocation = (districtId) =>
+  districtId === DHAKA_DISTRICT_ID ? "inside_dhaka" : "outside_dhaka";
 
 const SkeletonCard = () => (
   <div className="border border-gray-200 rounded-xl p-2.5 animate-pulse">
@@ -78,16 +79,54 @@ const CreateOrderPage = () => {
 
   // ── Delivery ────────────────────────────────────────────────────
   const [deliveryType, setDeliveryType] = useState("delivery");
-  const [shippingLocation, setShippingLocation] = useState("inside_dhaka");
-  const [billingCity, setBillingCity] = useState("");
-  const [billingState, setBillingState] = useState("");
+  const [selectedDivisionId, setSelectedDivisionId] = useState("");
+  const [selectedDistrictId, setSelectedDistrictId] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
 
-  // ── Discount + payment ──────────────────────────────────────────
-  const [manualDiscount, setManualDiscount] = useState(0);
+  const filteredDistricts = selectedDivisionId
+    ? districts.filter((d) => d.division_id === selectedDivisionId)
+    : [];
+
+  const shippingLocation = selectedDistrictId
+    ? getShippingLocation(selectedDistrictId)
+    : "outside_dhaka";
+
+  const selectedDivisionName = divisions.find((d) => d.id === selectedDivisionId)?.name || "";
+  const selectedDistrictName = districts.find((d) => d.id === selectedDistrictId)?.name || "";
+
+  // When existing customer selected → auto-fill division/district/address
+  const applyCustomerAddress = (customer) => {
+    if (customer?.user_division) {
+      const div = divisions.find(
+        (d) => d.name.toLowerCase() === customer.user_division.toLowerCase() ||
+               d.bn_name === customer.user_division,
+      );
+      if (div) {
+        setSelectedDivisionId(div.id);
+        if (customer?.user_district) {
+          const dist = districts.find(
+            (d) => d.division_id === div.id && (
+              d.name.toLowerCase() === customer.user_district.toLowerCase() ||
+              d.bn_name === customer.user_district
+            ),
+          );
+          if (dist) setSelectedDistrictId(dist.id);
+        }
+      }
+    }
+    if (customer?.user_address) setBillingAddress(customer.user_address);
+  };
+
+  // ── Discount ────────────────────────────────────────────────────
+  const [discountType, setDiscountType] = useState("flat"); // "flat" | "percent"
+  const [discountInput, setDiscountInput] = useState("");
   const [discountReason, setDiscountReason] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [paidAmount, setPaidAmount] = useState(0);
+
+  // ── Payment note (informational only — method always COD) ───────
+  const [paymentNote, setPaymentNote] = useState("");
+
+  // ── Paid amount (advance / cash received) ───────────────────────
+  const [paidAmount, setPaidAmount] = useState("");
 
   // ── Submit ──────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false);
@@ -160,7 +199,7 @@ const CreateOrderPage = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Add to cart (from modal) ────────────────────────────────────
+  // ── Add to cart ─────────────────────────────────────────────────
   const handleAddToCart = useCallback((product, selectedVar, qty = 1) => {
     const unitPrice = selectedVar
       ? (selectedVar.variation_sale_price || selectedVar.variation_discount_price || selectedVar.variation_price)
@@ -217,9 +256,16 @@ const CreateOrderPage = () => {
   // ── Totals ──────────────────────────────────────────────────────
   const subTotal = lines.reduce((s, l) => s + l.unit_price * l.product_quantity, 0);
   const shippingCost = deliveryType === "pickup" ? 0 : shippingLocation === "inside_dhaka" ? SHIPPING_INSIDE : SHIPPING_OUTSIDE;
-  const discount = Math.max(0, Number(manualDiscount) || 0);
+
+  const rawDiscountInput = Number(discountInput) || 0;
+  const discount = discountType === "percent"
+    ? Math.round(subTotal * Math.min(rawDiscountInput, 100) / 100)
+    : Math.max(0, rawDiscountInput);
+
   const grandTotal = Math.max(0, subTotal + shippingCost - discount);
-  const returnAmount = Math.max(0, (Number(paidAmount) || 0) - grandTotal);
+  const paidNum = Number(paidAmount) || 0;
+  const returnAmount = Math.max(0, paidNum - grandTotal);
+  const dueAmount = Math.max(0, grandTotal - paidNum);
 
   const handlePrint = () => {
     if (lines.length === 0) { toast.error("Add products before printing."); return; }
@@ -240,10 +286,9 @@ const CreateOrderPage = () => {
       need_user_create: true,
       customer_name: customerName,
       customer_phone: customerPhone,
-      customer_id: isWalkIn ? undefined : selectedCustomer?._id,
       billing_country: "Bangladesh",
-      billing_city: billingCity || "Dhaka",
-      billing_state: billingState || "Dhaka",
+      billing_city: selectedDivisionName || "Dhaka",
+      billing_state: selectedDistrictName || "Dhaka",
       billing_address: deliveryType === "pickup" ? "Pickup" : billingAddress,
       shipping_location: shippingLocation,
       shipping_cost: shippingCost,
@@ -254,7 +299,7 @@ const CreateOrderPage = () => {
       manual_discount_reason: discountReason,
       grand_total_amount: grandTotal,
       payment_method: "cod",
-      payment_method_note: paymentMethod,
+      payment_method_note: paymentNote || "cash",
       order_products: lines.map((l) => ({
         product_id: l.product_id,
         variation_id: l.variation_id || undefined,
@@ -300,7 +345,7 @@ const CreateOrderPage = () => {
 
   return (
     <div className="h-[calc(100vh-64px)] bg-gray-50 flex flex-col overflow-hidden">
-      {/* Print receipt — hidden on screen */}
+      {/* Print receipt */}
       <POSReceipt
         lines={lines} customer={receiptCustomer}
         delivery={{ address: deliveryType === "pickup" ? "Pickup" : billingAddress }}
@@ -334,13 +379,13 @@ const CreateOrderPage = () => {
         </button>
       </div>
 
-      {/* Main 2-col layout — fills remaining height */}
+      {/* Main 2-col layout */}
       <form onSubmit={handleSubmit} className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* ── LEFT — Product grid, fills and scrolls independently ── */}
+        {/* ── LEFT — Product grid ── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden border-r border-gray-200 bg-white">
 
-          {/* Filters bar — fixed */}
+          {/* Filters bar */}
           <div className="shrink-0 p-3 border-b border-gray-100 bg-white">
             <div className="flex flex-wrap gap-2">
               <div className="flex-1 min-w-[160px] flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blueColor-500 bg-white">
@@ -391,8 +436,6 @@ const CreateOrderPage = () => {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
                 {products.map((p) => {
                   const hasVariations = p.variations?.length > 0;
-
-                  // Stock calculation
                   const totalStock = hasVariations
                     ? p.variations.reduce((s, v) => s + (v.variation_quantity || 0), 0)
                     : p.product_quantity || 0;
@@ -403,7 +446,6 @@ const CreateOrderPage = () => {
                   const someVarsOOS = hasVariations && availableVars > 0 && availableVars < p.variations.length;
                   const isOOS = hasVariations ? allVarsOOS : totalStock <= 0;
 
-                  // Price display
                   const simplePrice = p.product_sale_price || p.product_price;
                   const simpleOrig = p.product_sale_price ? p.product_price : null;
                   let priceDisplay, origDisplay;
@@ -436,15 +478,11 @@ const CreateOrderPage = () => {
                             <FiShoppingCart size={18} className="text-gray-300" />
                           </div>
                         )}
-
-                        {/* OOS overlay — only when fully out of stock */}
                         {isOOS && (
                           <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                             <span className="bg-white text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded">Out of Stock</span>
                           </div>
                         )}
-
-                        {/* Top-left: discount % (simple) OR variation count badge */}
                         {hasVariations ? (
                           <span className="absolute top-1.5 left-1.5 bg-blueColor-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
                             {p.variations.length} variants
@@ -454,8 +492,6 @@ const CreateOrderPage = () => {
                             -{Math.round(((simpleOrig - simplePrice) / simpleOrig) * 100)}%
                           </span>
                         ) : null}
-
-                        {/* Top-right: some OOS amber warning OR low-stock qty */}
                         {someVarsOOS && !isOOS && (
                           <span className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
                             {availableVars}/{p.variations.length} avail
@@ -466,56 +502,39 @@ const CreateOrderPage = () => {
                             {totalStock} left
                           </span>
                         )}
-
-                        {/* Bottom-right: in-cart indicator */}
                         {inCart && (
                           <span className="absolute bottom-1.5 right-1.5 bg-blueColor-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
                             ✓ {cartQty}
                           </span>
                         )}
                       </div>
-
                       <div className="p-2">
                         <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-1">{p.product_name}</p>
-
-                        {/* Price */}
                         <div className="flex items-center gap-1 mb-1 flex-wrap">
                           <span className="text-sm font-bold text-blueColor-700">{priceDisplay}</span>
                           {origDisplay && (
                             <span className="text-[10px] text-gray-400 line-through">৳{origDisplay?.toLocaleString()}</span>
                           )}
                         </div>
-
                         {p.product_sku && <p className="text-[9px] text-gray-400 mb-1">SKU: {p.product_sku}</p>}
-
-                        {/* Action button */}
                         {hasVariations ? (
                           <button type="button"
                             onClick={(e) => { e.stopPropagation(); setModalProduct(p); }}
                             disabled={isOOS}
                             className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all
-                              ${isOOS
-                                ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
-                                : inCart
-                                  ? "bg-blueColor-600 text-white"
-                                  : "border border-purple-400 text-purple-600 hover:bg-purple-600 hover:text-white"
-                              }`}>
+                              ${isOOS ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
+                                : inCart ? "bg-blueColor-600 text-white"
+                                : "border border-purple-400 text-purple-600 hover:bg-purple-600 hover:text-white"}`}>
                             {isOOS ? "Out of Stock" : inCart ? "＋ More Variant" : "Select Variant"}
                           </button>
                         ) : (
                           <button type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isOOS) handleAddToCart(p, null, 1);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); if (!isOOS) handleAddToCart(p, null, 1); }}
                             disabled={isOOS}
                             className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all
-                              ${isOOS
-                                ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
-                                : inCart
-                                  ? "bg-blueColor-600 text-white"
-                                  : "border border-blueColor-400 text-blueColor-600 hover:bg-blueColor-600 hover:text-white"
-                              }`}>
+                              ${isOOS ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
+                                : inCart ? "bg-blueColor-600 text-white"
+                                : "border border-blueColor-400 text-blueColor-600 hover:bg-blueColor-600 hover:text-white"}`}>
                             <FiPlus size={10} /> {isOOS ? "Out of Stock" : inCart ? "Add More" : "Add"}
                           </button>
                         )}
@@ -556,10 +575,8 @@ const CreateOrderPage = () => {
           </div>
         </div>
 
-        {/* ── RIGHT — Fixed width, full height, overflow scroll ── */}
+        {/* ── RIGHT — Fixed width, overflow scroll ── */}
         <div className="w-80 xl:w-96 shrink-0 flex flex-col overflow-hidden bg-gray-50">
-
-          {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
 
             {/* Cart */}
@@ -642,7 +659,15 @@ const CreateOrderPage = () => {
               <div className="flex gap-1.5 mb-2.5">
                 {["walkin", "existing"].map((t) => (
                   <button key={t} type="button"
-                    onClick={() => { setIsWalkIn(t === "walkin"); setSelectedCustomer(null); }}
+                    onClick={() => {
+                      setIsWalkIn(t === "walkin");
+                      setSelectedCustomer(null);
+                      setCustomerQuery("");
+                      // clear address when switching
+                      setSelectedDivisionId("");
+                      setSelectedDistrictId("");
+                      setBillingAddress("");
+                    }}
                     className={`flex-1 py-1 rounded-lg text-[11px] font-semibold border transition-all ${(t === "walkin") === isWalkIn ? "bg-blueColor-600 text-white border-blueColor-600" : "bg-white text-gray-600 border-gray-300"}`}>
                     {t === "walkin" ? "Walk-in" : "Search Existing"}
                   </button>
@@ -672,10 +697,17 @@ const CreateOrderPage = () => {
                     <ul className="absolute z-30 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto">
                       {customerResults.map((c) => (
                         <li key={c._id}
-                          onClick={() => { setSelectedCustomer(c); setCustomerQuery(`${c.user_name || ""} — ${c.user_phone}`); setShowCustomerDrop(false); }}
+                          onClick={() => {
+                            setSelectedCustomer(c);
+                            setCustomerQuery(`${c.user_name || ""} — ${c.user_phone}`);
+                            setShowCustomerDrop(false);
+                            applyCustomerAddress(c);
+                          }}
                           className="px-3 py-2 hover:bg-blueColor-50 cursor-pointer">
                           <p className="text-xs font-medium">{c.user_name}</p>
-                          <p className="text-[10px] text-gray-500">{c.user_phone}</p>
+                          <p className="text-[10px] text-gray-500">{c.user_phone}
+                            {c.user_division && <span className="ml-1 text-gray-400">· {c.user_division}{c.user_district ? `, ${c.user_district}` : ""}</span>}
+                          </p>
                         </li>
                       ))}
                     </ul>
@@ -697,7 +729,7 @@ const CreateOrderPage = () => {
                 <FiTruck size={13} className="text-blueColor-600" />
                 <span className="text-sm font-semibold text-gray-700">Delivery</span>
               </div>
-              <div className="flex gap-1.5 mb-2.5">
+              <div className="flex gap-1.5 mb-3">
                 {["delivery", "pickup"].map((dt) => (
                   <button key={dt} type="button" onClick={() => setDeliveryType(dt)}
                     className={`flex-1 py-1 rounded-lg text-[11px] font-semibold border transition-all ${deliveryType === dt ? "bg-blueColor-600 text-white border-blueColor-600" : "bg-white text-gray-600 border-gray-300"}`}>
@@ -705,21 +737,47 @@ const CreateOrderPage = () => {
                   </button>
                 ))}
               </div>
+
               {deliveryType === "delivery" && (
                 <div className="space-y-2">
-                  <select value={shippingLocation} onChange={(e) => setShippingLocation(e.target.value)}
+                  {/* Division */}
+                  <select
+                    value={selectedDivisionId}
+                    onChange={(e) => { setSelectedDivisionId(e.target.value); setSelectedDistrictId(""); }}
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white">
-                    <option value="inside_dhaka">Inside Dhaka (৳{SHIPPING_INSIDE})</option>
-                    <option value="outside_dhaka">Outside Dhaka (৳{SHIPPING_OUTSIDE})</option>
+                    <option value="">Select Division</option>
+                    {divisions.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name} — {d.bn_name}</option>
+                    ))}
                   </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="text" value={billingCity} onChange={(e) => setBillingCity(e.target.value)}
-                      placeholder="Division/City"
-                      className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
-                    <input type="text" value={billingState} onChange={(e) => setBillingState(e.target.value)}
-                      placeholder="District"
-                      className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
+
+                  {/* District */}
+                  <div className="relative">
+                    <select
+                      value={selectedDistrictId}
+                      onChange={(e) => setSelectedDistrictId(e.target.value)}
+                      disabled={!selectedDivisionId}
+                      className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white disabled:opacity-50">
+                      <option value="">Select District</option>
+                      {filteredDistricts.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name} — {d.bn_name}</option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* Auto-resolved shipping tag */}
+                  {selectedDistrictId && (
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${shippingLocation === "inside_dhaka" ? "bg-green-50 text-green-700 border border-green-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
+                      <span>{shippingLocation === "inside_dhaka" ? "✓" : "→"}</span>
+                      <span>
+                        {shippingLocation === "inside_dhaka"
+                          ? `Inside Dhaka — ৳${SHIPPING_INSIDE} delivery`
+                          : `Outside Dhaka — ৳${SHIPPING_OUTSIDE} delivery`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Address */}
                   <input type="text" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)}
                     placeholder="Full address (Road, Area, Flat...) *"
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
@@ -729,43 +787,104 @@ const CreateOrderPage = () => {
 
             {/* Discount */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <FiTag size={13} className="text-blueColor-600" />
-                <span className="text-sm font-semibold text-gray-700">Discount</span>
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-1.5">
+                  <FiTag size={13} className="text-blueColor-600" />
+                  <span className="text-sm font-semibold text-gray-700">Discount</span>
+                </div>
+                {/* Flat / % toggle */}
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden text-[10px] font-semibold">
+                  {["flat", "percent"].map((t) => (
+                    <button key={t} type="button"
+                      onClick={() => { setDiscountType(t); setDiscountInput(""); }}
+                      className={`px-2.5 py-1 transition-all ${discountType === t ? "bg-blueColor-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+                      {t === "flat" ? "৳ Flat" : "% Off"}
+                    </button>
+                  ))}
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" min={0} value={manualDiscount} onChange={(e) => setManualDiscount(e.target.value)}
-                  placeholder="Amount (৳)"
-                  className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">
+                    {discountType === "percent" ? "%" : "৳"}
+                  </span>
+                  <input
+                    type="number" min={0} max={discountType === "percent" ? 100 : undefined}
+                    value={discountInput}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (discountType === "percent" && Number(v) > 100) return;
+                      setDiscountInput(v);
+                    }}
+                    placeholder={discountType === "percent" ? "0–100" : "Amount"}
+                    className="w-full border border-gray-300 rounded-lg pl-6 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
+                </div>
                 <input type="text" value={discountReason} onChange={(e) => setDiscountReason(e.target.value)}
                   placeholder="Reason (optional)"
                   className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
               </div>
+
+              {/* Live discount preview */}
+              {discount > 0 && (
+                <div className="mt-2 text-[11px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
+                  {discountType === "percent"
+                    ? `${rawDiscountInput}% off → saving ৳${discount.toLocaleString()}`
+                    : `Flat ৳${discount.toLocaleString()} off`}
+                </div>
+              )}
             </div>
 
             {/* Payment */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
               <p className="text-sm font-semibold text-gray-700 mb-2.5">Payment</p>
-              <div className="grid grid-cols-3 gap-1.5 mb-3">
-                {PAYMENT_METHODS.map((m) => (
-                  <button key={m.key} type="button" onClick={() => setPaymentMethod(m.key)}
-                    className={`py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${paymentMethod === m.key ? "bg-blueColor-600 text-white border-blueColor-600" : "bg-white text-gray-600 border-gray-300 hover:border-blueColor-400"}`}>
-                    {m.label}
-                  </button>
-                ))}
+
+              {/* COD only — note field */}
+              <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-blueColor-50 border border-blueColor-200 mb-3">
+                <span className="text-[11px] font-bold text-blueColor-700">COD</span>
+                <span className="text-[10px] text-blueColor-600">Cash on Delivery</span>
+                <input
+                  type="text"
+                  value={paymentNote}
+                  onChange={(e) => setPaymentNote(e.target.value)}
+                  placeholder="Note: cash / bKash / bank etc."
+                  className="flex-1 ml-1 text-[11px] border-0 border-b border-blueColor-200 bg-transparent focus:outline-none text-gray-600 placeholder-gray-400"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+
+              {/* Paid amount + change/due */}
+              <div className="space-y-2">
                 <div>
-                  <label className="text-[10px] text-gray-500 block mb-1">Paid (৳)</label>
+                  <label className="text-[10px] text-gray-500 block mb-1 font-medium">
+                    Advance / Cash Received (৳)
+                    <span className="ml-1 font-normal text-gray-400">— কত টাকা পেয়েছেন?</span>
+                  </label>
                   <input type="number" min={0} value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)}
+                    placeholder="0"
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500" />
                 </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 block mb-1">Return (৳)</label>
-                  <div className={`w-full border rounded-lg px-2.5 py-1.5 text-xs font-bold ${returnAmount > 0 ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 bg-gray-50 text-gray-500"}`}>
-                    ৳{returnAmount.toLocaleString()}
+
+                {paidNum > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {returnAmount > 0 && (
+                      <div className="px-2.5 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-[9px] text-green-600 font-medium uppercase tracking-wide">Change Back</p>
+                        <p className="text-sm font-bold text-green-700">৳{returnAmount.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {dueAmount > 0 && (
+                      <div className="px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-[9px] text-red-600 font-medium uppercase tracking-wide">Still Due</p>
+                        <p className="text-sm font-bold text-red-700">৳{dueAmount.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {returnAmount === 0 && dueAmount === 0 && (
+                      <div className="col-span-2 px-2.5 py-1.5 bg-green-50 border border-green-200 rounded-lg text-center">
+                        <p className="text-[11px] font-bold text-green-700">✓ Exact Amount</p>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -793,11 +912,20 @@ const CreateOrderPage = () => {
                   </div>
                   <div className="flex justify-between text-xs text-gray-600">
                     <span>Shipping</span>
-                    <span className="font-medium">{deliveryType === "pickup" ? <span className="text-green-600">Free</span> : `৳${shippingCost}`}</span>
+                    <span className="font-medium">
+                      {deliveryType === "pickup"
+                        ? <span className="text-green-600">Free</span>
+                        : `৳${shippingCost}`}
+                    </span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600">
-                      <span>Discount</span>
+                      <span>
+                        Discount
+                        {discountType === "percent" && rawDiscountInput > 0 && (
+                          <span className="ml-1 text-[10px]">({rawDiscountInput}%)</span>
+                        )}
+                      </span>
                       <span>− ৳{discount.toLocaleString()}</span>
                     </div>
                   )}
@@ -811,7 +939,7 @@ const CreateOrderPage = () => {
 
           </div>
 
-          {/* Action buttons — fixed at bottom */}
+          {/* Action buttons */}
           <div className="shrink-0 p-3 border-t border-gray-200 bg-white space-y-2">
             <button type="submit" disabled={submitting || lines.length === 0}
               className="w-full py-2.5 rounded-xl bg-blueColor-600 hover:bg-blueColor-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors shadow-md">
