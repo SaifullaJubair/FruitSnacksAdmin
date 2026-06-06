@@ -390,9 +390,39 @@ const CreateOrderPage = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
                 {products.map((p) => {
-                  const price = p.product_sale_price || p.product_price;
-                  const origPrice = p.product_sale_price ? p.product_price : null;
+                  const hasVariations = p.variations?.length > 0;
+
+                  // Stock calculation
+                  const totalStock = hasVariations
+                    ? p.variations.reduce((s, v) => s + (v.variation_quantity || 0), 0)
+                    : p.product_quantity || 0;
+                  const availableVars = hasVariations
+                    ? p.variations.filter((v) => v.variation_quantity > 0).length
+                    : null;
+                  const allVarsOOS = hasVariations && availableVars === 0;
+                  const someVarsOOS = hasVariations && availableVars > 0 && availableVars < p.variations.length;
+                  const isOOS = hasVariations ? allVarsOOS : totalStock <= 0;
+
+                  // Price display
+                  const simplePrice = p.product_sale_price || p.product_price;
+                  const simpleOrig = p.product_sale_price ? p.product_price : null;
+                  let priceDisplay, origDisplay;
+                  if (hasVariations) {
+                    const vPrices = p.variations.map(
+                      (v) => v.variation_sale_price || v.variation_discount_price || v.variation_price,
+                    ).filter(Boolean);
+                    const minP = Math.min(...vPrices);
+                    const maxP = Math.max(...vPrices);
+                    priceDisplay = minP === maxP ? `৳${minP?.toLocaleString()}` : `৳${minP?.toLocaleString()} – ৳${maxP?.toLocaleString()}`;
+                    origDisplay = null;
+                  } else {
+                    priceDisplay = `৳${simplePrice?.toLocaleString()}`;
+                    origDisplay = simpleOrig;
+                  }
+
                   const inCart = lines.some((l) => l.product_id === p._id);
+                  const cartQty = lines.filter((l) => l.product_id === p._id).reduce((s, l) => s + l.product_quantity, 0);
+
                   return (
                     <div key={p._id}
                       className={`border rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-md ${inCart ? "border-blueColor-400 bg-blueColor-50/20" : "border-gray-200 bg-white"}`}
@@ -406,39 +436,89 @@ const CreateOrderPage = () => {
                             <FiShoppingCart size={18} className="text-gray-300" />
                           </div>
                         )}
-                        {origPrice && origPrice > price && (
-                          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
-                            -{Math.round(((origPrice - price) / origPrice) * 100)}%
-                          </span>
-                        )}
-                        {p.product_quantity <= 0 && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+
+                        {/* OOS overlay — only when fully out of stock */}
+                        {isOOS && (
+                          <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                             <span className="bg-white text-red-600 text-[9px] font-bold px-1.5 py-0.5 rounded">Out of Stock</span>
                           </div>
                         )}
-                        {p.product_quantity > 0 && p.product_quantity <= 10 && (
-                          <span className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
-                            {p.product_quantity}
+
+                        {/* Top-left: discount % (simple) OR variation count badge */}
+                        {hasVariations ? (
+                          <span className="absolute top-1.5 left-1.5 bg-blueColor-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                            {p.variations.length} variants
+                          </span>
+                        ) : (simpleOrig && simpleOrig > simplePrice) ? (
+                          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                            -{Math.round(((simpleOrig - simplePrice) / simpleOrig) * 100)}%
+                          </span>
+                        ) : null}
+
+                        {/* Top-right: some OOS amber warning OR low-stock qty */}
+                        {someVarsOOS && !isOOS && (
+                          <span className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                            {availableVars}/{p.variations.length} avail
                           </span>
                         )}
+                        {!hasVariations && totalStock > 0 && totalStock <= 10 && (
+                          <span className="absolute top-1.5 right-1.5 bg-amber-500 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+                            {totalStock} left
+                          </span>
+                        )}
+
+                        {/* Bottom-right: in-cart indicator */}
                         {inCart && (
                           <span className="absolute bottom-1.5 right-1.5 bg-blueColor-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                            ✓ {lines.filter((l) => l.product_id === p._id).reduce((s, l) => s + l.product_quantity, 0)}
+                            ✓ {cartQty}
                           </span>
                         )}
                       </div>
+
                       <div className="p-2">
                         <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-1">{p.product_name}</p>
-                        <div className="flex items-center gap-1 mb-1">
-                          <span className="text-sm font-bold text-blueColor-700">৳{price?.toLocaleString()}</span>
-                          {origPrice && <span className="text-[10px] text-gray-400 line-through">৳{origPrice?.toLocaleString()}</span>}
+
+                        {/* Price */}
+                        <div className="flex items-center gap-1 mb-1 flex-wrap">
+                          <span className="text-sm font-bold text-blueColor-700">{priceDisplay}</span>
+                          {origDisplay && (
+                            <span className="text-[10px] text-gray-400 line-through">৳{origDisplay?.toLocaleString()}</span>
+                          )}
                         </div>
+
                         {p.product_sku && <p className="text-[9px] text-gray-400 mb-1">SKU: {p.product_sku}</p>}
-                        <button type="button"
-                          onClick={(e) => { e.stopPropagation(); setModalProduct(p); }}
-                          className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${inCart ? "bg-blueColor-600 text-white" : "border border-blueColor-400 text-blueColor-600 hover:bg-blueColor-600 hover:text-white"}`}>
-                          <FiPlus size={10} /> {inCart ? "Add More" : "Add"}
-                        </button>
+
+                        {/* Action button */}
+                        {hasVariations ? (
+                          <button type="button"
+                            onClick={(e) => { e.stopPropagation(); setModalProduct(p); }}
+                            disabled={isOOS}
+                            className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all
+                              ${isOOS
+                                ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
+                                : inCart
+                                  ? "bg-blueColor-600 text-white"
+                                  : "border border-purple-400 text-purple-600 hover:bg-purple-600 hover:text-white"
+                              }`}>
+                            {isOOS ? "Out of Stock" : inCart ? "＋ More Variant" : "Select Variant"}
+                          </button>
+                        ) : (
+                          <button type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isOOS) handleAddToCart(p, null, 1);
+                            }}
+                            disabled={isOOS}
+                            className={`w-full py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all
+                              ${isOOS
+                                ? "border border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
+                                : inCart
+                                  ? "bg-blueColor-600 text-white"
+                                  : "border border-blueColor-400 text-blueColor-600 hover:bg-blueColor-600 hover:text-white"
+                              }`}>
+                            <FiPlus size={10} /> {isOOS ? "Out of Stock" : inCart ? "Add More" : "Add"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
