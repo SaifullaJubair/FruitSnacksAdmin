@@ -9,6 +9,7 @@ import AddProductPage from "../pages/ProductPage/AddProductPage/AddProductPage";
 import ProductListTablePage from "../pages/ProductPage/ProductListTablePage/ProductListTablePage";
 import ReviewPage from "../pages/ReviewPage/ReviewPage";
 import PendingReviewsPage from "../pages/ReviewPage/PendingReviewsPage";
+import SeedReviewPage from "../pages/ReviewPage/SeedReviewPage";
 import SignInPage from "../pages/SignInPage/SignInPage";
 import ForgetPasswordPage from "../pages/ForgetPasswordPage/ForgetPasswordPage";
 import AddStaffRolePage from "../pages/StaffAndRolePage/AddStaffRolePage/AddStaffRolePage";
@@ -149,6 +150,10 @@ const route = createBrowserRouter([
       {
         path: "/review/pending",
         element: <PendingReviewsPage />,
+      },
+      {
+        path: "/review/seed",
+        element: <SeedReviewPage />,
       },
       //question.....
       {

@@ -270,6 +270,15 @@ const SideNavBar = () => {
               onClick={closeAllDropdowns}
             />
           )}
+          {(user?.role_id?.review_seed_bulk === true || user?.role_id?.review_seed_manual === true) && (
+            <MenuItem
+              to="/review/seed"
+              icon={MdOutlineReviews}
+              label="Seed Reviews"
+              isActive={isActive("/review/seed")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {/* {user?.role_id?.question_show === true && (
             <MenuItem
               to="/question"

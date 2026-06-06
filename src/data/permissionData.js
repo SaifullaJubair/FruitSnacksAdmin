@@ -34,10 +34,17 @@ const permissionsData = [
         type_name: "Review Update",
         type_value: "review_update",
       },
-
       {
         type_name: "Review Show",
         type_value: "review_show",
+      },
+      {
+        type_name: "Seed Review Bulk Upload",
+        type_value: "review_seed_bulk",
+      },
+      {
+        type_name: "Seed Review Manual Add",
+        type_value: "review_seed_manual",
       },
     ],
   },
