@@ -17,6 +17,7 @@ const SettingPage = () => {
     { id: "vat", label: "Tax / VAT", icon: "🧾" }, // ✅ Phase H
     { id: "loyalty", label: "Loyalty", icon: "🎁" }, // ✅ Phase G3
     { id: "sms", label: "SMS Provider", icon: "✉️" }, // ✅ Phase G5
+    { id: "email", label: "Email Provider", icon: "📧" }, // H-B
     { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
     { id: "storefront-behaviour", label: "Storefront Behaviour", icon: "🛒" }, // ✅ C13
     { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },

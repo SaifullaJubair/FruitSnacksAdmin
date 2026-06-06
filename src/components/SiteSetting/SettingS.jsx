@@ -16,6 +16,7 @@ import PaymentMethodsSettings from "./PaymentMethodsSettings";
 import VatSettings from "./VatSettings";
 import LoyaltySettings from "./LoyaltySettings";
 import SmsSettings from "./SmsSettings";
+import EmailSettings from "./EmailSettings";
 import StorefrontBehaviourTab from "./StorefrontBehaviourTab";
 
 const SettingS = () => {
@@ -116,6 +117,15 @@ const SettingS = () => {
       case "sms":
         return (
           <SmsSettings
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // H-B — Email provider (SMTP for admin OTP emails)
+      case "email":
+        return (
+          <EmailSettings
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
