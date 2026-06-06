@@ -127,13 +127,36 @@ const AddCoupon = () => {
       setLoading(false);
       return;
     }
+    // 11β — BOGO needs the 3 bogo_* fields, but coupon_amount is irrelevant
+    // (BE schema makes it conditional). Validate locally so admin sees the
+    // error before the round-trip.
+    if (data?.coupon_type === "bogo") {
+      if (!data?.bogo_buy_qty || Number(data.bogo_buy_qty) < 1) {
+        toast.warn("BOGO 'buy quantity' must be at least 1");
+        setLoading(false);
+        return;
+      }
+      if (!data?.bogo_get_qty || Number(data.bogo_get_qty) < 1) {
+        toast.warn("BOGO 'get quantity' must be at least 1");
+        setLoading(false);
+        return;
+      }
+      const pct = Number(data?.bogo_get_discount_pct);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        toast.warn("BOGO discount percent must be between 0 and 100");
+        setLoading(false);
+        return;
+      }
+    }
     try {
       const sendData = {
         coupon_code: data?.coupon_code,
         coupon_start_date: data?.coupon_start_date,
         coupon_end_date: data?.coupon_end_date,
         coupon_type: data?.coupon_type,
-        coupon_amount: data?.coupon_amount,
+        // BOGO ignores coupon_amount — BE schema lets it be 0/undefined.
+        coupon_amount:
+          data?.coupon_type === "bogo" ? 0 : data?.coupon_amount,
         coupon_use_per_person: data?.coupon_use_per_person,
         coupon_use_total_person: data?.coupon_use_total_person,
         coupon_status: data?.coupon_status,
@@ -146,6 +169,12 @@ const AddCoupon = () => {
 
       if (data?.coupon_max_amount) {
         sendData.coupon_max_amount = data?.coupon_max_amount;
+      }
+
+      if (data?.coupon_type === "bogo") {
+        sendData.bogo_buy_qty = Number(data?.bogo_buy_qty);
+        sendData.bogo_get_qty = Number(data?.bogo_get_qty);
+        sendData.bogo_get_discount_pct = Number(data?.bogo_get_discount_pct);
       }
 
       if (data?.coupon_product_type == "specific") {
@@ -327,7 +356,11 @@ const AddCoupon = () => {
           <div>
             <label className="block text-xs font-medium text-gray-700">
               Coupon Type{" "}
-              {couponProductType === "all" ? (
+              {couponType === "bogo" ? (
+                <span className="text-red-500 text-xs">
+                  (*Buy N Get M at X% off cheapest line)
+                </span>
+              ) : couponProductType === "all" ? (
                 <span className="text-red-500 text-xs">
                   (*Deduct Form Over All Purchase Amount)
                 </span>
@@ -340,40 +373,124 @@ const AddCoupon = () => {
                 required: " Status is required",
               })}
               value={couponType}
-              //disabled={couponProductType === "all"}
               onChange={(e) => setCouponType(e.target.value)}
               className="mt-2 rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2 w-full"
             >
               <option value="fixed">Fixed</option>
               <option value="percent">Percent</option>
+              <option value="bogo">BOGO (Buy X Get Y)</option>
             </select>
             {errors.coupon_type && (
               <p className="text-red-600">{errors.coupon_type.message}</p>
             )}
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700">
-              Coupon Amount{" "}
-              {couponProductType === "all" ? (
-                <span className="text-red-500 text-xs">
-                  (*Deduct Form Over All Purchase Amount)
-                </span>
-              ) : (
-                <span className="text-red-500 text-xs">(*per product)</span>
+          {couponType !== "bogo" && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Coupon Amount{" "}
+                {couponProductType === "all" ? (
+                  <span className="text-red-500 text-xs">
+                    (*Deduct Form Over All Purchase Amount)
+                  </span>
+                ) : (
+                  <span className="text-red-500 text-xs">(*per product)</span>
+                )}
+              </label>
+              <input
+                {...register("coupon_amount", {
+                  required:
+                    couponType === "bogo" ? false : "Coupon Amount is required",
+                })}
+                type="number"
+                placeholder="Coupon number"
+                className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
+              />
+              {errors.coupon_amount && (
+                <p className="text-red-600">{errors.coupon_amount?.message}</p>
               )}
-            </label>
-            <input
-              {...register("coupon_amount", {
-                required: "Coupon Amount is required",
-              })}
-              type="number"
-              placeholder="Coupon number"
-              className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
-            />
-            {errors.coupon_amount && (
-              <p className="text-red-600">{errors.coupon_amount?.message}</p>
-            )}
-          </div>
+            </div>
+          )}
+          {/* 11β — BOGO conditional fields: buy_qty / get_qty / get_discount_pct */}
+          {couponType === "bogo" && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-700">
+                  BOGO Buy Qty <span className="text-red-500">*</span>{" "}
+                  <span className="text-red-500 text-xs">
+                    (e.g. 2 = customer must buy 2)
+                  </span>
+                </label>
+                <input
+                  {...register("bogo_buy_qty", {
+                    validate: (value) => {
+                      if (couponType !== "bogo") return true;
+                      if (!value || Number(value) < 1)
+                        return "Must be at least 1";
+                    },
+                  })}
+                  type="number"
+                  min={1}
+                  placeholder="2"
+                  className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
+                />
+                {errors.bogo_buy_qty && (
+                  <p className="text-red-600">{errors.bogo_buy_qty?.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700">
+                  BOGO Get Qty <span className="text-red-500">*</span>{" "}
+                  <span className="text-red-500 text-xs">
+                    (e.g. 1 = customer gets 1 free/discounted)
+                  </span>
+                </label>
+                <input
+                  {...register("bogo_get_qty", {
+                    validate: (value) => {
+                      if (couponType !== "bogo") return true;
+                      if (!value || Number(value) < 1)
+                        return "Must be at least 1";
+                    },
+                  })}
+                  type="number"
+                  min={1}
+                  placeholder="1"
+                  className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
+                />
+                {errors.bogo_get_qty && (
+                  <p className="text-red-600">{errors.bogo_get_qty?.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700">
+                  BOGO Discount % <span className="text-red-500">*</span>{" "}
+                  <span className="text-red-500 text-xs">
+                    (100 = free, 50 = half-price)
+                  </span>
+                </label>
+                <input
+                  {...register("bogo_get_discount_pct", {
+                    validate: (value) => {
+                      if (couponType !== "bogo") return true;
+                      const n = Number(value);
+                      if (isNaN(n) || n < 0 || n > 100)
+                        return "Must be 0-100";
+                    },
+                  })}
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="100"
+                  className="mt-2 w-full rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2"
+                />
+                {errors.bogo_get_discount_pct && (
+                  <p className="text-red-600">
+                    {errors.bogo_get_discount_pct?.message}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
           {couponType === "percent" && (
             <div>
               {" "}
@@ -426,10 +543,9 @@ const AddCoupon = () => {
                 if (selectedValue === "all") {
                   setAddCouponProducts([]);
                 }
-                // Ensure couponType is Fixed when coupon_product_type is specific
-                if (selectedValue === "all") {
-                  setCouponType("fixed");
-                }
+                // 11β — old auto-force-to-fixed wiping admin's bogo/percent
+                // pick on product_type change removed. Admin picks type
+                // explicitly now.
               }}
               className="mt-2 rounded-md border-gray-200 shadow-sm sm:text-sm p-2 border-2 w-full"
             >
