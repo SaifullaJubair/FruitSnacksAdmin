@@ -79,13 +79,15 @@ const SideNavBar = () => {
         </div>
         {/* Menu */}
         <ul className="flex flex-col pb-4 space-y-[2px]">
-          <MenuItem
-            to="/"
-            icon={GoHome}
-            label="Dashboard"
-            isActive={isActive("/")}
-            onClick={closeAllDropdowns} // Close all dropdowns when clicked
-          />
+          {user?.role_id?.dashboard_show === true && (
+            <MenuItem
+              to="/"
+              icon={GoHome}
+              label="Dashboard"
+              isActive={isActive("/")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {(user?.role_id?.category_show === true ||
             user?.role_id?.brand_show === true ||
             user?.role_id?.attribute_show === true) && (

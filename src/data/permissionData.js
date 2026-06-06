@@ -1,4 +1,12 @@
 const permissionsData = [
+  // E20: Dashboard — revenue data; default false so limited staff can't see it
+  {
+    Name: "Dashboard",
+    Type: [
+      { type_name: "View Dashboard (revenue + stats)", type_value: "dashboard_show" },
+    ],
+  },
+
   {
     Name: "Page Seo Update",
     Type: [
