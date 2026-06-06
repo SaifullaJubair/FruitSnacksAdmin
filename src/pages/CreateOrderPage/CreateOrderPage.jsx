@@ -40,22 +40,47 @@ const SkeletonCard = () => (
 );
 
 // Pure helper — no state
+// NOTE: user.user_division sometimes stores a district name (FE checkout form
+// inconsistency). Strategy: try user_district first, fall back to user_division
+// as district, then try user_division as a real division name.
 function resolveCustomerDivDistrict(customer) {
-  if (!customer?.user_division) return { divId: "", distId: "" };
-  const div = divisions.find(
-    (d) =>
-      d.name.toLowerCase() === (customer.user_division || "").toLowerCase() ||
-      d.bn_name === customer.user_division,
-  );
-  if (!div) return { divId: "", distId: "" };
-  if (!customer.user_district) return { divId: div.id, distId: "" };
-  const dist = districts.find(
-    (d) =>
-      d.division_id === div.id &&
-      (d.name.toLowerCase() === (customer.user_district || "").toLowerCase() ||
-        d.bn_name === customer.user_district),
-  );
-  return { divId: div.id, distId: dist?.id || "" };
+  const normalize = (s) => (s || "").trim().toLowerCase();
+
+  // 1. Try user_district as a district name
+  let dist = null;
+  if (customer?.user_district) {
+    dist = districts.find(
+      (d) =>
+        normalize(d.name) === normalize(customer.user_district) ||
+        d.bn_name === customer.user_district?.trim(),
+    );
+  }
+
+  // 2. If no district match yet, try user_division as a district name
+  //    (common case: Bagerhat, Barguna, Bandarban stored in user_division)
+  if (!dist && customer?.user_division) {
+    dist = districts.find(
+      (d) =>
+        normalize(d.name) === normalize(customer.user_division) ||
+        d.bn_name === customer.user_division?.trim(),
+    );
+  }
+
+  if (dist) {
+    return { divId: dist.division_id, distId: dist.id };
+  }
+
+  // 3. Fall back: try user_division as an actual division name
+  if (customer?.user_division) {
+    const div = divisions.find(
+      (d) =>
+        normalize(d.name) === normalize(customer.user_division) ||
+        d.bn_name === customer.user_division?.trim(),
+    );
+    if (div) return { divId: div.id, distId: "" };
+  }
+
+  return { divId: "", distId: "" };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
