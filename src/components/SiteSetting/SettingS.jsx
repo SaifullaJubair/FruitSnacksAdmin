@@ -18,6 +18,7 @@ import LoyaltySettings from "./LoyaltySettings";
 import SmsSettings from "./SmsSettings";
 import EmailSettings from "./EmailSettings";
 import StorefrontBehaviourTab from "./StorefrontBehaviourTab";
+import HomeLayoutTab from "./HomeLayoutTab";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -160,6 +161,15 @@ const SettingS = () => {
       case "storefront-behaviour":
         return (
           <StorefrontBehaviourTab
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // Track D — Home Layout Builder
+      case "home-layout":
+        return (
+          <HomeLayoutTab
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />

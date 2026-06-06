@@ -20,6 +20,7 @@ const SettingPage = () => {
     { id: "email", label: "Email Provider", icon: "📧" }, // H-B
     { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
     { id: "storefront-behaviour", label: "Storefront Behaviour", icon: "🛒" }, // ✅ C13
+    { id: "home-layout", label: "Home Layout", icon: "🏠" }, // Track D
     { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },
     { id: "offer-banner", label: "Offer Banner", icon: "⏰" },
     { id: "policies", label: "Policies", icon: "📜" },

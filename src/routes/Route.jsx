@@ -61,6 +61,8 @@ import AbandonedCartPage from "../pages/AbandonedCartPage/AbandonedCartPage";
 import LoyaltyPage from "../pages/LoyaltyPage/LoyaltyPage";
 import LowStockPage from "../pages/LowStockPage/LowStockPage";
 import WalletPage from "../pages/WalletPage/WalletPage";
+import SiteFaqPage from "../pages/SiteFaqPage/SiteFaqPage";
+import NewsletterPage from "../pages/NewsletterPage/NewsletterPage";
 
 const route = createBrowserRouter([
   {
@@ -336,6 +338,16 @@ const route = createBrowserRouter([
       {
         path: "/admin/my-profile",
         element: <ProfilePage />,
+      },
+
+      // Track D — Site FAQ + Newsletter Subscribers
+      {
+        path: "/site-faq",
+        element: <SiteFaqPage />,
+      },
+      {
+        path: "/newsletter-subscribers",
+        element: <NewsletterPage />,
       },
     ],
   },

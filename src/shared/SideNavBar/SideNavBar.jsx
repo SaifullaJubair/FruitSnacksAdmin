@@ -372,6 +372,27 @@ const SideNavBar = () => {
               onClick={closeAllDropdowns}
             />
           )}
+          {/* Track D: Site FAQ (Storefront home page FAQ section) */}
+          {user?.role_id?.site_faq_show === true && (
+            <MenuItem
+              to="/site-faq"
+              icon={FaQuestion}
+              label="Site FAQ (Storefront)"
+              isActive={isActive("/site-faq")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* Track D: Newsletter Subscribers */}
+          {(user?.role_id?.newsletter_show === true ||
+            user?.role_id?.newsletter_export === true) && (
+            <MenuItem
+              to="/newsletter-subscribers"
+              icon={GrAnnounce}
+              label="Newsletter Subscribers"
+              isActive={isActive("/newsletter-subscribers")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {/* {user?.role_id?.slider_show === true && (
             <MenuItem
               to="/slider"
