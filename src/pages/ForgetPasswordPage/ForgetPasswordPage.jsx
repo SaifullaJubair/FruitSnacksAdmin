@@ -74,9 +74,10 @@ const ForgetPasswordPage = () => {
   const [adminEmail, setAdminEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm();
+  const { register, handleSubmit, formState: { errors }, watch, reset } = useForm();
 
   const validateIdentifier = () => {
     if (channel === "phone") {
@@ -128,6 +129,9 @@ const ForgetPasswordPage = () => {
     }
     if (!data?.admin_password || data.admin_password.length < 6) {
       toast.error("Password must be at least 6 characters", { autoClose: 2000 }); return;
+    }
+    if (data.admin_password !== data.admin_confirm_password) {
+      toast.error("Passwords do not match!", { autoClose: 2000 }); return;
     }
     setLoading(true);
     try {
@@ -287,6 +291,7 @@ const ForgetPasswordPage = () => {
                     })}
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter new password"
+                    autoComplete="new-password"
                     className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blueColor-500 transition-colors pr-10"
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
@@ -295,6 +300,28 @@ const ForgetPasswordPage = () => {
                   </button>
                   {errors.admin_password && (
                     <p className="text-red-500 text-xs mt-1">{errors.admin_password.message}</p>
+                  )}
+                </div>
+
+                {/* Confirm password */}
+                <div className="relative">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">Confirm Password</label>
+                  <input
+                    {...register("admin_confirm_password", {
+                      required: "Please confirm your password",
+                      validate: (val) => val === watch("admin_password") || "Passwords do not match",
+                    })}
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter new password"
+                    autoComplete="new-password"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blueColor-500 transition-colors pr-10"
+                  />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-8 text-gray-400 hover:text-gray-600">
+                    {showConfirmPassword ? <FaRegEye size={18} /> : <FaRegEyeSlash size={18} />}
+                  </button>
+                  {errors.admin_confirm_password && (
+                    <p className="text-red-500 text-xs mt-1">{errors.admin_confirm_password.message}</p>
                   )}
                 </div>
 
