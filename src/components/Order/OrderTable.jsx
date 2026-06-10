@@ -68,42 +68,21 @@ const OrderTable = ({
         order_status: order_status,
         order_updated_by: user?._id,
       };
-      if (order_status === "processing") {
-        const today =
-          new Date().toISOString().split("T")[0] +
-          " " +
-          new Date().toLocaleTimeString();
-        sendData.processing_time = today;
-      }
-      if (order_status === "shipped") {
-        const today =
-          new Date().toISOString().split("T")[0] +
-          " " +
-          new Date().toLocaleTimeString();
-        sendData.shipped_time = today;
-      }
+      const today =
+        new Date().toISOString().split("T")[0] +
+        " " +
+        new Date().toLocaleTimeString();
+      if (order_status === "on_hold") sendData.on_hold_time = today;
+      if (order_status === "confirmed") sendData.confirmed_time = today;
+      if (order_status === "processing") sendData.processing_time = today;
+      if (order_status === "shipped") sendData.shipped_time = today;
       if (order_status === "delivered") {
-        const today =
-          new Date().toISOString().split("T")[0] +
-          " " +
-          new Date().toLocaleTimeString();
         sendData.delivered_time = today;
         sendData.order_products = order_products;
       }
-      if (order_status === "cancel") {
-        const today =
-          new Date().toISOString().split("T")[0] +
-          " " +
-          new Date().toLocaleTimeString();
-        sendData.cancel_time = today;
-      }
-      if (order_status === "return") {
-        const today =
-          new Date().toISOString().split("T")[0] +
-          " " +
-          new Date().toLocaleTimeString();
-        sendData.return_time = today;
-      }
+      if (order_status === "completed") sendData.completed_time = today;
+      if (order_status === "cancel") sendData.cancel_time = today;
+      if (order_status === "return") sendData.return_time = today;
       const response = await fetch(`${BASE_URL}/order`, {
         method: "PATCH",
         credentials: "include",
@@ -319,7 +298,9 @@ const OrderTable = ({
                     </td>
 
                     {user?.role_id?.order_update === true &&
-                      order?.order_status == "pending" && (
+                      order?.order_status !== "cancel" &&
+                      order?.order_status !== "return" &&
+                      order?.order_status !== "completed" && (
                         <td className="whitespace-nowrap p-1">
                           <select
                             onChange={(e) =>
@@ -329,29 +310,49 @@ const OrderTable = ({
                                 order?.order_products,
                               )
                             }
-                            id="order_status"
+                            value={order?.order_status}
                             className="block w-full px-1 py-1 text-gray-700 bg-white border border-gray-200 rounded-xl cursor-pointer"
                           >
-                            <option selected value={order?.order_status}>
+                            <option value={order?.order_status}>
                               {order?.order_status}
                             </option>
-                            {order?.order_status !== "pending" &&
-                              order?.order_status !== "processing" &&
-                              order?.order_status !== "shipped" &&
-                              order?.order_status !== "delivered" &&
-                              order?.order_status !== "cancel" &&
-                              order?.order_status !== "return" && (
-                                <option value="pending">Pending</option>
-                              )}
-                            {(order?.order_status == "shipped" ||
-                              order?.order_status == "pending") && (
-                              <option value="delivered">Delivered</option>
-                            )}
-                            {order?.order_status !== "cancel" &&
-                              order?.order_status !== "return" &&
-                              order?.order_status !== "delivered" && (
+                            {order?.order_status === "pending" && (
+                              <>
+                                <option value="on_hold">On Hold</option>
+                                <option value="confirmed">Confirmed</option>
                                 <option value="cancel">Cancel</option>
-                              )}
+                              </>
+                            )}
+                            {order?.order_status === "on_hold" && (
+                              <>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="cancel">Cancel</option>
+                              </>
+                            )}
+                            {order?.order_status === "confirmed" && (
+                              <>
+                                <option value="processing">Processing</option>
+                                <option value="cancel">Cancel</option>
+                              </>
+                            )}
+                            {order?.order_status === "processing" && (
+                              <>
+                                <option value="shipped">Shipped</option>
+                                <option value="cancel">Cancel</option>
+                              </>
+                            )}
+                            {order?.order_status === "shipped" && (
+                              <>
+                                <option value="delivered">Delivered</option>
+                                <option value="return">Return</option>
+                              </>
+                            )}
+                            {order?.order_status === "delivered" && (
+                              <>
+                                <option value="completed">Completed</option>
+                                <option value="return">Return</option>
+                              </>
+                            )}
                           </select>
                         </td>
                       )}
