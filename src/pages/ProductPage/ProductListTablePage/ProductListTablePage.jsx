@@ -20,6 +20,7 @@ import ProductVideoModal from "../../../components/ProductList/ProductVideoModal
 import ProductPriceModal from "../../../components/ProductList/ProductPriceModal";
 import ProductStockModal from "../../../components/ProductList/ProductStockModal";
 import ProductVariationsModal from "../../../components/ProductList/ProductVariationsModal";
+import ProductAnalyticsSeedModal from "../../../components/ProductList/ProductAnalyticsSeedModal";
 
 // A2 (2026-06-04) — operational product list dashboard.
 // Backed by /product/dashboard-rich which returns each row pre-annotated with
@@ -537,7 +538,18 @@ const ProductListTablePage = () => {
                       </div>
                     </td>
                     <td className="p-2 text-center text-xs text-gray-600">
-                      {p.sold_count || 0} / {p.view_count || 0}
+                      {user?.role_id?.product_update ? (
+                        <button
+                          type="button"
+                          onClick={() => openModal("analytics_seed", p)}
+                          title="Seed sold/view count"
+                          className="hover:underline hover:text-primaryColor"
+                        >
+                          {p.sold_count || 0} / {p.view_count || 0}
+                        </button>
+                      ) : (
+                        <>{p.sold_count || 0} / {p.view_count || 0}</>
+                      )}
                     </td>
                     <td
                       className="p-2 text-center text-xs text-gray-500"
@@ -627,6 +639,13 @@ const ProductListTablePage = () => {
       )}
       {modal?.type === "variations" && (
         <ProductVariationsModal
+          product={modal.product}
+          onClose={closeModal}
+          onSaved={refetch}
+        />
+      )}
+      {modal?.type === "analytics_seed" && (
+        <ProductAnalyticsSeedModal
           product={modal.product}
           onClose={closeModal}
           onSaved={refetch}

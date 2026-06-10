@@ -44,6 +44,7 @@ const buildState = (d) => ({
   whatsapp_number: d?.whatsapp_number ?? "",
   enable_reviews: d?.enable_reviews ?? true,
   auto_approve_reviews: d?.auto_approve_reviews ?? false,
+  enable_seeded_reviews: d?.enable_seeded_reviews ?? true,
 });
 
 const GroupHeader = ({ title, subtitle }) => (
@@ -118,6 +119,7 @@ const StorefrontBehaviourTab = ({ refetch, getInitialCurrencyData: d }) => {
           whatsapp_number: state.whatsapp_number ?? "",
           enable_reviews: state.enable_reviews,
           auto_approve_reviews: state.auto_approve_reviews,
+          enable_seeded_reviews: state.enable_seeded_reviews,
         }),
       });
       const result = await res.json();
@@ -344,6 +346,14 @@ const StorefrontBehaviourTab = ({ refetch, getInitialCurrencyData: d }) => {
                 label="Auto-Approve Reviews"
                 help="ON = Reviews go live immediately. OFF = New reviews land in the Pending Reviews queue for admin approval before going live."
                 fieldKey="auto_approve_reviews"
+                state={state}
+                set={set}
+                isEditing={isEditing}
+              />
+              <ToggleRow
+                label="Show Seeded Reviews"
+                help="ON = Admin-seeded (fake) reviews are visible on the storefront. OFF = Only real customer reviews shown. Dashboard analytics always show real data only."
+                fieldKey="enable_seeded_reviews"
                 state={state}
                 set={set}
                 isEditing={isEditing}

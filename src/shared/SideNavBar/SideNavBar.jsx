@@ -270,6 +270,15 @@ const SideNavBar = () => {
               onClick={closeAllDropdowns}
             />
           )}
+          {(user?.role_id?.review_seed_bulk === true || user?.role_id?.review_seed_manual === true) && (
+            <MenuItem
+              to="/review/seed"
+              icon={MdOutlineReviews}
+              label="Seed Reviews"
+              isActive={isActive("/review/seed")}
+              onClick={closeAllDropdowns}
+            />
+          )}
           {/* {user?.role_id?.question_show === true && (
             <MenuItem
               to="/question"
@@ -360,6 +369,27 @@ const SideNavBar = () => {
               icon={FaHandshake}
               label="Brand Promise"
               isActive={isActive("/trust-point")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* Track D: Site FAQ (Storefront home page FAQ section) */}
+          {user?.role_id?.site_faq_show === true && (
+            <MenuItem
+              to="/site-faq"
+              icon={FaQuestion}
+              label="Site FAQ (Storefront)"
+              isActive={isActive("/site-faq")}
+              onClick={closeAllDropdowns}
+            />
+          )}
+          {/* Track D: Newsletter Subscribers */}
+          {(user?.role_id?.newsletter_show === true ||
+            user?.role_id?.newsletter_export === true) && (
+            <MenuItem
+              to="/newsletter-subscribers"
+              icon={GrAnnounce}
+              label="Newsletter Subscribers"
+              isActive={isActive("/newsletter-subscribers")}
               onClick={closeAllDropdowns}
             />
           )}

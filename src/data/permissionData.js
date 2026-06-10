@@ -34,10 +34,17 @@ const permissionsData = [
         type_name: "Review Update",
         type_value: "review_update",
       },
-
       {
         type_name: "Review Show",
         type_value: "review_show",
+      },
+      {
+        type_name: "Seed Review Bulk Upload",
+        type_value: "review_seed_bulk",
+      },
+      {
+        type_name: "Seed Review Manual Add",
+        type_value: "review_seed_manual",
       },
     ],
   },
@@ -433,6 +440,27 @@ const permissionsData = [
       { type_name: "Payment Method Create", type_value: "payment_method_create" },
       { type_name: "Payment Method Update", type_value: "payment_method_update" },
       { type_name: "Payment Method Delete", type_value: "payment_method_delete" },
+    ],
+  },
+
+  // Track D: Site FAQ (Storefront home FAQ section)
+  {
+    Name: "Site FAQ (Storefront)",
+    Type: [
+      { type_name: "Site FAQ Show", type_value: "site_faq_show" },
+      { type_name: "Site FAQ Create", type_value: "site_faq_post" },
+      { type_name: "Site FAQ Update", type_value: "site_faq_update" },
+      { type_name: "Site FAQ Delete", type_value: "site_faq_delete" },
+    ],
+  },
+
+  // Track D: Newsletter Subscribers
+  {
+    Name: "Newsletter Subscribers",
+    Type: [
+      { type_name: "Newsletter Show", type_value: "newsletter_show" },
+      { type_name: "Newsletter Delete", type_value: "newsletter_delete" },
+      { type_name: "Newsletter Export CSV", type_value: "newsletter_export" },
     ],
   },
 ];
