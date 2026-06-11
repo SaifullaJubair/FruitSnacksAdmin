@@ -38,7 +38,6 @@ const PageSeoPage = () => {
     },
   });
 
-  console.log(pageSeoData);
   return (
     <>
       {user?.role_id?.page_seo_show === true && (
