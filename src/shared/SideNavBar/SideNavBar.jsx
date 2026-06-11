@@ -2,29 +2,58 @@ import { useContext, useEffect, useState } from "react";
 import { logo } from "../../utils/imageImport";
 import { Link, useLocation } from "react-router-dom";
 import {
-  MdOutlineAddchart,
-  MdOutlineCampaign,
-  MdOutlineLocalOffer,
-  MdOutlineReviews,
-} from "react-icons/md";
-import { GoHome } from "react-icons/go";
-import { GrAnnounce } from "react-icons/gr";
-import { BsShieldPlus } from "react-icons/bs";
-import { PiFlagBannerFill, PiUsersThree } from "react-icons/pi";
-import { TbCategoryPlus } from "react-icons/tb";
-
-import { FiUsers } from "react-icons/fi";
+  // groups
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Megaphone,
+  Users,
+  LayoutTemplate,
+  Warehouse,
+  Settings,
+  ShieldCheck,
+  // catalog children
+  FolderTree,
+  Tags,
+  SlidersHorizontal,
+  PackagePlus,
+  PackageSearch,
+  AlertTriangle,
+  // orders children
+  ClipboardList,
+  PlusSquare,
+  Truck,
+  ShieldAlert,
+  ShoppingBag,
+  // marketing children
+  Zap,
+  Tag,
+  Ticket,
+  Image as ImageIcon,
+  GalleryHorizontal,
+  // customers children
+  User,
+  Heart,
+  Gift,
+  Wallet,
+  Star,
+  MessageCircleQuestion,
+  // content children
+  Palette,
+  HelpCircle,
+  Handshake,
+  Mail,
+  // inventory children
+  Boxes,
+  Building2,
+  // settings children
+  Cog,
+  Search,
+  // staff children
+  UserPlus,
+  KeyRound,
+} from "lucide-react";
 import { ChildMenuItem, DropdownMenu, MenuItem } from "./DropdownAndMenuItem";
-import { IoSettings } from "react-icons/io5";
-
-import { RiCoupon3Line, RiShieldCheckLine } from "react-icons/ri";
-import { FaBorderAll, FaQuestion, FaHandshake, FaWarehouse, FaHeart, FaGift, FaWallet } from "react-icons/fa";
-import { FaUsers } from "react-icons/fa6";
-import { MdFlashOn } from "react-icons/md";
-import { FiAlertTriangle, FiShoppingCart } from "react-icons/fi";
-
-import { TfiLayoutSliderAlt } from "react-icons/tfi";
-import { IoColorPaletteOutline } from "react-icons/io5";
 import { SettingContext } from "../../context/SettingProvider";
 import { LoaderOverlay } from "../../components/common/loader/LoderOverley";
 import { AuthContext } from "../../context/AuthProvider";
@@ -80,7 +109,7 @@ const SideNavBar = () => {
           {user?.role_id?.dashboard_show === true && (
             <MenuItem
               to="/"
-              icon={GoHome}
+              icon={LayoutDashboard}
               label="Dashboard"
               isActive={isActive("/")}
               onClick={closeAllDropdowns}
@@ -94,14 +123,14 @@ const SideNavBar = () => {
             user?.role_id?.product_show === true) && (
             <DropdownMenu
               label="Catalog"
-              icon={TbCategoryPlus}
+              icon={Package}
               isOpen={activeDropdown === "catalog"}
               onClick={() => toggleDropdown("catalog")}
             >
               {user?.role_id?.category_show === true && (
                 <ChildMenuItem
                   to="/category"
-                  icon={TbCategoryPlus}
+                  icon={FolderTree}
                   label="Category"
                   isActive={isActive("/category")}
                 />
@@ -109,7 +138,7 @@ const SideNavBar = () => {
               {user?.role_id?.brand_show === true && (
                 <ChildMenuItem
                   to="/brand-category"
-                  icon={TbCategoryPlus}
+                  icon={Tags}
                   label="Brand"
                   isActive={isActive("/brand-category")}
                 />
@@ -117,7 +146,7 @@ const SideNavBar = () => {
               {user?.role_id?.attribute_show === true && (
                 <ChildMenuItem
                   to="/attribute"
-                  icon={TbCategoryPlus}
+                  icon={SlidersHorizontal}
                   label="Attribute"
                   isActive={isActive("/attribute")}
                 />
@@ -125,7 +154,7 @@ const SideNavBar = () => {
               {user?.role_id?.product_show === true && (
                 <ChildMenuItem
                   to="/product/product-list"
-                  icon={TbCategoryPlus}
+                  icon={PackageSearch}
                   label="Product List"
                   isActive={isActive("/product/product-list")}
                 />
@@ -133,7 +162,7 @@ const SideNavBar = () => {
               {user?.role_id?.product_create === true && (
                 <ChildMenuItem
                   to="/product/product-create"
-                  icon={TbCategoryPlus}
+                  icon={PackagePlus}
                   label="Add Product"
                   isActive={isActive("/product/product-create")}
                 />
@@ -141,7 +170,7 @@ const SideNavBar = () => {
               {user?.role_id?.product_show === true && (
                 <ChildMenuItem
                   to="/low-stock"
-                  icon={FiAlertTriangle}
+                  icon={AlertTriangle}
                   label="Low Stock"
                   isActive={isActive("/low-stock")}
                 />
@@ -154,14 +183,14 @@ const SideNavBar = () => {
             user?.role_id?.order_create_admin === true) && (
             <DropdownMenu
               label="Orders"
-              icon={FaBorderAll}
+              icon={ShoppingCart}
               isOpen={activeDropdown === "orders"}
               onClick={() => toggleDropdown("orders")}
             >
               {user?.role_id?.order_show === true && (
                 <ChildMenuItem
                   to="/order"
-                  icon={FaBorderAll}
+                  icon={ClipboardList}
                   label="Order List"
                   isActive={isActive("/order")}
                 />
@@ -171,7 +200,7 @@ const SideNavBar = () => {
               {user?.role_id?.order_create_admin === true && (
                 <ChildMenuItem
                   to="/order/create"
-                  icon={FaBorderAll}
+                  icon={PlusSquare}
                   label="Create POS Order"
                   isActive={isActive("/order/create")}
                 />
@@ -180,25 +209,25 @@ const SideNavBar = () => {
                 <>
                   <ChildMenuItem
                     to="/steadfast-order"
-                    icon={FaBorderAll}
+                    icon={Truck}
                     label="SteadFast Orders"
                     isActive={isActive("/steadfast-order")}
                   />
                   <ChildMenuItem
                     to="/pathao-order"
-                    icon={FaBorderAll}
+                    icon={Truck}
                     label="Pathao Orders"
                     isActive={isActive("/pathao-order")}
                   />
                   <ChildMenuItem
                     to="/fraud-check"
-                    icon={RiShieldCheckLine}
+                    icon={ShieldAlert}
                     label="Fraud Check"
                     isActive={isActive("/fraud-check")}
                   />
                   <ChildMenuItem
                     to="/abandoned-cart"
-                    icon={FiShoppingCart}
+                    icon={ShoppingBag}
                     label="Abandoned Carts"
                     isActive={isActive("/abandoned-cart")}
                   />
@@ -215,7 +244,7 @@ const SideNavBar = () => {
             user?.role_id?.slider_show === true) && (
             <DropdownMenu
               label="Marketing"
-              icon={MdOutlineCampaign}
+              icon={Megaphone}
               isOpen={activeDropdown === "marketing"}
               onClick={() => toggleDropdown("marketing")}
             >
@@ -224,7 +253,7 @@ const SideNavBar = () => {
                 user?.role_id?.offer_update === true) && (
                 <ChildMenuItem
                   to="/flash-sale"
-                  icon={MdFlashOn}
+                  icon={Zap}
                   label="Flash Sale"
                   isActive={isActive("/flash-sale")}
                 />
@@ -232,7 +261,7 @@ const SideNavBar = () => {
               {user?.role_id?.offer_show === true && (
                 <ChildMenuItem
                   to="/offer-list"
-                  icon={MdOutlineLocalOffer}
+                  icon={Tag}
                   label="Offers"
                   isActive={isActive("/offer-list")}
                 />
@@ -240,7 +269,7 @@ const SideNavBar = () => {
               {user?.role_id?.offer_create === true && (
                 <ChildMenuItem
                   to="/add-offer"
-                  icon={MdOutlineLocalOffer}
+                  icon={Tag}
                   label="Add Offer"
                   isActive={isActive("/add-offer")}
                 />
@@ -248,7 +277,7 @@ const SideNavBar = () => {
               {user?.role_id?.campaign_show === true && (
                 <ChildMenuItem
                   to="/campaign-list"
-                  icon={MdOutlineCampaign}
+                  icon={Megaphone}
                   label="Campaigns"
                   isActive={isActive("/campaign-list")}
                 />
@@ -256,7 +285,7 @@ const SideNavBar = () => {
               {user?.role_id?.campaign_create === true && (
                 <ChildMenuItem
                   to="/add-campaign"
-                  icon={MdOutlineAddchart}
+                  icon={Megaphone}
                   label="Add Campaign"
                   isActive={isActive("/add-campaign")}
                 />
@@ -264,7 +293,7 @@ const SideNavBar = () => {
               {user?.role_id?.coupon_show === true && (
                 <ChildMenuItem
                   to="/your-coupon"
-                  icon={RiCoupon3Line}
+                  icon={Ticket}
                   label="Coupons"
                   isActive={isActive("/your-coupon")}
                 />
@@ -272,7 +301,7 @@ const SideNavBar = () => {
               {user?.role_id?.coupon_create === true && (
                 <ChildMenuItem
                   to="/add-coupon"
-                  icon={RiCoupon3Line}
+                  icon={Ticket}
                   label="Add Coupon"
                   isActive={isActive("/add-coupon")}
                 />
@@ -280,7 +309,7 @@ const SideNavBar = () => {
               {user?.role_id?.banner_show === true && (
                 <ChildMenuItem
                   to="/banner"
-                  icon={PiFlagBannerFill}
+                  icon={ImageIcon}
                   label="Banner"
                   isActive={isActive("/banner")}
                 />
@@ -288,7 +317,7 @@ const SideNavBar = () => {
               {user?.role_id?.slider_show === true && (
                 <ChildMenuItem
                   to="/slider"
-                  icon={TfiLayoutSliderAlt}
+                  icon={GalleryHorizontal}
                   label="Slider"
                   isActive={isActive("/slider")}
                 />
@@ -305,14 +334,14 @@ const SideNavBar = () => {
             user?.role_id?.question_show === true) && (
             <DropdownMenu
               label="Customers"
-              icon={PiUsersThree}
+              icon={Users}
               isOpen={activeDropdown === "customers"}
               onClick={() => toggleDropdown("customers")}
             >
               {user?.role_id?.customer_show === true && (
                 <ChildMenuItem
                   to="/customer"
-                  icon={FaUsers}
+                  icon={User}
                   label="Customer"
                   isActive={isActive("/customer")}
                 />
@@ -321,19 +350,19 @@ const SideNavBar = () => {
                 <>
                   <ChildMenuItem
                     to="/wishlist"
-                    icon={FaHeart}
+                    icon={Heart}
                     label="Wishlists"
                     isActive={isActive("/wishlist")}
                   />
                   <ChildMenuItem
                     to="/loyalty"
-                    icon={FaGift}
+                    icon={Gift}
                     label="Loyalty Points"
                     isActive={isActive("/loyalty")}
                   />
                   <ChildMenuItem
                     to="/wallet"
-                    icon={FaWallet}
+                    icon={Wallet}
                     label="Wallet"
                     isActive={isActive("/wallet")}
                   />
@@ -343,7 +372,7 @@ const SideNavBar = () => {
                 <>
                   <ChildMenuItem
                     to="/review"
-                    icon={MdOutlineReviews}
+                    icon={Star}
                     label="Reviews"
                     isActive={
                       isActive("/review") && !isActive("/review/pending")
@@ -351,7 +380,7 @@ const SideNavBar = () => {
                   />
                   <ChildMenuItem
                     to="/review/pending"
-                    icon={MdOutlineReviews}
+                    icon={Star}
                     label="Pending Reviews"
                     isActive={isActive("/review/pending")}
                   />
@@ -361,7 +390,7 @@ const SideNavBar = () => {
                 user?.role_id?.review_seed_manual === true) && (
                 <ChildMenuItem
                   to="/review/seed"
-                  icon={MdOutlineReviews}
+                  icon={Star}
                   label="Seed Reviews"
                   isActive={isActive("/review/seed")}
                 />
@@ -369,7 +398,7 @@ const SideNavBar = () => {
               {user?.role_id?.question_show === true && (
                 <ChildMenuItem
                   to="/question"
-                  icon={FaQuestion}
+                  icon={MessageCircleQuestion}
                   label="Questions"
                   isActive={isActive("/question")}
                 />
@@ -386,14 +415,14 @@ const SideNavBar = () => {
             user?.role_id?.newsletter_export === true) && (
             <DropdownMenu
               label="Content"
-              icon={IoColorPaletteOutline}
+              icon={LayoutTemplate}
               isOpen={activeDropdown === "content"}
               onClick={() => toggleDropdown("content")}
             >
               {user?.role_id?.theme_show === true && (
                 <ChildMenuItem
                   to="/theme"
-                  icon={IoColorPaletteOutline}
+                  icon={Palette}
                   label="Themes"
                   isActive={isActive("/theme")}
                 />
@@ -401,7 +430,7 @@ const SideNavBar = () => {
               {user?.role_id?.faq_template_show === true && (
                 <ChildMenuItem
                   to="/faq-template"
-                  icon={FaQuestion}
+                  icon={HelpCircle}
                   label="FAQ Templates"
                   isActive={isActive("/faq-template")}
                 />
@@ -409,7 +438,7 @@ const SideNavBar = () => {
               {user?.role_id?.site_faq_show === true && (
                 <ChildMenuItem
                   to="/site-faq"
-                  icon={FaQuestion}
+                  icon={HelpCircle}
                   label="Site FAQ"
                   isActive={isActive("/site-faq")}
                 />
@@ -417,7 +446,7 @@ const SideNavBar = () => {
               {user?.role_id?.trust_point_show === true && (
                 <ChildMenuItem
                   to="/trust-point"
-                  icon={FaHandshake}
+                  icon={Handshake}
                   label="Brand Promise"
                   isActive={isActive("/trust-point")}
                 />
@@ -426,7 +455,7 @@ const SideNavBar = () => {
                 user?.role_id?.newsletter_export === true) && (
                 <ChildMenuItem
                   to="/newsletter-subscribers"
-                  icon={GrAnnounce}
+                  icon={Mail}
                   label="Newsletter"
                   isActive={isActive("/newsletter-subscribers")}
                 />
@@ -439,14 +468,14 @@ const SideNavBar = () => {
             user?.role_id?.supplier_show === true) && (
             <DropdownMenu
               label="Inventory"
-              icon={FaWarehouse}
+              icon={Warehouse}
               isOpen={activeDropdown === "inventory"}
               onClick={() => toggleDropdown("inventory")}
             >
               {user?.role_id?.setting_show === true && (
                 <ChildMenuItem
                   to="/warehouse"
-                  icon={FaWarehouse}
+                  icon={Boxes}
                   label="Warehouses"
                   isActive={isActive("/warehouse")}
                 />
@@ -454,7 +483,7 @@ const SideNavBar = () => {
               {user?.role_id?.supplier_show === true && (
                 <ChildMenuItem
                   to="/supplier"
-                  icon={FaUsers}
+                  icon={Building2}
                   label="Suppliers"
                   isActive={isActive("/supplier")}
                 />
@@ -467,14 +496,14 @@ const SideNavBar = () => {
             user?.role_id?.page_seo_show === true) && (
             <DropdownMenu
               label="Settings"
-              icon={IoSettings}
+              icon={Settings}
               isOpen={activeDropdown === "settings"}
               onClick={() => toggleDropdown("settings")}
             >
               {user?.role_id?.site_setting_update === true && (
                 <ChildMenuItem
                   to="/settings"
-                  icon={IoSettings}
+                  icon={Cog}
                   label="Site Settings"
                   isActive={isActive("/settings")}
                 />
@@ -482,7 +511,7 @@ const SideNavBar = () => {
               {user?.role_id?.page_seo_show === true && (
                 <ChildMenuItem
                   to="/page-seo"
-                  icon={IoSettings}
+                  icon={Search}
                   label="Page SEO"
                   isActive={isActive("/page-seo")}
                 />
@@ -495,14 +524,14 @@ const SideNavBar = () => {
             user?.role_id?.user_show === true) && (
             <DropdownMenu
               label="Staff"
-              icon={FiUsers}
+              icon={ShieldCheck}
               isOpen={activeDropdown === "staff"}
               onClick={() => toggleDropdown("staff")}
             >
               {user?.role_id?.user_show === true && (
                 <ChildMenuItem
                   to="/all-staff"
-                  icon={PiUsersThree}
+                  icon={Users}
                   label="All Staff"
                   isActive={isActive("/all-staff")}
                 />
@@ -510,7 +539,7 @@ const SideNavBar = () => {
               {user?.role_id?.role_create === true && (
                 <ChildMenuItem
                   to="/create-staff-role"
-                  icon={BsShieldPlus}
+                  icon={UserPlus}
                   label="Add Staff Role"
                   isActive={isActive("/create-staff-role")}
                 />
@@ -518,7 +547,7 @@ const SideNavBar = () => {
               {user?.role_id?.role_show === true && (
                 <ChildMenuItem
                   to="/staff-role"
-                  icon={BsShieldPlus}
+                  icon={KeyRound}
                   label="Staff Roles"
                   isActive={isActive("/staff-role")}
                 />
