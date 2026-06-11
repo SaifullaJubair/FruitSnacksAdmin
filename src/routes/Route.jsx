@@ -226,22 +226,8 @@ const route = createBrowserRouter([
         path: "/pathao-order",
         element: <PathaoOrderPage />,
       },
-      // {
-      //   path: "/cancel-order",
-      //   element: <CancelOrderPage />,
-      // },
-      // {
-      //   path: "/return-order",
-      //   element: <ReturnOrderPage />,
-      // },
-      // {
-      //   path: "/delivery-order",
-      //   element: <DeliveryOrderPage />,
-      // },
-      // {
-      //   path: "/processing-order",
-      //   element: <StadefastProcessingOrderPage />,
-      // },
+      // Cancel / Return / Delivery / Processing order pages removed —
+      // these are now filter TABS inside OrderPage, not separate routes.
       {
         path: "/steadfast-order",
         element: <SteadfastOrderPage />,

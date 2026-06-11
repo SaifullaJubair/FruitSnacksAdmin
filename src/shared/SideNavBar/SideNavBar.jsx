@@ -447,13 +447,8 @@ const SideNavBar = () => {
                 isActive={isActive("/order")}
                 onClick={closeAllDropdowns}
               />
-              <MenuItem
-                to="/processing-order"
-                icon={FaBorderAll}
-                label="Processing Order"
-                isActive={isActive("/processing-order")}
-                onClick={closeAllDropdowns}
-              />
+              {/* Processing / Delivered / Cancelled / Returned are now TABS
+                  inside the Order List page (OrderPage), not separate routes. */}
               <MenuItem
                 to="/steadfast-order"
                 icon={FaBorderAll}
@@ -476,38 +471,8 @@ const SideNavBar = () => {
                 isActive={isActive("/abandoned-cart")}
                 onClick={closeAllDropdowns}
               />
-              {/* <MenuItem
-                to="/delivery-order"
-                icon={FaBorderAll}
-                label="Delivery Order List"
-                isActive={isActive("/delivery-order")}
-                onClick={closeAllDropdowns}
-              />
-              <MenuItem
-                to="/return-order"
-                icon={FaBorderAll}
-                label="Return Order List"
-                isActive={isActive("/return-order")}
-                onClick={closeAllDropdowns}
-              />
-              <MenuItem
-                to="/cancel-order"
-                icon={FaBorderAll}
-                label="Cancel Order List"
-                isActive={isActive("/cancel-order")}
-                onClick={closeAllDropdowns}
-              /> */}
             </>
           )}
-          {/* {user?.role_id?.offer_order_show === true && (
-            <MenuItem
-              to="/offer-order-list"
-              icon={FaBorderAll}
-              label="Offer Order List"
-              isActive={isActive("/offer-order-list")}
-              onClick={closeAllDropdowns}
-            />
-          )} */}
           {/* ......All Customer....  */}
           {user?.role_id?.customer_show === true && (
             <MenuItem
