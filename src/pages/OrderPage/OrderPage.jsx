@@ -25,6 +25,9 @@ const TABS = [
   { label: "All", value: "all" },
   // D18 M3 — POS Orders filter tab
   { label: "POS Orders", value: "pos" },
+  // Order Unification Phase A — order_type filter (Phase B fills this with
+  // merged offer/bundle orders; today it just filters order_type=offer).
+  { label: "Offer Orders", value: "offer" },
 ];
 
 const STEADFAST_SUB_TABS = [
@@ -182,6 +185,9 @@ const OrderPage = () => {
     // D18 M3 — POS Orders: dedicated order_source filter
     if (activeTab === "pos")
       return `${base}/dashboard?${common}&order_source=admin`;
+    // Order Unification Phase A — Offer Orders: order_type filter
+    if (activeTab === "offer")
+      return `${base}/dashboard?${common}&order_type=offer`;
     return `${base}/dashboard?${common}&order_status=pending`;
   };
 

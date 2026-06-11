@@ -81,8 +81,35 @@ const OrderTable = ({
         sendData.order_products = order_products;
       }
       if (order_status === "completed") sendData.completed_time = today;
-      if (order_status === "cancel") sendData.cancel_time = today;
-      if (order_status === "return") sendData.return_time = today;
+      // Order Unification Phase A — capture a reason when cancelling/returning.
+      if (order_status === "cancel") {
+        sendData.cancel_time = today;
+        const { value: reason, isDismissed } = await Swal.fire({
+          title: "Cancel order?",
+          input: "textarea",
+          inputLabel: "Reason for cancellation (optional)",
+          inputPlaceholder: "e.g. customer requested / out of stock / fraud",
+          showCancelButton: true,
+          confirmButtonText: "Confirm Cancel",
+          confirmButtonColor: "#d33",
+        });
+        if (isDismissed) return; // admin backed out — abort the status change
+        if (reason) sendData.cancel_reason = reason;
+      }
+      if (order_status === "return") {
+        sendData.return_time = today;
+        const { value: reason, isDismissed } = await Swal.fire({
+          title: "Mark as returned?",
+          input: "textarea",
+          inputLabel: "Reason for return (optional)",
+          inputPlaceholder: "e.g. wrong item / damaged / customer changed mind",
+          showCancelButton: true,
+          confirmButtonText: "Confirm Return",
+          confirmButtonColor: "#d33",
+        });
+        if (isDismissed) return;
+        if (reason) sendData.return_reason = reason;
+      }
       const response = await fetch(`${BASE_URL}/order`, {
         method: "PATCH",
         credentials: "include",

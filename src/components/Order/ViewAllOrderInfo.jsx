@@ -226,6 +226,85 @@ const DeliveryInfoModal = ({ order, onClose, onSuccess }) => {
   );
 };
 
+// ── Admin Notes Card (Order Unification Phase A) ──────────────────────────────
+// Shows the admin-only internal_note (editable) + read-only cancel/return reason
+// when present. internal_note is stripped from all public/customer responses BE-
+// side, so it is safe to show only here on the admin order-detail page.
+const AdminNotesCard = ({ order, refetch }) => {
+  const [note, setNote] = useState(order?.internal_note ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const res = await fetch(`${BASE_URL}/order`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _id: order?._id, internal_note: note }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        toast.success("Internal note saved");
+        refetch();
+      } else throw new Error(data?.message || "Save failed");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-gray-100 shadow rounded p-5 space-y-4">
+      <h3 className="font-semibold text-gray-700">Admin Notes</h3>
+
+      {(order?.cancel_reason || order?.return_reason) && (
+        <div className="space-y-2">
+          {order?.cancel_reason && (
+            <div className="bg-red-50 border border-red-100 rounded px-3 py-2">
+              <p className="text-xs font-semibold text-red-500 uppercase mb-0.5">
+                Cancel Reason
+              </p>
+              <p className="text-sm text-gray-700">{order.cancel_reason}</p>
+            </div>
+          )}
+          {order?.return_reason && (
+            <div className="bg-rose-50 border border-rose-100 rounded px-3 py-2">
+              <p className="text-xs font-semibold text-rose-500 uppercase mb-0.5">
+                Return Reason
+              </p>
+              <p className="text-sm text-gray-700">{order.return_reason}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="text-xs font-semibold uppercase text-gray-400 mb-1 block">
+          Internal Note (admin only — customer never sees this)
+        </label>
+        <textarea
+          rows={3}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. customer asked to deliver after 6pm; fraud-checked OK"
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blueColor resize-y"
+        />
+        <div className="flex justify-end mt-2">
+          <button
+            onClick={handleSave}
+            disabled={saving || note === (order?.internal_note ?? "")}
+            className="px-4 py-1.5 bg-blueColor text-white text-sm font-semibold rounded-lg disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save Note"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Main Component ────────────────────────────────────────────────────────────
 const ViewAllOrderInfo = () => {
   const { id } = useParams();
@@ -302,6 +381,11 @@ const ViewAllOrderInfo = () => {
           >
             {order?.order_status}
           </span>
+          {order?.order_type && order?.order_type !== "regular" && (
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 capitalize">
+              {order?.order_type}
+            </span>
+          )}
           {order?.courier_type && (
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 capitalize">
               {order?.courier_type}
@@ -449,6 +533,9 @@ const ViewAllOrderInfo = () => {
 
       {/* ── Phase C Payment Info + Admin verify buttons ───────────────────── */}
       <PaymentInfoCard order={order} user={user} refetch={refetch} />
+
+      {/* ── Order Unification Phase A — admin notes + cancel/return reason ─── */}
+      <AdminNotesCard order={order} refetch={refetch} />
 
       {/* Steadfast Info */}
       {isSteadfast && (
