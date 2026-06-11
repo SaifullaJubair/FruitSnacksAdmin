@@ -7,7 +7,6 @@ import {
   MdOutlineLocalOffer,
   MdOutlineReviews,
 } from "react-icons/md";
-import { BiTask } from "react-icons/bi";
 import { GoHome } from "react-icons/go";
 import { GrAnnounce } from "react-icons/gr";
 import { BsShieldPlus } from "react-icons/bs";
@@ -66,8 +65,6 @@ const SideNavBar = () => {
     return <LoaderOverlay />;
   }
 
-  console.log(user?.role_id, "page seo show");
-
   return (
     <div className="flex flex-col min-h-screen bg-blueColor-800 text-gray-50">
       <div className="flex-grow">
@@ -77,8 +74,9 @@ const SideNavBar = () => {
             <img src={settingData?.logo} alt="Logo" width={70} height={70} />
           </Link>
         </div>
-        {/* Menu */}
+        {/* Menu — grouped into collapsible sections (single-open accordion) */}
         <ul className="flex flex-col pb-4 space-y-[2px]">
+          {/* ── Dashboard (flat, always on top) ─────────────────────────── */}
           {user?.role_id?.dashboard_show === true && (
             <MenuItem
               to="/"
@@ -88,16 +86,18 @@ const SideNavBar = () => {
               onClick={closeAllDropdowns}
             />
           )}
+
+          {/* ── Catalog ──────────────────────────────────────────────────── */}
           {(user?.role_id?.category_show === true ||
             user?.role_id?.brand_show === true ||
-            user?.role_id?.attribute_show === true) && (
+            user?.role_id?.attribute_show === true ||
+            user?.role_id?.product_show === true) && (
             <DropdownMenu
-              label="Task"
-              icon={BiTask}
-              isOpen={activeDropdown === "task"}
-              onClick={() => toggleDropdown("task")}
+              label="Catalog"
+              icon={TbCategoryPlus}
+              isOpen={activeDropdown === "catalog"}
+              onClick={() => toggleDropdown("catalog")}
             >
-              {/* Category is now a nested tree — Sub/Child Category pages retired. */}
               {user?.role_id?.category_show === true && (
                 <ChildMenuItem
                   to="/category"
@@ -106,16 +106,14 @@ const SideNavBar = () => {
                   isActive={isActive("/category")}
                 />
               )}
-
               {user?.role_id?.brand_show === true && (
                 <ChildMenuItem
                   to="/brand-category"
                   icon={TbCategoryPlus}
-                  label="Brand Category"
+                  label="Brand"
                   isActive={isActive("/brand-category")}
                 />
               )}
-
               {user?.role_id?.attribute_show === true && (
                 <ChildMenuItem
                   to="/attribute"
@@ -124,15 +122,6 @@ const SideNavBar = () => {
                   isActive={isActive("/attribute")}
                 />
               )}
-            </DropdownMenu>
-          )}
-          {user?.role_id?.product_show === true && (
-            <DropdownMenu
-              label="Products"
-              icon={BiTask}
-              isOpen={activeDropdown === "products"}
-              onClick={() => toggleDropdown("products")}
-            >
               {user?.role_id?.product_show === true && (
                 <ChildMenuItem
                   to="/product/product-list"
@@ -149,7 +138,6 @@ const SideNavBar = () => {
                   isActive={isActive("/product/product-create")}
                 />
               )}
-              {/* A3b — Low-stock list (Phase B4). product_show flag. */}
               {user?.role_id?.product_show === true && (
                 <ChildMenuItem
                   to="/low-stock"
@@ -160,18 +148,92 @@ const SideNavBar = () => {
               )}
             </DropdownMenu>
           )}
-          {/* {user?.role_id?.offer_show === true && (
+
+          {/* ── Orders ───────────────────────────────────────────────────── */}
+          {(user?.role_id?.order_show === true ||
+            user?.role_id?.order_create_admin === true) && (
             <DropdownMenu
-              label="Offer"
-              icon={MdOutlineLocalOffer}
-              isOpen={activeDropdown === "offer"}
-              onClick={() => toggleDropdown("offer")}
+              label="Orders"
+              icon={FaBorderAll}
+              isOpen={activeDropdown === "orders"}
+              onClick={() => toggleDropdown("orders")}
             >
+              {user?.role_id?.order_show === true && (
+                <ChildMenuItem
+                  to="/order"
+                  icon={FaBorderAll}
+                  label="Order List"
+                  isActive={isActive("/order")}
+                />
+              )}
+              {/* Processing / Delivered / Cancelled / Returned / Offer are TABS
+                  inside the Order List page. */}
+              {user?.role_id?.order_create_admin === true && (
+                <ChildMenuItem
+                  to="/order/create"
+                  icon={FaBorderAll}
+                  label="Create POS Order"
+                  isActive={isActive("/order/create")}
+                />
+              )}
+              {user?.role_id?.order_show === true && (
+                <>
+                  <ChildMenuItem
+                    to="/steadfast-order"
+                    icon={FaBorderAll}
+                    label="SteadFast Orders"
+                    isActive={isActive("/steadfast-order")}
+                  />
+                  <ChildMenuItem
+                    to="/pathao-order"
+                    icon={FaBorderAll}
+                    label="Pathao Orders"
+                    isActive={isActive("/pathao-order")}
+                  />
+                  <ChildMenuItem
+                    to="/fraud-check"
+                    icon={RiShieldCheckLine}
+                    label="Fraud Check"
+                    isActive={isActive("/fraud-check")}
+                  />
+                  <ChildMenuItem
+                    to="/abandoned-cart"
+                    icon={FiShoppingCart}
+                    label="Abandoned Carts"
+                    isActive={isActive("/abandoned-cart")}
+                  />
+                </>
+              )}
+            </DropdownMenu>
+          )}
+
+          {/* ── Marketing ────────────────────────────────────────────────── */}
+          {(user?.role_id?.offer_show === true ||
+            user?.role_id?.campaign_show === true ||
+            user?.role_id?.coupon_show === true ||
+            user?.role_id?.banner_show === true ||
+            user?.role_id?.slider_show === true) && (
+            <DropdownMenu
+              label="Marketing"
+              icon={MdOutlineCampaign}
+              isOpen={activeDropdown === "marketing"}
+              onClick={() => toggleDropdown("marketing")}
+            >
+              {(user?.role_id?.offer_show === true ||
+                user?.role_id?.offer_create === true ||
+                user?.role_id?.offer_update === true) && (
+                <ChildMenuItem
+                  to="/flash-sale"
+                  icon={MdFlashOn}
+                  label="Flash Sale"
+                  isActive={isActive("/flash-sale")}
+                />
+              )}
               {user?.role_id?.offer_show === true && (
                 <ChildMenuItem
                   to="/offer-list"
                   icon={MdOutlineLocalOffer}
-                  label="Total Offer"
+                  label="Offers"
                   isActive={isActive("/offer-list")}
                 />
               )}
@@ -183,24 +245,15 @@ const SideNavBar = () => {
                   isActive={isActive("/add-offer")}
                 />
               )}
-            </DropdownMenu>
-          )} */}
-          {/* {user?.role_id?.campaign_show === true && (
-            <DropdownMenu
-              label="Campaign"
-              icon={MdOutlineCampaign}
-              isOpen={activeDropdown === "campaign"}
-              onClick={() => toggleDropdown("campaign")}
-            >
               {user?.role_id?.campaign_show === true && (
                 <ChildMenuItem
                   to="/campaign-list"
-                  icon={GrAnnounce}
-                  label="Campaign List"
+                  icon={MdOutlineCampaign}
+                  label="Campaigns"
                   isActive={isActive("/campaign-list")}
                 />
               )}
-              {user?.role_id?.offer_create === true && (
+              {user?.role_id?.campaign_create === true && (
                 <ChildMenuItem
                   to="/add-campaign"
                   icon={MdOutlineAddchart}
@@ -208,8 +261,236 @@ const SideNavBar = () => {
                   isActive={isActive("/add-campaign")}
                 />
               )}
+              {user?.role_id?.coupon_show === true && (
+                <ChildMenuItem
+                  to="/your-coupon"
+                  icon={RiCoupon3Line}
+                  label="Coupons"
+                  isActive={isActive("/your-coupon")}
+                />
+              )}
+              {user?.role_id?.coupon_create === true && (
+                <ChildMenuItem
+                  to="/add-coupon"
+                  icon={RiCoupon3Line}
+                  label="Add Coupon"
+                  isActive={isActive("/add-coupon")}
+                />
+              )}
+              {user?.role_id?.banner_show === true && (
+                <ChildMenuItem
+                  to="/banner"
+                  icon={PiFlagBannerFill}
+                  label="Banner"
+                  isActive={isActive("/banner")}
+                />
+              )}
+              {user?.role_id?.slider_show === true && (
+                <ChildMenuItem
+                  to="/slider"
+                  icon={TfiLayoutSliderAlt}
+                  label="Slider"
+                  isActive={isActive("/slider")}
+                />
+              )}
             </DropdownMenu>
-          )} */}
+          )}
+
+          {/* ── Customers ────────────────────────────────────────────────── */}
+          {(user?.role_id?.customer_show === true ||
+            user?.role_id?.user_show === true ||
+            user?.role_id?.review_show === true ||
+            user?.role_id?.review_seed_bulk === true ||
+            user?.role_id?.review_seed_manual === true ||
+            user?.role_id?.question_show === true) && (
+            <DropdownMenu
+              label="Customers"
+              icon={PiUsersThree}
+              isOpen={activeDropdown === "customers"}
+              onClick={() => toggleDropdown("customers")}
+            >
+              {user?.role_id?.customer_show === true && (
+                <ChildMenuItem
+                  to="/customer"
+                  icon={FaUsers}
+                  label="Customer"
+                  isActive={isActive("/customer")}
+                />
+              )}
+              {user?.role_id?.user_show === true && (
+                <>
+                  <ChildMenuItem
+                    to="/wishlist"
+                    icon={FaHeart}
+                    label="Wishlists"
+                    isActive={isActive("/wishlist")}
+                  />
+                  <ChildMenuItem
+                    to="/loyalty"
+                    icon={FaGift}
+                    label="Loyalty Points"
+                    isActive={isActive("/loyalty")}
+                  />
+                  <ChildMenuItem
+                    to="/wallet"
+                    icon={FaWallet}
+                    label="Wallet"
+                    isActive={isActive("/wallet")}
+                  />
+                </>
+              )}
+              {user?.role_id?.review_show === true && (
+                <>
+                  <ChildMenuItem
+                    to="/review"
+                    icon={MdOutlineReviews}
+                    label="Reviews"
+                    isActive={
+                      isActive("/review") && !isActive("/review/pending")
+                    }
+                  />
+                  <ChildMenuItem
+                    to="/review/pending"
+                    icon={MdOutlineReviews}
+                    label="Pending Reviews"
+                    isActive={isActive("/review/pending")}
+                  />
+                </>
+              )}
+              {(user?.role_id?.review_seed_bulk === true ||
+                user?.role_id?.review_seed_manual === true) && (
+                <ChildMenuItem
+                  to="/review/seed"
+                  icon={MdOutlineReviews}
+                  label="Seed Reviews"
+                  isActive={isActive("/review/seed")}
+                />
+              )}
+              {user?.role_id?.question_show === true && (
+                <ChildMenuItem
+                  to="/question"
+                  icon={FaQuestion}
+                  label="Questions"
+                  isActive={isActive("/question")}
+                />
+              )}
+            </DropdownMenu>
+          )}
+
+          {/* ── Content ──────────────────────────────────────────────────── */}
+          {(user?.role_id?.theme_show === true ||
+            user?.role_id?.faq_template_show === true ||
+            user?.role_id?.site_faq_show === true ||
+            user?.role_id?.trust_point_show === true ||
+            user?.role_id?.newsletter_show === true ||
+            user?.role_id?.newsletter_export === true) && (
+            <DropdownMenu
+              label="Content"
+              icon={IoColorPaletteOutline}
+              isOpen={activeDropdown === "content"}
+              onClick={() => toggleDropdown("content")}
+            >
+              {user?.role_id?.theme_show === true && (
+                <ChildMenuItem
+                  to="/theme"
+                  icon={IoColorPaletteOutline}
+                  label="Themes"
+                  isActive={isActive("/theme")}
+                />
+              )}
+              {user?.role_id?.faq_template_show === true && (
+                <ChildMenuItem
+                  to="/faq-template"
+                  icon={FaQuestion}
+                  label="FAQ Templates"
+                  isActive={isActive("/faq-template")}
+                />
+              )}
+              {user?.role_id?.site_faq_show === true && (
+                <ChildMenuItem
+                  to="/site-faq"
+                  icon={FaQuestion}
+                  label="Site FAQ"
+                  isActive={isActive("/site-faq")}
+                />
+              )}
+              {user?.role_id?.trust_point_show === true && (
+                <ChildMenuItem
+                  to="/trust-point"
+                  icon={FaHandshake}
+                  label="Brand Promise"
+                  isActive={isActive("/trust-point")}
+                />
+              )}
+              {(user?.role_id?.newsletter_show === true ||
+                user?.role_id?.newsletter_export === true) && (
+                <ChildMenuItem
+                  to="/newsletter-subscribers"
+                  icon={GrAnnounce}
+                  label="Newsletter"
+                  isActive={isActive("/newsletter-subscribers")}
+                />
+              )}
+            </DropdownMenu>
+          )}
+
+          {/* ── Inventory ────────────────────────────────────────────────── */}
+          {(user?.role_id?.setting_show === true ||
+            user?.role_id?.supplier_show === true) && (
+            <DropdownMenu
+              label="Inventory"
+              icon={FaWarehouse}
+              isOpen={activeDropdown === "inventory"}
+              onClick={() => toggleDropdown("inventory")}
+            >
+              {user?.role_id?.setting_show === true && (
+                <ChildMenuItem
+                  to="/warehouse"
+                  icon={FaWarehouse}
+                  label="Warehouses"
+                  isActive={isActive("/warehouse")}
+                />
+              )}
+              {user?.role_id?.supplier_show === true && (
+                <ChildMenuItem
+                  to="/supplier"
+                  icon={FaUsers}
+                  label="Suppliers"
+                  isActive={isActive("/supplier")}
+                />
+              )}
+            </DropdownMenu>
+          )}
+
+          {/* ── Settings ─────────────────────────────────────────────────── */}
+          {(user?.role_id?.site_setting_update === true ||
+            user?.role_id?.page_seo_show === true) && (
+            <DropdownMenu
+              label="Settings"
+              icon={IoSettings}
+              isOpen={activeDropdown === "settings"}
+              onClick={() => toggleDropdown("settings")}
+            >
+              {user?.role_id?.site_setting_update === true && (
+                <ChildMenuItem
+                  to="/settings"
+                  icon={IoSettings}
+                  label="Site Settings"
+                  isActive={isActive("/settings")}
+                />
+              )}
+              {user?.role_id?.page_seo_show === true && (
+                <ChildMenuItem
+                  to="/page-seo"
+                  icon={IoSettings}
+                  label="Page SEO"
+                  isActive={isActive("/page-seo")}
+                />
+              )}
+            </DropdownMenu>
+          )}
+
+          {/* ── Staff ────────────────────────────────────────────────────── */}
           {(user?.role_id?.role_show === true ||
             user?.role_id?.user_show === true) && (
             <DropdownMenu
@@ -238,280 +519,11 @@ const SideNavBar = () => {
                 <ChildMenuItem
                   to="/staff-role"
                   icon={BsShieldPlus}
-                  label="Staff Role"
+                  label="Staff Roles"
                   isActive={isActive("/staff-role")}
                 />
               )}
             </DropdownMenu>
-          )}
-          {/* <MenuItem
-            to="/supplier"
-            icon={FaUsers}
-            label="Supplier"
-            isActive={isActive("/supplier")}
-            onCli
-            ck={closeAllDropdowns} // Close all dropdowns when clicked
-          /> */}
-          {user?.role_id?.review_show === true && (
-            <MenuItem
-              to="/review"
-              icon={MdOutlineReviews}
-              label="Review"
-              isActive={isActive("/review") && !isActive("/review/pending")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {user?.role_id?.review_show === true && (
-            <MenuItem
-              to="/review/pending"
-              icon={MdOutlineReviews}
-              label="Pending Reviews"
-              isActive={isActive("/review/pending")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {(user?.role_id?.review_seed_bulk === true || user?.role_id?.review_seed_manual === true) && (
-            <MenuItem
-              to="/review/seed"
-              icon={MdOutlineReviews}
-              label="Seed Reviews"
-              isActive={isActive("/review/seed")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* {user?.role_id?.question_show === true && (
-            <MenuItem
-              to="/question"
-              icon={FaQuestion}
-              label="Question"
-              isActive={isActive("/question")}
-              onClick={closeAllDropdowns} // Close all dropdowns when clicked
-            />
-          )} */}
-          {user?.role_id?.coupon_show === true && (
-            <DropdownMenu
-              label="Coupon"
-              icon={BiTask}
-              isOpen={activeDropdown === "coupons"}
-              onClick={() => toggleDropdown("coupons")}
-            >
-              {user?.role_id?.coupon_show === true && (
-                <ChildMenuItem
-                  to="/your-coupon"
-                  icon={RiCoupon3Line}
-                  label="Your Coupon"
-                  isActive={isActive("/your-coupon")}
-                />
-              )}
-              {user?.role_id?.coupon_create === true && (
-                <ChildMenuItem
-                  to="/add-coupon"
-                  icon={RiCoupon3Line}
-                  label="Add Coupon"
-                  isActive={isActive("/add-coupon")}
-                />
-              )}
-            </DropdownMenu>
-          )}
-          {/* Flash Sale — Phase E. Gated by offer_show/_create/_update so a
-              viewer role still sees the list. */}
-          {(user?.role_id?.offer_show === true ||
-            user?.role_id?.offer_create === true ||
-            user?.role_id?.offer_update === true) && (
-            <MenuItem
-              to="/flash-sale"
-              icon={MdFlashOn}
-              label="Flash Sale"
-              isActive={isActive("/flash-sale")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {user?.role_id?.banner_show === true && (
-            <MenuItem
-              to="/banner"
-              icon={PiFlagBannerFill}
-              label="Banner"
-              isActive={isActive("/banner")}
-              onClick={closeAllDropdowns} // Close all dropdowns when clicked
-            />
-          )}
-          {user?.role_id?.theme_show === true && (
-            <MenuItem
-              to="/theme"
-              icon={IoColorPaletteOutline}
-              label="Themes"
-              isActive={isActive("/theme")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {user?.role_id?.faq_template_show === true && (
-            <MenuItem
-              to="/faq-template"
-              icon={FaQuestion}
-              label="FAQ Templates"
-              isActive={isActive("/faq-template")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* Warehouse — Phase H. Gated by setting_show (matches BE). */}
-          {user?.role_id?.setting_show === true && (
-            <MenuItem
-              to="/warehouse"
-              icon={FaWarehouse}
-              label="Warehouses"
-              isActive={isActive("/warehouse")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {user?.role_id?.trust_point_show === true && (
-            <MenuItem
-              to="/trust-point"
-              icon={FaHandshake}
-              label="Brand Promise"
-              isActive={isActive("/trust-point")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* Track D: Site FAQ (Storefront home page FAQ section) */}
-          {user?.role_id?.site_faq_show === true && (
-            <MenuItem
-              to="/site-faq"
-              icon={FaQuestion}
-              label="Site FAQ (Storefront)"
-              isActive={isActive("/site-faq")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* Track D: Newsletter Subscribers */}
-          {(user?.role_id?.newsletter_show === true ||
-            user?.role_id?.newsletter_export === true) && (
-            <MenuItem
-              to="/newsletter-subscribers"
-              icon={GrAnnounce}
-              label="Newsletter Subscribers"
-              isActive={isActive("/newsletter-subscribers")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* {user?.role_id?.slider_show === true && (
-            <MenuItem
-              to="/slider"
-              icon={TfiLayoutSliderAlt}
-              label="Slider"
-              isActive={isActive("/slider")}
-              onClick={closeAllDropdowns} // Close all dropdowns when clicked
-            />
-          )} */}
-          {user?.role_id?.site_setting_update === true && (
-            <MenuItem
-              to="/settings"
-              icon={IoSettings}
-              label="Setting"
-              isActive={isActive("/settings")}
-              onClick={closeAllDropdowns} // Close all dropdowns when clicked
-            />
-          )}
-          {user?.role_id?.page_seo_show === true && (
-            <MenuItem
-              to="/page-seo"
-              icon={IoSettings}
-              label="Page Seo"
-              isActive={isActive("/page-seo")}
-              onClick={closeAllDropdowns} // Close all dropdowns when clicked
-            />
-          )}
-          {/* ......Order....  */}
-          {/* D18 — POS Create Order (separate permission) */}
-          {user?.role_id?.order_create_admin === true && (
-            <MenuItem
-              to="/order/create"
-              icon={FaBorderAll}
-              label="Create POS Order"
-              isActive={isActive("/order/create")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {user?.role_id?.order_show === true && (
-            <>
-              <MenuItem
-                to="/fraud-check"
-                icon={RiShieldCheckLine}
-                label="Fraud Check"
-                isActive={isActive("/fraud-check")}
-                onClick={closeAllDropdowns}
-              />
-              <MenuItem
-                to="/order"
-                icon={FaBorderAll}
-                label="Order List"
-                isActive={isActive("/order")}
-                onClick={closeAllDropdowns}
-              />
-              {/* Processing / Delivered / Cancelled / Returned are now TABS
-                  inside the Order List page (OrderPage), not separate routes. */}
-              <MenuItem
-                to="/steadfast-order"
-                icon={FaBorderAll}
-                label="SteadFast Order"
-                isActive={isActive("/steadfast-order")}
-                onClick={closeAllDropdowns}
-              />
-              <MenuItem
-                to="/pathao-order"
-                icon={FaBorderAll}
-                label="Pathao Order List"
-                isActive={isActive("/pathao-order")}
-                onClick={closeAllDropdowns}
-              />
-              {/* A3b — Abandoned Cart (Phase G2). Same order_show flag. */}
-              <MenuItem
-                to="/abandoned-cart"
-                icon={FiShoppingCart}
-                label="Abandoned Carts"
-                isActive={isActive("/abandoned-cart")}
-                onClick={closeAllDropdowns}
-              />
-            </>
-          )}
-          {/* ......All Customer....  */}
-          {user?.role_id?.customer_show === true && (
-            <MenuItem
-              to="/customer"
-              icon={FaUsers}
-              label="Customer"
-              isActive={isActive("/customer")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* A3b — Wishlist viewer (Phase G1). user_show flag (matches BE). */}
-          {user?.role_id?.user_show === true && (
-            <MenuItem
-              to="/wishlist"
-              icon={FaHeart}
-              label="Wishlists"
-              isActive={isActive("/wishlist")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* A3b — Loyalty viewer + adjust (Phase G3). user_show flag. */}
-          {user?.role_id?.user_show === true && (
-            <MenuItem
-              to="/loyalty"
-              icon={FaGift}
-              label="Loyalty Points"
-              isActive={isActive("/loyalty")}
-              onClick={closeAllDropdowns}
-            />
-          )}
-          {/* V fix — Wallet viewer + adjust (Phase E). user_show flag. */}
-          {user?.role_id?.user_show === true && (
-            <MenuItem
-              to="/wallet"
-              icon={FaWallet}
-              label="Wallet"
-              isActive={isActive("/wallet")}
-              onClick={closeAllDropdowns}
-            />
           )}
         </ul>
       </div>
