@@ -38,12 +38,10 @@ import OfferTablePage from "../pages/OfferPage/OfferTablePage/OfferTablePage";
 import AddOfferPage from "../pages/OfferPage/AddOfferPage/AddOfferPage";
 import QuestionPage from "../pages/QuestionPage/QuestionPage";
 
-import SingleViewOfferOrder from "../components/OfferOrderList/SingleViewOfferOrder";
 import CustomerPage from "../pages/AllCustomerPage/CustomerPage";
 import DashBoard from "../pages/DashBoardPage/DashBoard";
 import FraudCheckPage from "../pages/Fraudcheckpage/Fraudcheckpage";
 import ProfilePage from "../pages/MyProfilePage/ProfilePage";
-import OfferOrderListPage from "../pages/OfferOrderListPage/OfferOrderListPage";
 import PageSeoPage from "../pages/pageSeoPage/PageSeoPage";
 import PathaoOrderPage from "../pages/PathaoOrderPage/PathaoOrderPage";
 import SteadfastOrderPage from "../pages/SteadfastOrderPage/SteadfastOrderPage";
@@ -212,15 +210,7 @@ const route = createBrowserRouter([
         path: "/page-seo",
         element: <PageSeoPage />,
       },
-      // ......Offer-order list.......//
-      {
-        path: "/offer-order-list",
-        element: <OfferOrderListPage />,
-      },
-      {
-        path: "/all-offerOrder-info/:id",
-        element: <SingleViewOfferOrder />,
-      },
+      // Offer orders merged into the main Orders list (order_type=offer tab) — Phase B
 
       // ......Order.......//
       {
