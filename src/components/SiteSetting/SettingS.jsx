@@ -19,6 +19,7 @@ import SmsSettings from "./SmsSettings";
 import EmailSettings from "./EmailSettings";
 import StorefrontBehaviourTab from "./StorefrontBehaviourTab";
 import HomeLayoutTab from "./HomeLayoutTab";
+import CardInformation from "./SiteSetting/CardInformation";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -170,6 +171,16 @@ const SettingS = () => {
       case "home-layout":
         return (
           <HomeLayoutTab
+            refetch={currencyRefetch}
+            getInitialCurrencyData={getInitialCurrencyData?.data[0]}
+          />
+        );
+
+      // Home feature cards (card_one..four logo + title) — restored as a live
+      // tab; the storefront FeatureService section reads these.
+      case "feature-cards":
+        return (
+          <CardInformation
             refetch={currencyRefetch}
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />

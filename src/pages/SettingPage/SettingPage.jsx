@@ -4,27 +4,55 @@ import SettingS from "../../components/SiteSetting/SettingS";
 import { IoSettingsOutline } from "react-icons/io5";
 import { motion } from "framer-motion";
 
+// Settings tabs grouped into 4 sections. Each tab keeps its existing
+// /settings/:tab route + the SettingS switch case — only the navigation UI
+// changed (flat wrap-row → grouped left sub-nav).
+const TAB_GROUPS = [
+  {
+    group: "Store",
+    icon: "🏪",
+    tabs: [
+      { id: "site-setting", label: "Site Setting" },
+      { id: "currency", label: "Currency" },
+      { id: "policies", label: "Policies" },
+    ],
+  },
+  {
+    group: "Commerce",
+    icon: "🛒",
+    tabs: [
+      { id: "shipping", label: "Shipping" },
+      { id: "payment-methods", label: "Payment Methods" },
+      { id: "vat", label: "Tax / VAT" },
+      { id: "loyalty", label: "Loyalty" },
+    ],
+  },
+  {
+    group: "Storefront",
+    icon: "📢",
+    tabs: [
+      { id: "home-layout", label: "Home Layout" },
+      { id: "feature-cards", label: "Feature Cards" },
+      { id: "announcement-bar", label: "Announcement Bar" },
+      { id: "offer-banner", label: "Offer Banner" },
+      { id: "storefront-behaviour", label: "Storefront Behaviour" },
+    ],
+  },
+  {
+    group: "Integrations",
+    icon: "🔌",
+    tabs: [
+      { id: "phone-credential", label: "Phone Credential" },
+      { id: "sms", label: "SMS Provider" },
+      { id: "email", label: "Email Provider" },
+      { id: "analytics", label: "Analytics & Pixels" },
+    ],
+  },
+];
+
 const SettingPage = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
-
-  const tabs = [
-    { id: "site-setting", label: "Site Setting", icon: "🌐" },
-    { id: "phone-credential", label: "Phone Credential", icon: "📱" },
-    { id: "currency", label: "Currency", icon: "💰" },
-    { id: "shipping", label: "Shipping", icon: "🚚" },
-    { id: "payment-methods", label: "Payment Methods", icon: "💳" }, // ✅ Phase C
-    { id: "vat", label: "Tax / VAT", icon: "🧾" }, // ✅ Phase H
-    { id: "loyalty", label: "Loyalty", icon: "🎁" }, // ✅ Phase G3
-    { id: "sms", label: "SMS Provider", icon: "✉️" }, // ✅ Phase G5
-    { id: "email", label: "Email Provider", icon: "📧" }, // H-B
-    { id: "analytics", label: "Analytics & Pixels", icon: "📊" }, // ✅ নতুন tab
-    { id: "storefront-behaviour", label: "Storefront Behaviour", icon: "🛒" }, // ✅ C13
-    { id: "home-layout", label: "Home Layout", icon: "🏠" }, // Track D
-    { id: "announcement-bar", label: "Announcement Bar", icon: "📢" },
-    { id: "offer-banner", label: "Offer Banner", icon: "⏰" },
-    { id: "policies", label: "Policies", icon: "📜" },
-  ];
 
   useEffect(() => {
     if (!tab) {
@@ -35,7 +63,7 @@ const SettingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header Card */}
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -54,37 +82,54 @@ const SettingPage = () => {
               </p>
             </div>
           </div>
-
-          {/* Tab Navigation */}
-          <div className="flex flex-wrap gap-2 mt-6">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => navigate(`/settings/${t.id}`)}
-                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
-                  tab === t.id
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <span>{t.icon}</span>
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
         </motion.div>
 
-        {/* Content Area */}
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white rounded-2xl shadow-xl overflow-hidden"
-        >
-          <SettingS />
-        </motion.div>
+        {/* Two-column: grouped left nav + content */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left sub-nav */}
+          <motion.aside
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="lg:w-64 lg:shrink-0 bg-white rounded-2xl shadow-xl p-4 h-fit lg:sticky lg:top-6"
+          >
+            <nav className="space-y-4">
+              {TAB_GROUPS.map((g) => (
+                <div key={g.group}>
+                  <p className="px-2 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                    <span>{g.icon}</span>
+                    {g.group}
+                  </p>
+                  <div className="space-y-0.5">
+                    {g.tabs.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => navigate(`/settings/${t.id}`)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                          tab === t.id
+                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </motion.aside>
+
+          {/* Content */}
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex-1 min-w-0 bg-white rounded-2xl shadow-xl overflow-hidden"
+          >
+            <SettingS />
+          </motion.div>
+        </div>
       </div>
     </div>
   );
