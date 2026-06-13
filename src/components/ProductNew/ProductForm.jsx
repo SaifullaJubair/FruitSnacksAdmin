@@ -1227,6 +1227,28 @@ const ProductForm = ({ mode = "add", initialData = null, onSaved }) => {
             row.variation_weight_grams,
           );
         }
+        // A4 (2026-06-04) — per-variation PDP badge. Text + IconPicker key,
+        // both optional. Matrix captures them but the submit loop wasn't
+        // appending them, so they never reached the backend → never showed
+        // on the PDP swatch. Skip-empty so multer doesn't get the string
+        // "null"/"undefined" (backend stores null for absent badges).
+        if (
+          row.variation_badge_text !== null &&
+          row.variation_badge_text !== undefined &&
+          row.variation_badge_text !== ""
+        ) {
+          fd.append(`${prefix}[variation_badge_text]`, row.variation_badge_text);
+        }
+        if (
+          row.variation_badge_icon_key !== null &&
+          row.variation_badge_icon_key !== undefined &&
+          row.variation_badge_icon_key !== ""
+        ) {
+          fd.append(
+            `${prefix}[variation_badge_icon_key]`,
+            row.variation_badge_icon_key,
+          );
+        }
         fd.append(`${prefix}[is_active]`, row.is_active !== false);
         (row.combination || []).forEach((vid, ci) =>
           fd.append(`${prefix}[combination][${ci}]`, vid),
