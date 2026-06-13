@@ -20,11 +20,14 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
   );
   const [mainImage, setMainImage] = useState(product?.main_image || "");
   const [mainImageKey, setMainImageKey] = useState(product?.main_image_key || "");
-  // Local object-URL previews for files the owner just picked (before upload),
-  // so they can confirm WHAT they selected. Revoked on replace + unmount to
-  // avoid the admin-wide createObjectURL leak (see admin CLAUDE.md A-14).
+  // Local previews for files the owner just picked (before upload), so they can
+  // confirm WHAT they selected. Revoked on replace + unmount to avoid the
+  // admin-wide createObjectURL leak (see admin CLAUDE.md A-14).
   const [mainPreview, setMainPreview] = useState("");
-  const [otherPreviews, setOtherPreviews] = useState([]);
+  // pendingOthers holds the actual File objects in component state (not the
+  // read-only input.files FileList) so individual ones can be removed before
+  // upload. Each entry: { file, url }.
+  const [pendingOthers, setPendingOthers] = useState([]);
 
   const onPickMain = () => {
     const file = mainFileRef.current?.files?.[0];
@@ -34,19 +37,32 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
 
   const onPickOthers = () => {
     const files = otherFilesRef.current?.files;
-    otherPreviews.forEach((u) => URL.revokeObjectURL(u));
-    setOtherPreviews(
-      files && files.length
-        ? Array.from(files).map((f) => URL.createObjectURL(f))
-        : [],
-    );
+    if (files && files.length) {
+      const added = Array.from(files).map((f) => ({
+        file: f,
+        url: URL.createObjectURL(f),
+      }));
+      // Append to whatever was already staged so picking twice accumulates
+      // instead of replacing.
+      setPendingOthers((prev) => [...prev, ...added]);
+    }
+    // Clear the input so re-picking the same file re-fires onChange.
+    if (otherFilesRef.current) otherFilesRef.current.value = "";
+  };
+
+  const removePendingOther = (idx) => {
+    setPendingOthers((prev) => {
+      const target = prev[idx];
+      if (target?.url) URL.revokeObjectURL(target.url);
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   // Final cleanup of any pending preview URLs when the modal unmounts.
   useEffect(() => {
     return () => {
       if (mainPreview) URL.revokeObjectURL(mainPreview);
-      otherPreviews.forEach((u) => URL.revokeObjectURL(u));
+      pendingOthers.forEach((p) => URL.revokeObjectURL(p.url));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -96,19 +112,20 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
   };
 
   const handleAddOthers = async () => {
-    const files = otherFilesRef.current?.files;
-    if (!files || files.length === 0) {
+    if (pendingOthers.length === 0) {
       toast.info("Pick images first", { autoClose: 1200 });
       return;
     }
     const fd = new FormData();
     fd.append("_id", product._id);
     fd.append("mode", "add_other");
-    Array.from(files).forEach((f) => fd.append("other_images", f));
-    await apiCall(fd);
-    if (otherFilesRef.current) otherFilesRef.current.value = "";
-    otherPreviews.forEach((u) => URL.revokeObjectURL(u));
-    setOtherPreviews([]);
+    pendingOthers.forEach((p) => fd.append("other_images", p.file));
+    const ok = await apiCall(fd);
+    if (ok) {
+      if (otherFilesRef.current) otherFilesRef.current.value = "";
+      pendingOthers.forEach((p) => URL.revokeObjectURL(p.url));
+      setPendingOthers([]);
+    }
   };
 
   const handleRemoveOther = async (key) => {
@@ -237,21 +254,34 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
                 </button>
               </div>
             </div>
-            {/* Pending selection previews — shown until the owner clicks Add. */}
-            {otherPreviews.length > 0 && (
+            {/* Pending selection previews — shown until the owner clicks Add.
+                Each has an × to drop it individually before uploading. */}
+            {pendingOthers.length > 0 && (
               <div className="mb-3 p-2 rounded border-2 border-dashed border-green-300 bg-green-50">
                 <p className="text-[11px] font-medium text-green-700 mb-1.5">
-                  {otherPreviews.length} new image(s) selected — click Add to
-                  upload
+                  {pendingOthers.length} new image(s) selected — click Add to
+                  upload (× to drop one)
                 </p>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                  {otherPreviews.map((src, i) => (
-                    <img
+                  {pendingOthers.map((p, i) => (
+                    <div
                       key={i}
-                      src={src}
-                      alt={`new-${i}`}
-                      className="w-full h-16 object-cover rounded border border-green-400"
-                    />
+                      className="relative group rounded overflow-hidden border border-green-400"
+                    >
+                      <img
+                        src={p.url}
+                        alt={`new-${i}`}
+                        className="w-full h-16 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePendingOther(i)}
+                        title="Remove from selection"
+                        className="absolute top-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-80 hover:bg-red-600 hover:opacity-100"
+                      >
+                        <FiX size={12} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
