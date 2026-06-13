@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FiX, FiUpload, FiTrash2, FiArrowUp, FiArrowDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2-optimized";
@@ -20,6 +20,36 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
   );
   const [mainImage, setMainImage] = useState(product?.main_image || "");
   const [mainImageKey, setMainImageKey] = useState(product?.main_image_key || "");
+  // Local object-URL previews for files the owner just picked (before upload),
+  // so they can confirm WHAT they selected. Revoked on replace + unmount to
+  // avoid the admin-wide createObjectURL leak (see admin CLAUDE.md A-14).
+  const [mainPreview, setMainPreview] = useState("");
+  const [otherPreviews, setOtherPreviews] = useState([]);
+
+  const onPickMain = () => {
+    const file = mainFileRef.current?.files?.[0];
+    if (mainPreview) URL.revokeObjectURL(mainPreview);
+    setMainPreview(file ? URL.createObjectURL(file) : "");
+  };
+
+  const onPickOthers = () => {
+    const files = otherFilesRef.current?.files;
+    otherPreviews.forEach((u) => URL.revokeObjectURL(u));
+    setOtherPreviews(
+      files && files.length
+        ? Array.from(files).map((f) => URL.createObjectURL(f))
+        : [],
+    );
+  };
+
+  // Final cleanup of any pending preview URLs when the modal unmounts.
+  useEffect(() => {
+    return () => {
+      if (mainPreview) URL.revokeObjectURL(mainPreview);
+      otherPreviews.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const apiCall = async (formData) => {
     setBusy(true);
@@ -61,6 +91,8 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
     fd.append("main_image", file);
     await apiCall(fd);
     if (mainFileRef.current) mainFileRef.current.value = "";
+    if (mainPreview) URL.revokeObjectURL(mainPreview);
+    setMainPreview("");
   };
 
   const handleAddOthers = async () => {
@@ -75,6 +107,8 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
     Array.from(files).forEach((f) => fd.append("other_images", f));
     await apiCall(fd);
     if (otherFilesRef.current) otherFilesRef.current.value = "";
+    otherPreviews.forEach((u) => URL.revokeObjectURL(u));
+    setOtherPreviews([]);
   };
 
   const handleRemoveOther = async (key) => {
@@ -131,14 +165,31 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
             <h3 className="font-medium text-sm mb-2">Main Image</h3>
             <div className="flex items-center gap-4">
               {mainImage ? (
-                <img
-                  src={mainImage}
-                  alt="main"
-                  className="w-32 h-32 object-cover rounded border"
-                />
+                <div className="text-center">
+                  <img
+                    src={mainImage}
+                    alt="main"
+                    className="w-32 h-32 object-cover rounded border"
+                  />
+                  <span className="text-[10px] text-gray-400">Current</span>
+                </div>
               ) : (
                 <div className="w-32 h-32 bg-gray-100 rounded border flex items-center justify-center text-gray-400 text-xs">
                   No image
+                </div>
+              )}
+              {/* Pending selection preview — only shown after the owner picks a
+                  new file, so they can confirm before replacing. */}
+              {mainPreview && (
+                <div className="text-center">
+                  <img
+                    src={mainPreview}
+                    alt="new main"
+                    className="w-32 h-32 object-cover rounded border-2 border-green-500"
+                  />
+                  <span className="text-[10px] font-medium text-green-600">
+                    New (preview)
+                  </span>
                 </div>
               )}
               <div className="flex-1">
@@ -146,6 +197,7 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
                   ref={mainFileRef}
                   type="file"
                   accept="image/*"
+                  onChange={onPickMain}
                   className="text-sm mb-2 block"
                 />
                 <button
@@ -172,6 +224,7 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
                   type="file"
                   accept="image/*"
                   multiple
+                  onChange={onPickOthers}
                   className="text-xs"
                 />
                 <button
@@ -184,6 +237,25 @@ const ProductImagesModal = ({ product, onClose, onSaved }) => {
                 </button>
               </div>
             </div>
+            {/* Pending selection previews — shown until the owner clicks Add. */}
+            {otherPreviews.length > 0 && (
+              <div className="mb-3 p-2 rounded border-2 border-dashed border-green-300 bg-green-50">
+                <p className="text-[11px] font-medium text-green-700 mb-1.5">
+                  {otherPreviews.length} new image(s) selected — click Add to
+                  upload
+                </p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {otherPreviews.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`new-${i}`}
+                      className="w-full h-16 object-cover rounded border border-green-400"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             {otherImages.length === 0 ? (
               <div className="text-sm text-gray-400 italic">
                 No additional images.

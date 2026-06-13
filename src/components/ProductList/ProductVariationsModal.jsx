@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FiX } from "react-icons/fi";
+import { FiX, FiCopy } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { useQuery } from "@tanstack/react-query";
 import { BASE_URL } from "../../utils/baseURL";
@@ -43,6 +43,40 @@ const EditableCell = ({ value, onSave, type = "text", className = "" }) => {
         busy ? "bg-gray-100" : ""
       } ${className}`}
     />
+  );
+};
+
+// SKU is auto-generated (product slug + variation). Read-only here so an
+// accidental edit can't desync it from printed barcodes / inventory. Owners
+// can still set a custom SKU on the full product edit page if they truly need
+// to override it.
+const SkuDisplay = ({ value }) => {
+  const sku = value || "—";
+  const copy = () => {
+    if (!value) return;
+    navigator.clipboard
+      ?.writeText(value)
+      .then(() => toast.success("SKU copied", { autoClose: 700 }))
+      .catch(() => {});
+  };
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className="px-2 py-1 text-xs font-mono bg-gray-50 border rounded w-full truncate"
+        title={sku}
+      >
+        {sku}
+      </span>
+      <button
+        type="button"
+        onClick={copy}
+        disabled={!value}
+        title="Copy SKU"
+        className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
+      >
+        <FiCopy size={13} />
+      </button>
+    </div>
   );
 };
 
@@ -207,12 +241,7 @@ const ProductVariationsModal = ({ product, onClose, onSaved }) => {
                           />
                         </td>
                         <td className="p-2">
-                          <EditableCell
-                            value={v.variation_sku}
-                            onSave={(val) =>
-                              saveField(v._id, "variation_sku", val)
-                            }
-                          />
+                          <SkuDisplay value={v.variation_sku} />
                         </td>
                         <td className="p-2">
                           <EditableCell
