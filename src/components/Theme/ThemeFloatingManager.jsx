@@ -14,6 +14,9 @@ import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 //
 // Only available in UPDATE mode (needs a saved theme _id to attach assets to).
 
+// MULTI-NICHE-DEBT: section list hardcoded food (mirrors theme.model.ts enum).
+// When the PDP section registry + pdp_section_array lands, build this list from the
+// active niche's section registry. See docs/_ai/MULTI_NICHE_PLAN.md §4.
 const SECTIONS = [
   { v: "any", label: "All sections (any)" },
   { v: "hero", label: "Hero / top" },

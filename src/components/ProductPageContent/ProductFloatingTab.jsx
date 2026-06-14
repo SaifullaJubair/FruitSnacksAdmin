@@ -17,6 +17,9 @@ import { BASE_URL } from "../../utils/baseURL";
 //   { hidden_ids: string[], replacements: [{theme_asset_id,asset_url,asset_key}],
 //     extras: [ <section-anchored float> ] }
 
+// MULTI-NICHE-DEBT: section list hardcoded food (mirrors theme.model.ts enum).
+// When the PDP section registry + pdp_section_array lands, build this list from the
+// active niche's section registry. See docs/_ai/MULTI_NICHE_PLAN.md §4.
 const SECTIONS = [
   { v: "any", label: "All sections" },
   { v: "hero", label: "Hero" },
