@@ -39,18 +39,48 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
     [topicsRes],
   );
 
-  // Flat category list with depth so we can indent the tree in the picker.
+  // Build a proper parent→child ordering from the flat list. The API returns
+  // categories in serial order (parents and children interleaved), so a plain
+  // depth-sort would indent children but scatter them away from their parent.
+  // Here we walk the tree depth-first from each root so every child sits
+  // directly under its parent, with `depth` driving the indentation.
   const categories = useMemo(() => {
     const list = Array.isArray(categoryRes?.data) ? categoryRes.data : [];
-    // Sort by category_path length then name so parents precede children.
-    return [...list].sort((a, b) => {
-      const da = a?.depth ?? (a?.category_path?.length || 0);
-      const db = b?.depth ?? (b?.category_path?.length || 0);
-      if (da !== db) return da - db;
-      return String(a?.category_name || "").localeCompare(
-        String(b?.category_name || ""),
-      );
+    const byParent = new Map(); // parentId|"root" → children[]
+    list.forEach((c) => {
+      const key = c?.parent_id ? String(c.parent_id) : "root";
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key).push(c);
     });
+    // Stable serial/name order among siblings.
+    for (const arr of byParent.values()) {
+      arr.sort(
+        (a, b) =>
+          (a?.category_serial ?? 0) - (b?.category_serial ?? 0) ||
+          String(a?.category_name || "").localeCompare(
+            String(b?.category_name || ""),
+          ),
+      );
+    }
+    const ordered = [];
+    const seen = new Set(); // cycle / dead-parent guard
+    const walk = (key, depth) => {
+      const children = byParent.get(key) || [];
+      for (const c of children) {
+        const id = String(c._id);
+        if (seen.has(id)) continue;
+        seen.add(id);
+        ordered.push({ ...c, _treeDepth: depth });
+        walk(id, depth + 1);
+      }
+    };
+    walk("root", 0);
+    // Orphans (parent_id points to a missing/filtered category) — append at
+    // root depth so they're never silently dropped.
+    list.forEach((c) => {
+      if (!seen.has(String(c._id))) ordered.push({ ...c, _treeDepth: 0 });
+    });
+    return ordered;
   }, [categoryRes]);
 
   useEffect(() => {
@@ -144,13 +174,18 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
               ) : (
                 categories.map((c) => {
                   const id = String(c._id);
-                  const depth = c?.depth ?? (c?.category_path?.length || 0);
+                  const depth = c?._treeDepth ?? 0;
                   return (
                     <label
                       key={id}
                       className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-1"
-                      style={{ paddingLeft: `${depth * 16}px` }}
+                      style={{ paddingLeft: `${depth * 18 + 4}px` }}
                     >
+                      {/* Tree guide for nested rows so the hierarchy reads at a
+                          glance even without lines. */}
+                      {depth > 0 && (
+                        <span className="text-gray-300 select-none">└</span>
+                      )}
                       <input
                         type="checkbox"
                         checked={categoryIds.includes(id)}
