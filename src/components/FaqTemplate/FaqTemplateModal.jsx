@@ -1,10 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import { FaTimes, FaSave } from "react-icons/fa";
 import { BASE_URL } from "../../utils/baseURL";
+import { useGetFaqTemplateTopics } from "../../hooks/useGetFaqTemplate";
+import useGetCategory from "../../hooks/useGetCategory";
 
-const CATEGORIES = ["shelf_life", "storage", "ingredients", "usage", "health", "general"];
+// Seeded topic suggestions — merged with the distinct topics already in the DB
+// so the datalist always offers these even on a fresh install. Free-text: the
+// admin can type any new topic.
+const DEFAULT_TOPICS = [
+  "shelf_life",
+  "storage",
+  "ingredients",
+  "usage",
+  "health",
+  "general",
+];
+
 const PLACEHOLDER_HINT = `Available placeholders: {{product_name}}, {{shelf_life}}, {{weight}}, {{price}}, {{origin}}`;
 
 const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
@@ -22,6 +35,33 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
     },
   });
 
+  // Selected product-category ids (scope). Kept in local state, not RHF, because
+  // it's a multi-select set rather than a single input.
+  const [categoryIds, setCategoryIds] = useState([]);
+
+  const { data: topicsRes } = useGetFaqTemplateTopics();
+  const { data: categoryRes } = useGetCategory();
+
+  // Merge DB topics + defaults, de-duplicated, for the datalist.
+  const topicOptions = useMemo(() => {
+    const fromDb = Array.isArray(topicsRes?.data) ? topicsRes.data : [];
+    return Array.from(new Set([...DEFAULT_TOPICS, ...fromDb]));
+  }, [topicsRes]);
+
+  // Flat category list with depth so we can indent the tree in the picker.
+  const categories = useMemo(() => {
+    const list = Array.isArray(categoryRes?.data) ? categoryRes.data : [];
+    // Sort by category_path length then name so parents precede children.
+    return [...list].sort((a, b) => {
+      const da = a?.depth ?? (a?.category_path?.length || 0);
+      const db = b?.depth ?? (b?.category_path?.length || 0);
+      if (da !== db) return da - db;
+      return String(a?.category_name || "").localeCompare(
+        String(b?.category_name || ""),
+      );
+    });
+  }, [categoryRes]);
+
   useEffect(() => {
     reset({
       question: initial?.question || "",
@@ -29,9 +69,22 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
       category: initial?.category || "general",
       is_active: initial?.is_active ?? true,
     });
+    setCategoryIds(
+      Array.isArray(initial?.category_ids)
+        ? initial.category_ids.map((c) =>
+            typeof c === "object" ? String(c._id) : String(c),
+          )
+        : [],
+    );
   }, [initial, reset]);
 
   if (!open) return null;
+
+  const toggleCategory = (id) => {
+    setCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   const onSubmit = async (form) => {
     const url = initial?._id
@@ -43,7 +96,7 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
         method,
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, category_ids: categoryIds }),
       });
       const data = await res.json();
       if (data?.success) {
@@ -60,7 +113,7 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-xl shadow-xl">
+      <div className="bg-white rounded-lg w-full max-w-xl shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="font-semibold">
             {initial ? "Edit FAQ Template" : "Add FAQ Template"}
@@ -70,15 +123,58 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
           </button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-3">
+          {/* Topic — free text with datalist suggestions */}
           <div>
-            <label className="block text-xs font-medium mb-1">Category</label>
-            <select {...register("category")} className="form-input">
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+            <label className="block text-xs font-medium mb-1">
+              Topic <span className="text-gray-400">(label, free text)</span>
+            </label>
+            <input
+              list="faq-topic-options"
+              {...register("category")}
+              className="form-input"
+              placeholder="e.g. shelf_life, storage, skin_type…"
+            />
+            <datalist id="faq-topic-options">
+              {topicOptions.map((t) => (
+                <option key={t} value={t} />
               ))}
-            </select>
+            </datalist>
+          </div>
+
+          {/* Product-category scope — optional multi-select */}
+          <div>
+            <label className="block text-xs font-medium mb-1">
+              Show for product categories{" "}
+              <span className="text-gray-400">(empty = all products)</span>
+            </label>
+            <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-1">
+              {categories.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No categories.</p>
+              ) : (
+                categories.map((c) => {
+                  const id = String(c._id);
+                  const depth = c?.depth ?? (c?.category_path?.length || 0);
+                  return (
+                    <label
+                      key={id}
+                      className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-1"
+                      style={{ paddingLeft: `${depth * 16}px` }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={categoryIds.includes(id)}
+                        onChange={() => toggleCategory(id)}
+                      />
+                      <span>{c.category_name}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Tagging a parent category also suggests this template for its
+              sub-categories.
+            </p>
           </div>
 
           <div>

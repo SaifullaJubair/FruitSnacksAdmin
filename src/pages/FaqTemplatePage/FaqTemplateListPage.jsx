@@ -1,15 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FaPlus, FaPen, FaTrash } from "react-icons/fa";
 import Swal from "sweetalert2-optimized";
 import { toast } from "react-toastify";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
-import { useGetFaqTemplates } from "../../hooks/useGetFaqTemplate";
+import {
+  useGetFaqTemplates,
+  useGetFaqTemplateTopics,
+} from "../../hooks/useGetFaqTemplate";
 import useDebounced from "../../hooks/useDebounced";
 import FaqTemplateModal from "../../components/FaqTemplate/FaqTemplateModal";
 import { BASE_URL } from "../../utils/baseURL";
 
-const CATEGORIES = ["shelf_life", "storage", "ingredients", "usage", "health", "general"];
+const DEFAULT_TOPICS = [
+  "shelf_life",
+  "storage",
+  "ingredients",
+  "usage",
+  "health",
+  "general",
+];
 
 const FaqTemplateListPage = () => {
   const [search, setSearch] = useState("");
@@ -25,6 +35,13 @@ const FaqTemplateListPage = () => {
     search: debouncedSearch || undefined,
   });
   const templates = data?.data || [];
+
+  // Topic filter options = DB distinct topics merged with the seeded defaults.
+  const { data: topicsRes } = useGetFaqTemplateTopics();
+  const topicOptions = useMemo(() => {
+    const fromDb = Array.isArray(topicsRes?.data) ? topicsRes.data : [];
+    return Array.from(new Set([...DEFAULT_TOPICS, ...fromDb]));
+  }, [topicsRes]);
 
   const handleDelete = async (t) => {
     const ok = await Swal.fire({
@@ -83,8 +100,8 @@ const FaqTemplateListPage = () => {
           onChange={(e) => setCategory(e.target.value)}
           className="form-input max-w-[180px]"
         >
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => (
+          <option value="">All topics</option>
+          {topicOptions.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

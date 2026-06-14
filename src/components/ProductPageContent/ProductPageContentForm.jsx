@@ -109,6 +109,16 @@ const ProductPageContentForm = ({ product, refetch }) => {
     origin: watch("nutrition.origin"),
   };
 
+  // This product's full category lineage (leaf + every ancestor) as id strings.
+  // The FAQ picker uses this to surface templates scoped to any of these
+  // categories — so a template tagged to a parent suggests for this product too.
+  const productCategoryIds = [
+    product?.category_id?._id || product?.category_id,
+    ...(Array.isArray(product?.category_path) ? product.category_path : []),
+  ]
+    .filter(Boolean)
+    .map((c) => (typeof c === "object" ? String(c._id) : String(c)));
+
   const addFaq = () => setFaqs((prev) => [...prev, { question: "", answer: "" }]);
   const updateFaq = (i, patch) =>
     setFaqs((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
@@ -616,6 +626,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
         open={faqPickerOpen}
         onClose={() => setFaqPickerOpen(false)}
         productCtx={faqContext}
+        productCategoryIds={productCategoryIds}
         onPick={(faq) => {
           setFaqs((prev) => [...prev, faq]);
           setFaqPickerOpen(false);

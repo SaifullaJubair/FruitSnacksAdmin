@@ -19,3 +19,15 @@ export const useGetFaqTemplates = ({ page = 1, limit = 50, category, is_active, 
     },
   });
 };
+
+// Distinct topic labels in use — powers the free-text datalist suggestions.
+export const useGetFaqTemplateTopics = () =>
+  useQuery({
+    queryKey: ["/api/v1/faq-template/topics"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/faq-template/topics`, {
+        credentials: "include",
+      });
+      return res.json();
+    },
+  });
