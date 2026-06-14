@@ -1,11 +1,22 @@
 import { useMemo, useState } from "react";
-import { FaTimes, FaPlus } from "react-icons/fa";
+import { FaTimes, FaPlus, FaExclamationTriangle } from "react-icons/fa";
+import { toast } from "react-toastify";
 import {
   useGetFaqTemplates,
   useGetFaqTemplateTopics,
 } from "../../hooks/useGetFaqTemplate";
 import useDebounced from "../../hooks/useDebounced";
 import { placeholderHintKeys } from "./faqPlaceholders";
+
+// Tokens still unresolved after filling — these have no value on this product.
+const unresolvedTokens = (text) => {
+  const out = [];
+  String(text || "").replace(/\{\{([^}]+)\}\}/g, (_, k) => {
+    out.push(k.trim());
+    return _;
+  });
+  return out;
+};
 
 // Replace {{placeholders}} with current product form values.
 // Anything missing stays as-is so admin can edit before saving. The key match
@@ -87,37 +98,66 @@ const FaqPickerModal = ({
   if (!open) return null;
 
   const handlePick = (t) => {
-    onPick({
-      question: fillPlaceholders(t.question, productCtx),
-      answer: fillPlaceholders(t.answer, productCtx),
-    });
+    const question = fillPlaceholders(t.question, productCtx);
+    const answer = fillPlaceholders(t.answer, productCtx);
+    // Warn (but still add) if any token couldn't be filled for this product.
+    const missing = [
+      ...new Set([...unresolvedTokens(question), ...unresolvedTokens(answer)]),
+    ];
+    if (missing.length) {
+      toast.warn(
+        `Added, but ${missing
+          .map((m) => `{{${m}}}`)
+          .join(", ")} has no value on this product — edit it, or it will be hidden on the page.`,
+        { autoClose: 5000 },
+      );
+    }
+    onPick({ question, answer });
   };
 
-  const renderCard = (t) => (
-    <div
-      key={t._id}
-      className="flex items-start gap-3 p-3 border rounded hover:bg-gray-50"
-    >
-      <div className="flex-1">
-        <div className="text-xs text-gray-400 mb-1">
-          <span className="px-1.5 py-0.5 bg-gray-100 rounded">{t.category}</span>
-        </div>
-        <p className="text-sm font-medium text-gray-800">
-          {fillPlaceholders(t.question, productCtx)}
-        </p>
-        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-          {fillPlaceholders(t.answer, productCtx)}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => handlePick(t)}
-        className="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 flex-shrink-0"
+  const renderCard = (t) => {
+    const q = fillPlaceholders(t.question, productCtx);
+    const a = fillPlaceholders(t.answer, productCtx);
+    const missing = [
+      ...new Set([...unresolvedTokens(q), ...unresolvedTokens(a)]),
+    ];
+    return (
+      <div
+        key={t._id}
+        className={`flex items-start gap-3 p-3 border rounded hover:bg-gray-50 ${
+          missing.length ? "border-amber-300 bg-amber-50/40" : ""
+        }`}
       >
-        <FaPlus /> Add
-      </button>
-    </div>
-  );
+        <div className="flex-1">
+          <div className="text-xs text-gray-400 mb-1 flex items-center gap-2">
+            <span className="px-1.5 py-0.5 bg-gray-100 rounded">
+              {t.category}
+            </span>
+            {missing.length > 0 && (
+              <span
+                className="inline-flex items-center gap-1 text-amber-600"
+                title={`No value on this product: ${missing
+                  .map((m) => `{{${m}}}`)
+                  .join(", ")}`}
+              >
+                <FaExclamationTriangle size={10} />
+                {missing.length} unfilled
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-medium text-gray-800">{q}</p>
+          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{a}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => handlePick(t)}
+          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 flex-shrink-0"
+        >
+          <FaPlus /> Add
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
