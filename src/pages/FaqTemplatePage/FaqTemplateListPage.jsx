@@ -115,7 +115,8 @@ const FaqTemplateListPage = () => {
               <tr>
                 <th className="px-4 py-3">Question</th>
                 <th className="px-4 py-3">Answer</th>
-                <th className="px-4 py-3">Category</th>
+                <th className="px-4 py-3">Topic</th>
+                <th className="px-4 py-3">Scope</th>
                 <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -133,6 +134,16 @@ const FaqTemplateListPage = () => {
                     <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">
                       {t.category}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {(t.category_ids?.length || 0) === 0 ? (
+                      <span className="text-xs text-gray-400">All products</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700">
+                        {t.category_ids.length}{" "}
+                        {t.category_ids.length === 1 ? "category" : "categories"}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {t.is_active ? (
