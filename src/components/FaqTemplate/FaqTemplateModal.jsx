@@ -309,17 +309,31 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
                   {`{{${k}}}`}
                 </button>
               ))}
-              {placeholderChips.fromProducts.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => insertPlaceholder(k)}
-                  className="text-[11px] font-mono px-1.5 py-0.5 rounded border bg-white text-gray-700 hover:bg-gray-100"
-                  title="From a product's spec / nutrition field"
-                >
-                  {`{{${k}}}`}
-                </button>
-              ))}
+              {placeholderChips.fromProducts.map((item) => {
+                // Back-compat: tolerate the old string[] shape too.
+                const key = typeof item === "string" ? item : item.key;
+                const label = typeof item === "string" ? "" : item.label;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => insertPlaceholder(key)}
+                    className="text-[11px] font-mono px-1.5 py-0.5 rounded border bg-white text-gray-700 hover:bg-gray-100"
+                    title={
+                      label
+                        ? `Spec / nutrition field: "${label}"`
+                        : "From a product's spec / nutrition field"
+                    }
+                  >
+                    {`{{${key}}}`}
+                    {label && label.toLowerCase() !== key && (
+                      <span className="ml-1 font-sans text-gray-400">
+                        ({label})
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             <p className="text-[10px] text-gray-400 mt-1.5">
               Filled from each product when the template is added. If a product
