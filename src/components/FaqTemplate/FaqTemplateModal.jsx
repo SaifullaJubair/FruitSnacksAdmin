@@ -6,18 +6,9 @@ import { BASE_URL } from "../../utils/baseURL";
 import { useGetFaqTemplateTopics } from "../../hooks/useGetFaqTemplate";
 import useGetCategory from "../../hooks/useGetCategory";
 
-// Seeded topic suggestions — merged with the distinct topics already in the DB
-// so the datalist always offers these even on a fresh install. Free-text: the
-// admin can type any new topic.
-const DEFAULT_TOPICS = [
-  "shelf_life",
-  "storage",
-  "ingredients",
-  "usage",
-  "health",
-  "general",
-];
-
+// Topic suggestions come entirely from the DB (distinct topics already in use).
+// Fresh installs get a starter set from the backend bootstrap seed — no
+// hardcoded list here, so the suggestions stay fully data-driven / niche-neutral.
 const PLACEHOLDER_HINT = `Available placeholders: {{product_name}}, {{shelf_life}}, {{weight}}, {{price}}, {{origin}}`;
 
 const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
@@ -42,11 +33,11 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
   const { data: topicsRes } = useGetFaqTemplateTopics();
   const { data: categoryRes } = useGetCategory();
 
-  // Merge DB topics + defaults, de-duplicated, for the datalist.
-  const topicOptions = useMemo(() => {
-    const fromDb = Array.isArray(topicsRes?.data) ? topicsRes.data : [];
-    return Array.from(new Set([...DEFAULT_TOPICS, ...fromDb]));
-  }, [topicsRes]);
+  // Datalist suggestions = distinct topics already in the DB.
+  const topicOptions = useMemo(
+    () => (Array.isArray(topicsRes?.data) ? topicsRes.data : []),
+    [topicsRes],
+  );
 
   // Flat category list with depth so we can indent the tree in the picker.
   const categories = useMemo(() => {

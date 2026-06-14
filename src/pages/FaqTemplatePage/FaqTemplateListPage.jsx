@@ -12,15 +12,6 @@ import useDebounced from "../../hooks/useDebounced";
 import FaqTemplateModal from "../../components/FaqTemplate/FaqTemplateModal";
 import { BASE_URL } from "../../utils/baseURL";
 
-const DEFAULT_TOPICS = [
-  "shelf_life",
-  "storage",
-  "ingredients",
-  "usage",
-  "health",
-  "general",
-];
-
 const FaqTemplateListPage = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -36,12 +27,12 @@ const FaqTemplateListPage = () => {
   });
   const templates = data?.data || [];
 
-  // Topic filter options = DB distinct topics merged with the seeded defaults.
+  // Topic filter options = DB distinct topics (starter set comes from bootstrap).
   const { data: topicsRes } = useGetFaqTemplateTopics();
-  const topicOptions = useMemo(() => {
-    const fromDb = Array.isArray(topicsRes?.data) ? topicsRes.data : [];
-    return Array.from(new Set([...DEFAULT_TOPICS, ...fromDb]));
-  }, [topicsRes]);
+  const topicOptions = useMemo(
+    () => (Array.isArray(topicsRes?.data) ? topicsRes.data : []),
+    [topicsRes],
+  );
 
   const handleDelete = async (t) => {
     const ok = await Swal.fire({

@@ -6,15 +6,6 @@ import {
 } from "../../hooks/useGetFaqTemplate";
 import useDebounced from "../../hooks/useDebounced";
 
-const DEFAULT_TOPICS = [
-  "shelf_life",
-  "storage",
-  "ingredients",
-  "usage",
-  "health",
-  "general",
-];
-
 // Replace {{placeholders}} with current product form values.
 // Anything missing stays as-is so admin can edit before saving.
 const fillPlaceholders = (text, productCtx = {}) => {
@@ -57,10 +48,10 @@ const FaqPickerModal = ({
 
   const templates = useMemo(() => data?.data || [], [data]);
 
-  const topicOptions = useMemo(() => {
-    const fromDb = Array.isArray(topicsRes?.data) ? topicsRes.data : [];
-    return Array.from(new Set([...DEFAULT_TOPICS, ...fromDb]));
-  }, [topicsRes]);
+  const topicOptions = useMemo(
+    () => (Array.isArray(topicsRes?.data) ? topicsRes.data : []),
+    [topicsRes],
+  );
 
   // Split into suggested (for this product) vs other.
   const { suggested, other } = useMemo(() => {
