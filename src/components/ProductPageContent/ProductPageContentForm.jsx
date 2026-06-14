@@ -8,6 +8,7 @@ import { BASE_URL } from "../../utils/baseURL";
 import { useGetThemes } from "../../hooks/useGetTheme";
 import IconTextRepeater from "./IconTextRepeater";
 import FaqPickerModal from "./FaqPickerModal";
+import { buildProductPlaceholderContext } from "./faqPlaceholders";
 import VariationWeightEditor from "./VariationWeightEditor";
 import PageContentLayout from "./PageContentLayout";
 import { PAGE_CONTENT_SECTIONS } from "./pageContentMeta";
@@ -101,13 +102,14 @@ const ProductPageContentForm = ({ product, refetch }) => {
     uploadToFields(file, "og_image", "og_image_key", "OG image");
 
   // Placeholder context for FAQ template fill — pulls from product + form state
-  const faqContext = {
-    product_name: product?.product_name,
+  // Niche-neutral, DB-driven placeholder map: universal core fields + every
+  // custom_field (spec) and nutrition row of THIS product, keyed by English
+  // slug. shelf_life / origin come from the live nutrition-tab form values as
+  // back-compat extras (so they still work even when not in custom_fields).
+  const faqContext = buildProductPlaceholderContext(product, {
     shelf_life: watch("nutrition.shelf_life"),
-    weight: product?.unit,
-    price: product?.product_price,
     origin: watch("nutrition.origin"),
-  };
+  });
 
   // This product's full category lineage (leaf + every ancestor) as id strings.
   // The FAQ picker uses this to surface templates scoped to any of these

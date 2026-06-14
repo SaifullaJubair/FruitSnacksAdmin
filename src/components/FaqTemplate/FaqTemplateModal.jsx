@@ -9,7 +9,11 @@ import useGetCategory from "../../hooks/useGetCategory";
 // Topic suggestions come entirely from the DB (distinct topics already in use).
 // Fresh installs get a starter set from the backend bootstrap seed — no
 // hardcoded list here, so the suggestions stay fully data-driven / niche-neutral.
-const PLACEHOLDER_HINT = `Available placeholders: {{product_name}}, {{shelf_life}}, {{weight}}, {{price}}, {{origin}}`;
+// Niche-neutral hint. Core placeholders are universal; beyond these, ANY of a
+// product's spec (custom_fields) / nutrition labels works as {{english_slug}}
+// — e.g. a "Warranty" spec → {{warranty}}. Resolved per-product when the
+// template is added from the page-content picker.
+const PLACEHOLDER_HINT = `Placeholders: {{product_name}}, {{price}}, {{weight}} + any spec/nutrition field as {{english_slug}} (e.g. {{warranty}}). Resolved per product.`;
 
 const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
   const {

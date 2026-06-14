@@ -5,14 +5,29 @@ import {
   useGetFaqTemplateTopics,
 } from "../../hooks/useGetFaqTemplate";
 import useDebounced from "../../hooks/useDebounced";
+import { placeholderHintKeys } from "./faqPlaceholders";
 
 // Replace {{placeholders}} with current product form values.
-// Anything missing stays as-is so admin can edit before saving.
+// Anything missing stays as-is so admin can edit before saving. The key match
+// is trimmed + case-insensitive and allows spaces, so {{Skin Type}} resolves to
+// the same context entry as {{skin_type}}.
+const normKey = (k) =>
+  String(k || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
 const fillPlaceholders = (text, productCtx = {}) => {
   if (!text) return text;
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    const v = productCtx[key];
-    return v !== undefined && v !== null && v !== "" ? String(v) : `{{${key}}}`;
+  // Pre-normalise the context keys once for case/space-insensitive lookup.
+  const normMap = {};
+  Object.keys(productCtx || {}).forEach((k) => {
+    normMap[normKey(k)] = productCtx[k];
+  });
+  return text.replace(/\{\{([^}]+)\}\}/g, (full, rawKey) => {
+    const v = normMap[normKey(rawKey)];
+    return v !== undefined && v !== null && v !== "" ? String(v) : full;
   });
 };
 
@@ -62,6 +77,12 @@ const FaqPickerModal = ({
     });
     return { suggested: sug, other: oth };
   }, [templates, productCategoryIds]);
+
+  // Placeholder keys this product can fill (for the hint bar).
+  const availableKeys = useMemo(
+    () => placeholderHintKeys(productCtx),
+    [productCtx],
+  );
 
   if (!open) return null;
 
@@ -135,6 +156,25 @@ const FaqPickerModal = ({
             ))}
           </select>
         </div>
+
+        {/* Placeholders THIS product can fill — derived from its core fields +
+            spec (custom_fields) + nutrition rows. Shows admin exactly what
+            {{tokens}} will resolve for this product. */}
+        {availableKeys.length > 0 && (
+          <div className="px-3 py-2 border-b bg-gray-50 text-[11px] text-gray-500">
+            <span className="font-medium text-gray-600">
+              Placeholders for this product:{" "}
+            </span>
+            {availableKeys.map((k) => (
+              <code
+                key={k}
+                className="inline-block bg-white border rounded px-1 mr-1 mb-1 text-gray-700"
+              >
+                {`{{${k}}}`}
+              </code>
+            ))}
+          </div>
+        )}
 
         <div className="overflow-y-auto flex-1 p-3 space-y-2">
           {isLoading && <p className="text-sm text-gray-500">Loading...</p>}
