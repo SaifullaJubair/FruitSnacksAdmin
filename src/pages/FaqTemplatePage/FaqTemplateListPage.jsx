@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { FaPlus, FaPen, FaTrash } from "react-icons/fa";
 import Swal from "sweetalert2-optimized";
 import { toast } from "react-toastify";
@@ -13,6 +14,7 @@ import FaqTemplateModal from "../../components/FaqTemplate/FaqTemplateModal";
 import { BASE_URL } from "../../utils/baseURL";
 
 const FaqTemplateListPage = () => {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -52,6 +54,10 @@ const FaqTemplateListPage = () => {
       if (data?.success) {
         toast.success("Deleted");
         refetch();
+        // Deleting the last template of a topic should drop it from the filter.
+        queryClient.invalidateQueries({
+          queryKey: ["/api/v1/faq-template/topics"],
+        });
       } else toast.error(data?.message || "Failed");
     } catch {
       toast.error("Network error");

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import { FaTimes, FaSave } from "react-icons/fa";
@@ -16,6 +17,7 @@ import useGetCategory from "../../hooks/useGetCategory";
 // /product/faq-placeholder-keys and rendered as clickable insert buttons below.
 
 const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
+  const queryClient = useQueryClient();
   const {
     register,
     handleSubmit,
@@ -172,6 +174,15 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
       if (data?.success) {
         toast.success(initial ? "Template updated" : "Template created");
         refetch();
+        // A new/edited topic should appear in every topic filter immediately,
+        // and a freshly referenced spec could change placeholder chips — so
+        // invalidate those cached queries instead of waiting them out.
+        queryClient.invalidateQueries({
+          queryKey: ["/api/v1/faq-template/topics"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/v1/product/faq-placeholder-keys"],
+        });
         onClose();
       } else {
         toast.error(data?.message || "Failed");
