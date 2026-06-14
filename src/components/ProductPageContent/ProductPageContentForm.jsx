@@ -11,7 +11,10 @@ import FaqPickerModal from "./FaqPickerModal";
 import { buildProductPlaceholderContext } from "./faqPlaceholders";
 import VariationWeightEditor from "./VariationWeightEditor";
 import PageContentLayout from "./PageContentLayout";
+import ProductFloatingTab from "./ProductFloatingTab";
 import { PAGE_CONTENT_SECTIONS } from "./pageContentMeta";
+
+const EMPTY_OVERRIDES = { hidden_ids: [], replacements: [], extras: [] };
 
 const ProductPageContentForm = ({ product, refetch }) => {
   const [submitting, setSubmitting] = useState(false);
@@ -68,10 +71,15 @@ const ProductPageContentForm = ({ product, refetch }) => {
     product?.nutrition?.info_tiles || [],
   );
   const [floatingImages, setFloatingImages] = useState(product?.floating_images || []);
+  // Section-anchored override layer over the assigned theme's floating assets.
+  const [floatingOverrides, setFloatingOverrides] = useState(
+    product?.floating_overrides || EMPTY_OVERRIDES,
+  );
   useEffect(() => {
     setNutritionRows(product?.nutrition?.rows || []);
     setNutritionTiles(product?.nutrition?.info_tiles || []);
     setFloatingImages(product?.floating_images || []);
+    setFloatingOverrides(product?.floating_overrides || EMPTY_OVERRIDES);
   }, [product]);
 
   // Generic uploader — pushes file to S3 then writes the URL + key into the
@@ -121,6 +129,17 @@ const ProductPageContentForm = ({ product, refetch }) => {
     .filter(Boolean)
     .map((c) => (typeof c === "object" ? String(c._id) : String(c)));
 
+  // Resolve the floating assets the product inherits from its CURRENTLY SELECTED
+  // theme (live — follows the theme dropdown). Prefer the freshly-fetched active
+  // theme list; fall back to the product's populated theme_id object.
+  const selectedThemeId = watch("theme_id");
+  const selectedTheme =
+    activeThemes.find((t) => String(t._id) === String(selectedThemeId)) ||
+    (product?.theme_id && typeof product.theme_id === "object" ? product.theme_id : null);
+  const inheritedFloatingAssets = Array.isArray(selectedTheme?.floating_assets)
+    ? selectedTheme.floating_assets
+    : [];
+
   const addFaq = () => setFaqs((prev) => [...prev, { question: "", answer: "" }]);
   const updateFaq = (i, patch) =>
     setFaqs((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
@@ -145,6 +164,15 @@ const ProductPageContentForm = ({ product, refetch }) => {
         use_cases: useCases,
         faqs,
         floating_images: floatingImages.filter((f) => f.asset_url),
+        // Section-anchored override layer. Drop empty extras (no image yet) so
+        // we never persist half-filled rows.
+        floating_overrides: {
+          hidden_ids: floatingOverrides.hidden_ids || [],
+          replacements: (floatingOverrides.replacements || []).filter(
+            (r) => r.theme_asset_id && r.asset_url,
+          ),
+          extras: (floatingOverrides.extras || []).filter((e) => e.asset_url),
+        },
         nutrition: {
           per_serving: form.nutrition_per_serving || "",
           rows: nutritionRows
@@ -202,6 +230,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
     nutritionRows,
     nutritionTiles,
     floatingImages,
+    floatingOverrides,
     product,
   };
 
@@ -562,14 +591,14 @@ const ProductPageContentForm = ({ product, refetch }) => {
         <TabPane id="floating" active={activeTab}>
           <Card>
             <p className="text-xs text-gray-500 mb-3">
-              Page জুড়ে ভাসমান fruit ছবি (transparent PNG/WebP)। কোথায় বসবে — উপর থেকে
-              কত শতাংশে, কোন পাশে, content-এর পেছনে নাকি সামনে। position না দিলে auto বসবে।
-              মোবাইলে ছোট করে দেখাবে।
+              Floating fruit ছবি এখন <strong>section অনুযায়ী</strong> বসে। theme থেকে
+              আসা global floating গুলো এখানে hide / replace করা যায়, আর এই product-এর
+              জন্য বাড়তি floating যোগ করা যায়।
             </p>
-            <FloatingImageRepeater
-              value={floatingImages}
-              onChange={setFloatingImages}
-              max={6}
+            <ProductFloatingTab
+              themeAssets={inheritedFloatingAssets}
+              value={floatingOverrides}
+              onChange={setFloatingOverrides}
             />
           </Card>
         </TabPane>
@@ -751,141 +780,6 @@ const LabelValueRepeater = ({ title, helper, value = [], onChange }) => {
           </div>
         ))
       )}
-    </div>
-  );
-};
-
-// Per-product floating images repeater: upload + placement controls.
-// Self-contained upload (writes asset_url/asset_key into the row).
-const FLOAT_VERTICALS = ["", "10", "25", "40", "55", "70", "85"];
-const FloatingImageRepeater = ({ value = [], onChange, max = 6 }) => {
-  const [uploadingIdx, setUploadingIdx] = useState(null);
-
-  const add = () => {
-    if (value.length >= max) {
-      toast.info(`Max ${max} images`);
-      return;
-    }
-    onChange([
-      ...value,
-      { asset_url: "", asset_key: "", vertical: "", side: "left", layer: "behind", size: "md" },
-    ]);
-  };
-  const update = (i, patch) =>
-    onChange(value.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
-  const remove = (i) => onChange(value.filter((_, idx) => idx !== i));
-
-  const upload = async (i, file) => {
-    if (!file) return;
-    setUploadingIdx(i);
-    const fd = new FormData();
-    fd.append("image", file);
-    try {
-      const res = await fetch(`${BASE_URL}/image_upload`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-      const data = await res.json();
-      if (data?.success && data?.data) {
-        update(i, { asset_url: data.data.Location, asset_key: data.data.Key });
-      } else toast.error("Upload failed");
-    } catch {
-      toast.error("Upload error");
-    } finally {
-      setUploadingIdx(null);
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      {value.length === 0 && (
-        <p className="text-xs text-gray-400 italic">কোনো floating image যোগ করা হয়নি।</p>
-      )}
-      {value.map((row, i) => (
-        <div key={i} className="flex flex-wrap items-center gap-3 p-3 border rounded-lg bg-gray-50">
-          {row.asset_url ? (
-            <img src={row.asset_url} alt="" className="w-16 h-16 object-contain rounded border bg-white" />
-          ) : (
-            <div className="w-16 h-16 rounded border bg-white flex items-center justify-center text-[10px] text-gray-400">
-              no image
-            </div>
-          )}
-          <div className="flex-1 min-w-[140px] space-y-2">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => upload(i, e.target.files?.[0])}
-              className="form-input text-xs"
-              disabled={uploadingIdx === i}
-            />
-            <div className="flex flex-wrap gap-2">
-              <label className="text-[11px] text-gray-500">
-                Vertical
-                <select
-                  value={row.vertical || ""}
-                  onChange={(e) => update(i, { vertical: e.target.value })}
-                  className="form-input text-xs py-1 ml-1"
-                >
-                  {FLOAT_VERTICALS.map((v) => (
-                    <option key={v} value={v}>
-                      {v === "" ? "Auto" : `${v}%`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-[11px] text-gray-500">
-                Side
-                <select
-                  value={row.side || "left"}
-                  onChange={(e) => update(i, { side: e.target.value })}
-                  className="form-input text-xs py-1 ml-1"
-                >
-                  <option value="left">Left</option>
-                  <option value="right">Right</option>
-                </select>
-              </label>
-              <label className="text-[11px] text-gray-500">
-                Layer
-                <select
-                  value={row.layer || "behind"}
-                  onChange={(e) => update(i, { layer: e.target.value })}
-                  className="form-input text-xs py-1 ml-1"
-                >
-                  <option value="behind">Behind content</option>
-                  <option value="front">Front (floating)</option>
-                </select>
-              </label>
-              <label className="text-[11px] text-gray-500">
-                Size
-                <select
-                  value={row.size || "md"}
-                  onChange={(e) => update(i, { size: e.target.value })}
-                  className="form-input text-xs py-1 ml-1"
-                >
-                  <option value="sm">Small</option>
-                  <option value="md">Medium</option>
-                  <option value="lg">Large</option>
-                </select>
-              </label>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => remove(i)}
-            className="px-2 py-2 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100 self-start flex-shrink-0"
-          >
-            <FaTrash />
-          </button>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={add}
-        className="inline-flex items-center gap-2 text-xs px-3 py-2 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
-      >
-        <FaPlus /> Add Floating Image
-      </button>
     </div>
   );
 };

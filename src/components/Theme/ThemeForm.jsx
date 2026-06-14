@@ -6,6 +6,7 @@ import { FaSave, FaImage, FaUndo } from "react-icons/fa";
 import { BASE_URL } from "../../utils/baseURL";
 import ColorAutoPreview from "./ColorAutoPreview";
 import { PALETTE_PRESETS } from "./palettePresets";
+import ThemeFloatingManager from "./ThemeFloatingManager";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 
 // Storefront base URL for the live-preview iframe. Falls back to localhost.
@@ -317,16 +318,23 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         />
       </Section>
 
-      {/* Section 3 — Floating images moved to per-product Page Content */}
+      {/* Section 3 — Theme-level (GLOBAL) floating images */}
       <Section
-        title="3. Floating Images"
-        subtitle="ভাসমান fruit ছবি এখন প্রতি product-এ আলাদা।"
+        title="3. Floating Images (Global)"
+        subtitle="এই theme যেসব product ব্যবহার করবে সবাই এই floating image পাবে। প্রতিটি product চাইলে নিজের Page Content → Floating tab থেকে hide / replace / extra যোগ করতে পারবে।"
       >
-        <p className="text-sm text-gray-500">
-          Floating image এখন theme-এ নয় — প্রতিটি product-এর{" "}
-          <strong>Page Content → Floating Images</strong> tab থেকে আলাদাভাবে যোগ করা হয়
-          (যাতে আম পেজে আমের ছবি, আপেল পেজে আপেলের ছবি ভাসে)।
-        </p>
+        {mode === "create" ? (
+          <p className="text-sm text-gray-500">
+            Floating image যোগ করতে আগে theme টা{" "}
+            <strong>create</strong> করো — তারপর edit করে এখানে global floating
+            image upload করতে পারবে।
+          </p>
+        ) : (
+          <ThemeFloatingManager
+            themeId={initial?._id}
+            initialAssets={initial?.floating_assets}
+          />
+        )}
       </Section>
 
       {/* Section 4 — Typography & buttons */}

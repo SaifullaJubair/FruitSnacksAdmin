@@ -63,8 +63,13 @@ export const PAGE_CONTENT_SECTIONS = [
   {
     id: "floating",
     label: "Floating Images",
-    hint: "page জুড়ে ভাসমান fruit ছবি",
-    isComplete: ({ floatingImages }) => (floatingImages?.length || 0) > 0,
+    hint: "section অনুযায়ী ভাসমান fruit ছবি",
+    isComplete: ({ floatingOverrides, floatingImages }) =>
+      (floatingOverrides?.extras?.length || 0) > 0 ||
+      (floatingOverrides?.replacements?.length || 0) > 0 ||
+      (floatingOverrides?.hidden_ids?.length || 0) > 0 ||
+      // legacy back-compat: old full-page floats still count as "done"
+      (floatingImages?.length || 0) > 0,
   },
   {
     id: "variations",
