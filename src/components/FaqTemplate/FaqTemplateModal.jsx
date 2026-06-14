@@ -126,7 +126,12 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
     return ordered;
   }, [categoryRes]);
 
+  // Re-sync the form every time the modal OPENS (not just when `initial`
+  // changes). For create-mode `initial` stays null between opens, so without
+  // keying on `open` the previous draft would linger. Resetting on open clears
+  // a create form and reloads an edit target's values.
   useEffect(() => {
+    if (!open) return;
     reset({
       question: initial?.question || "",
       answer: initial?.answer || "",
@@ -140,7 +145,8 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
           )
         : [],
     );
-  }, [initial, reset]);
+    setActiveField("answer");
+  }, [open, initial, reset]);
 
   if (!open) return null;
 
