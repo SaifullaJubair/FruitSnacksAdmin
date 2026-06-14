@@ -1,25 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import { FaTimes, FaSave } from "react-icons/fa";
 import { BASE_URL } from "../../utils/baseURL";
-import { useGetFaqTemplateTopics } from "../../hooks/useGetFaqTemplate";
+import {
+  useGetFaqTemplateTopics,
+  useGetFaqPlaceholderKeys,
+} from "../../hooks/useGetFaqTemplate";
 import useGetCategory from "../../hooks/useGetCategory";
 
 // Topic suggestions come entirely from the DB (distinct topics already in use).
 // Fresh installs get a starter set from the backend bootstrap seed — no
 // hardcoded list here, so the suggestions stay fully data-driven / niche-neutral.
-// Niche-neutral hint. Core placeholders are universal; beyond these, ANY of a
-// product's spec (custom_fields) / nutrition labels works as {{english_slug}}
-// — e.g. a "Warranty" spec → {{warranty}}. Resolved per-product when the
-// template is added from the page-content picker.
-const PLACEHOLDER_HINT = `Placeholders: {{product_name}}, {{price}}, {{weight}} + any spec/nutrition field as {{english_slug}} (e.g. {{warranty}}). Resolved per product.`;
+// Placeholder chips (core + catalog spec/nutrition keys) are fetched live from
+// /product/faq-placeholder-keys and rendered as clickable insert buttons below.
 
 const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    getValues,
     formState: { isSubmitting },
   } = useForm({
     defaultValues: {
@@ -34,8 +36,45 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
   // it's a multi-select set rather than a single input.
   const [categoryIds, setCategoryIds] = useState([]);
 
+  // Track which text field was focused last + a ref to each, so a chip inserts
+  // {{token}} at the caret of the field the admin was editing. Defaults to
+  // the answer (where placeholders are most common).
+  const questionRef = useRef(null);
+  const answerRef = useRef(null);
+  const [activeField, setActiveField] = useState("answer");
+
   const { data: topicsRes } = useGetFaqTemplateTopics();
   const { data: categoryRes } = useGetCategory();
+  const { data: phRes } = useGetFaqPlaceholderKeys();
+
+  // Placeholder chips: universal core + distinct catalog keys.
+  const placeholderChips = useMemo(() => {
+    const core = phRes?.data?.core || ["product_name", "price", "weight"];
+    const fromProducts = phRes?.data?.fromProducts || [];
+    return { core, fromProducts };
+  }, [phRes]);
+
+  // Insert {{key}} at the caret of the active field, then refocus it.
+  const insertPlaceholder = (key) => {
+    const token = `{{${key}}}`;
+    const fieldName = activeField;
+    const el = fieldName === "question" ? questionRef.current : answerRef.current;
+    const current = getValues(fieldName) || "";
+    if (!el) {
+      setValue(fieldName, current + token, { shouldDirty: true });
+      return;
+    }
+    const start = el.selectionStart ?? current.length;
+    const end = el.selectionEnd ?? current.length;
+    const next = current.slice(0, start) + token + current.slice(end);
+    setValue(fieldName, next, { shouldDirty: true });
+    // Restore caret just after the inserted token.
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + token.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
 
   // Datalist suggestions = distinct topics already in the DB.
   const topicOptions = useMemo(
@@ -209,25 +248,84 @@ const FaqTemplateModal = ({ open, onClose, initial = null, refetch }) => {
 
           <div>
             <label className="block text-xs font-medium mb-1">Question</label>
-            <input
-              type="text"
-              {...register("question", { required: true })}
-              className="form-input"
-              placeholder="{{product_name}} কতদিন ভালো থাকে?"
-            />
+            {(() => {
+              const { ref, ...rest } = register("question", { required: true });
+              return (
+                <input
+                  type="text"
+                  {...rest}
+                  ref={(el) => {
+                    ref(el);
+                    questionRef.current = el;
+                  }}
+                  onFocus={() => setActiveField("question")}
+                  className="form-input"
+                  placeholder="{{product_name}} কতদিন ভালো থাকে?"
+                />
+              );
+            })()}
           </div>
 
           <div>
             <label className="block text-xs font-medium mb-1">Answer</label>
-            <textarea
-              {...register("answer", { required: true })}
-              rows={4}
-              className="form-input"
-              placeholder="সঠিকভাবে রাখলে {{product_name}} {{shelf_life}} পর্যন্ত ভালো।"
-            />
+            {(() => {
+              const { ref, ...rest } = register("answer", { required: true });
+              return (
+                <textarea
+                  {...rest}
+                  ref={(el) => {
+                    ref(el);
+                    answerRef.current = el;
+                  }}
+                  onFocus={() => setActiveField("answer")}
+                  rows={4}
+                  className="form-input"
+                  placeholder="সঠিকভাবে রাখলে {{product_name}} {{shelf_life}} পর্যন্ত ভালো।"
+                />
+              );
+            })()}
           </div>
 
-          <p className="text-[11px] text-gray-500">{PLACEHOLDER_HINT}</p>
+          {/* Clickable placeholder chips — insert {{token}} at the caret of the
+              last-focused field. Core keys are universal; the rest are distinct
+              spec/nutrition labels across the catalog, so they stay niche-neutral
+              and grow as the merchant's products do. */}
+          <div className="rounded border bg-gray-50 p-2">
+            <p className="text-[11px] font-medium text-gray-600 mb-1.5">
+              Insert placeholder{" "}
+              <span className="font-normal text-gray-400">
+                (click to add to the {activeField}; filled per product)
+              </span>
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {placeholderChips.core.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => insertPlaceholder(k)}
+                  className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-blueColor-300 bg-white text-blueColor-700 hover:bg-blueColor-50"
+                  title="Core placeholder (every product)"
+                >
+                  {`{{${k}}}`}
+                </button>
+              ))}
+              {placeholderChips.fromProducts.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => insertPlaceholder(k)}
+                  className="text-[11px] font-mono px-1.5 py-0.5 rounded border bg-white text-gray-700 hover:bg-gray-100"
+                  title="From a product's spec / nutrition field"
+                >
+                  {`{{${k}}}`}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Filled from each product when the template is added. If a product
+              lacks a value, that FAQ is hidden on its page.
+            </p>
+          </div>
 
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" {...register("is_active")} />

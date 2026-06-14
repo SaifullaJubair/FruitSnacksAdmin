@@ -31,3 +31,16 @@ export const useGetFaqTemplateTopics = () =>
       return res.json();
     },
   });
+
+// Distinct FAQ placeholder keys across the catalog ({ core, fromProducts }) —
+// powers the clickable placeholder chips in the template editor.
+export const useGetFaqPlaceholderKeys = () =>
+  useQuery({
+    queryKey: ["/api/v1/product/faq-placeholder-keys"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/product/faq-placeholder-keys`, {
+        credentials: "include",
+      });
+      return res.json();
+    },
+  });
