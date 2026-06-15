@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import SettingS from "../../components/SiteSetting/SettingS";
 import { IoSettingsOutline } from "react-icons/io5";
 import { motion } from "framer-motion";
+import { AuthContext } from "../../context/AuthProvider";
 
 // Settings tabs grouped into 4 sections. Each tab keeps its existing
 // /settings/:tab route + the SettingS switch case — only the navigation UI
@@ -15,6 +16,8 @@ const TAB_GROUPS = [
       { id: "site-setting", label: "Site Setting" },
       { id: "currency", label: "Currency" },
       { id: "policies", label: "Policies" },
+      // Gated by demo_data_clear — filtered out below when the admin lacks it.
+      { id: "demo-data", label: "Demo Data", perm: "demo_data_clear" },
     ],
   },
   {
@@ -53,6 +56,13 @@ const TAB_GROUPS = [
 const SettingPage = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
+  const { user } = useContext(AuthContext);
+
+  // Hide permission-gated tabs (e.g. Demo Data) when the admin lacks the flag.
+  const visibleGroups = TAB_GROUPS.map((g) => ({
+    ...g,
+    tabs: g.tabs.filter((t) => !t.perm || user?.role_id?.[t.perm] === true),
+  })).filter((g) => g.tabs.length > 0);
 
   useEffect(() => {
     if (!tab) {
@@ -93,7 +103,7 @@ const SettingPage = () => {
             className="lg:w-64 lg:shrink-0 bg-white rounded-2xl shadow-xl p-4 h-fit lg:sticky lg:top-6"
           >
             <nav className="space-y-4">
-              {TAB_GROUPS.map((g) => (
+              {visibleGroups.map((g) => (
                 <div key={g.group}>
                   <p className="px-2 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                     <span>{g.icon}</span>

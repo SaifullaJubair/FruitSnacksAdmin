@@ -20,6 +20,7 @@ import EmailSettings from "./EmailSettings";
 import StorefrontBehaviourTab from "./StorefrontBehaviourTab";
 import HomeLayoutTab from "./HomeLayoutTab";
 import CardInformation from "./SiteSetting/CardInformation";
+import DemoDataSettings from "./DemoDataSettings";
 
 const SettingS = () => {
   const { tab } = useParams();
@@ -193,6 +194,10 @@ const SettingS = () => {
             getInitialCurrencyData={getInitialCurrencyData?.data[0]}
           />
         );
+
+      // Demo Data — count + one-click clear (RBAC: demo_data_clear)
+      case "demo-data":
+        return <DemoDataSettings />;
       default:
         navigate("/settings/site-setting");
         return null;

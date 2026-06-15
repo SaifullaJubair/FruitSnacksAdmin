@@ -371,6 +371,13 @@ const permissionsData = [
   },
 
   {
+    Name: "Demo Data",
+    Type: [
+      { type_name: "Clear Demo Data", type_value: "demo_data_clear" },
+    ],
+  },
+
+  {
     Name: "FAQ Template Create And Update",
     Type: [
       { type_name: "FAQ Template Show", type_value: "faq_template_show" },
