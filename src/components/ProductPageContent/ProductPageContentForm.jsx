@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -15,6 +15,20 @@ import ProductFloatingTab from "./ProductFloatingTab";
 import { PAGE_CONTENT_SECTIONS } from "./pageContentMeta";
 
 const EMPTY_OVERRIDES = { hidden_ids: [], replacements: [], extras: [] };
+
+// Stamp a stable client-side _localId onto each extra so the deferred-upload map
+// can key off it (DB rows arrive without one). Idempotent.
+const withLocalIds = (ov) => {
+  const o = ov || EMPTY_OVERRIDES;
+  return {
+    hidden_ids: o.hidden_ids || [],
+    replacements: o.replacements || [],
+    extras: (o.extras || []).map((e) => ({
+      ...e,
+      _localId: e._localId || crypto.randomUUID(),
+    })),
+  };
+};
 
 const ProductPageContentForm = ({ product, refetch }) => {
   const [submitting, setSubmitting] = useState(false);
@@ -73,13 +87,34 @@ const ProductPageContentForm = ({ product, refetch }) => {
   const [floatingImages, setFloatingImages] = useState(product?.floating_images || []);
   // Section-anchored override layer over the assigned theme's floating assets.
   const [floatingOverrides, setFloatingOverrides] = useState(
-    product?.floating_overrides || EMPTY_OVERRIDES,
+    withLocalIds(product?.floating_overrides),
+  );
+  // Pending floating-image uploads, deferred until "Save Changes".
+  // Picking a file no longer hits S3 immediately (that left orphaned uploads when
+  // the admin never saved). Instead the raw File lives here (key → File) and is
+  // uploaded once, inside onSubmit, just before the PATCH. Key convention:
+  //   "repl_<themeAssetId>"  — Panel A theme-asset replacement
+  //   "extra_<localId>"      — Panel B product-only extra (stable uuid, NOT index)
+  const [pendingFloatUploads, setPendingFloatUploads] = useState({});
+  // Revoke any outstanding blob previews on unmount (admin navigates away with
+  // unsaved file picks) so object URLs don't leak. Ref keeps the latest map
+  // without re-running the effect on every pick.
+  const pendingRef = useRef(pendingFloatUploads);
+  pendingRef.current = pendingFloatUploads;
+  useEffect(
+    () => () => {
+      Object.values(pendingRef.current).forEach((f) => {
+        if (f?._previewUrl) URL.revokeObjectURL(f._previewUrl);
+      });
+    },
+    [],
   );
   useEffect(() => {
     setNutritionRows(product?.nutrition?.rows || []);
     setNutritionTiles(product?.nutrition?.info_tiles || []);
     setFloatingImages(product?.floating_images || []);
-    setFloatingOverrides(product?.floating_overrides || EMPTY_OVERRIDES);
+    setFloatingOverrides(withLocalIds(product?.floating_overrides));
+    setPendingFloatUploads({});
   }, [product]);
 
   // Generic uploader — pushes file to S3 then writes the URL + key into the
@@ -108,6 +143,23 @@ const ProductPageContentForm = ({ product, refetch }) => {
   };
   const handleOgUpload = (file) =>
     uploadToFields(file, "og_image", "og_image_key", "OG image");
+
+  // Raw S3 uploader — returns { asset_url, asset_key } or throws. Used to flush
+  // the deferred floating-image uploads at Save time.
+  const uploadFloatFile = async (file) => {
+    const fd = new FormData();
+    fd.append("image", file);
+    const res = await fetch(`${BASE_URL}/image_upload`, {
+      method: "POST",
+      credentials: "include",
+      body: fd,
+    });
+    const data = await res.json();
+    if (data?.success && data?.data) {
+      return { asset_url: data.data.Location, asset_key: data.data.Key };
+    }
+    throw new Error(data?.message || "Image upload failed");
+  };
 
   // Placeholder context for FAQ template fill — pulls from product + form state
   // Niche-neutral, DB-driven placeholder map: universal core fields + every
@@ -148,6 +200,56 @@ const ProductPageContentForm = ({ product, refetch }) => {
   const onSubmit = async (form) => {
     setSubmitting(true);
     try {
+      // ── Flush deferred floating-image uploads FIRST ──────────────────────
+      // Picking a file only stored a blob preview + the raw File (in
+      // pendingFloatUploads). Upload them all now; if ANY upload fails we abort
+      // the whole save (no PATCH) so we never persist half the rows. Resolved
+      // URLs are written onto copies of the replacement/extra rows below.
+      let resolvedReplacements = (floatingOverrides.replacements || []).map((r) => ({
+        ...r,
+      }));
+      let resolvedExtras = (floatingOverrides.extras || []).map((e) => ({ ...e }));
+      const pendingKeys = Object.keys(pendingFloatUploads);
+      if (pendingKeys.length) {
+        try {
+          const uploaded = await Promise.all(
+            pendingKeys.map(async (key) => ({
+              key,
+              ...(await uploadFloatFile(pendingFloatUploads[key])),
+            })),
+          );
+          for (const u of uploaded) {
+            if (u.key.startsWith("repl_")) {
+              const themeAssetId = u.key.slice(5);
+              const row = resolvedReplacements.find(
+                (r) => r.theme_asset_id === themeAssetId,
+              );
+              if (row) {
+                row.asset_url = u.asset_url;
+                row.asset_key = u.asset_key;
+              } else {
+                resolvedReplacements.push({
+                  theme_asset_id: themeAssetId,
+                  asset_url: u.asset_url,
+                  asset_key: u.asset_key,
+                });
+              }
+            } else if (u.key.startsWith("extra_")) {
+              const localId = u.key.slice(6);
+              const row = resolvedExtras.find((e) => e._localId === localId);
+              if (row) {
+                row.asset_url = u.asset_url;
+                row.asset_key = u.asset_key;
+              }
+            }
+          }
+        } catch (err) {
+          toast.error(err.message || "Floating image upload failed — not saved");
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const payload = {
         _id: product._id,
         theme_id: form.theme_id || null,
@@ -165,13 +267,17 @@ const ProductPageContentForm = ({ product, refetch }) => {
         faqs,
         floating_images: floatingImages.filter((f) => f.asset_url),
         // Section-anchored override layer. Drop empty extras (no image yet) so
-        // we never persist half-filled rows.
+        // we never persist half-filled rows. Strip local-only UI fields
+        // (_localId / _previewUrl / _pendingKey) that exist purely for the
+        // deferred-upload + blob-preview flow.
         floating_overrides: {
           hidden_ids: floatingOverrides.hidden_ids || [],
-          replacements: (floatingOverrides.replacements || []).filter(
-            (r) => r.theme_asset_id && r.asset_url,
-          ),
-          extras: (floatingOverrides.extras || []).filter((e) => e.asset_url),
+          replacements: resolvedReplacements
+            .filter((r) => r.theme_asset_id && r.asset_url)
+            .map(({ _previewUrl, _pendingKey, ...r }) => r),
+          extras: resolvedExtras
+            .filter((e) => e.asset_url)
+            .map(({ _localId, _previewUrl, _pendingKey, ...e }) => e),
         },
         nutrition: {
           per_serving: form.nutrition_per_serving || "",
@@ -207,6 +313,12 @@ const ProductPageContentForm = ({ product, refetch }) => {
       const data = await res.json();
       if (data?.success) {
         toast.success("Page content updated");
+        // Pending uploads are now persisted; release blob previews + clear the
+        // map so a second Save doesn't re-upload the same files (double orphan).
+        Object.values(pendingFloatUploads).forEach((f) => {
+          if (f?._previewUrl) URL.revokeObjectURL(f._previewUrl);
+        });
+        setPendingFloatUploads({});
         refetch?.();
       } else {
         toast.error(data?.message || "Save failed");
@@ -599,6 +711,8 @@ const ProductPageContentForm = ({ product, refetch }) => {
               themeAssets={inheritedFloatingAssets}
               value={floatingOverrides}
               onChange={setFloatingOverrides}
+              pendingUploads={pendingFloatUploads}
+              onPendingChange={setPendingFloatUploads}
             />
           </Card>
         </TabPane>

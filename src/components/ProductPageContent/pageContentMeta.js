@@ -75,7 +75,11 @@ export const PAGE_CONTENT_SECTIONS = [
     id: "variations",
     label: "Variations",
     hint: "প্রতি variation-এর weight + badge",
-    isComplete: () => false, // managed via its own modal/endpoint; badge stays neutral
+    // Weight/badge are saved via the section's own per-row endpoint (not this
+    // form's onSubmit), so we can't measure "filled" from form state. Instead
+    // gate on whether the product HAS variations at all — a variation product
+    // shows ✓, a simple (no-variation) product stays neutral.
+    isComplete: ({ product }) => product?.is_variation === true,
   },
   {
     id: "og",

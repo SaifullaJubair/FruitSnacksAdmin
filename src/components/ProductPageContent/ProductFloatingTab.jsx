@@ -1,7 +1,4 @@
-import { useState } from "react";
-import { toast } from "react-toastify";
 import { FaPlus, FaTrash, FaEye, FaEyeSlash, FaUndo, FaSyncAlt } from "react-icons/fa";
-import { BASE_URL } from "../../utils/baseURL";
 
 // Product-level floating override editor.
 //
@@ -62,22 +59,19 @@ const ANIM_PREVIEW = {
   none: "",
 };
 
-const uploadImage = async (file) => {
-  const fd = new FormData();
-  fd.append("image", file);
-  const res = await fetch(`${BASE_URL}/image_upload`, {
-    method: "POST",
-    credentials: "include",
-    body: fd,
-  });
-  const data = await res.json();
-  if (data?.success && data?.data) {
-    return { asset_url: data.data.Location, asset_key: data.data.Key };
-  }
-  throw new Error(data?.message || "Upload failed");
-};
-
-export default function ProductFloatingTab({ themeAssets = [], value, onChange }) {
+// Deferred-upload override editor.
+// Picking a file does NOT hit S3 here — that left orphaned uploads whenever the
+// admin never pressed Save. Instead the raw File + a blob preview URL are stashed
+// in the parent's `pendingUploads` map (key → File, with `_previewUrl` on the
+// File). The parent flushes every pending File to S3 once, inside its onSubmit,
+// right before the PATCH. Keys: "repl_<themeAssetId>" / "extra_<localId>".
+export default function ProductFloatingTab({
+  themeAssets = [],
+  value,
+  onChange,
+  pendingUploads = {},
+  onPendingChange = () => {},
+}) {
   const overrides = value || { hidden_ids: [], replacements: [], extras: [] };
   const hidden = overrides.hidden_ids || [];
   const replacements = overrides.replacements || [];
@@ -86,6 +80,23 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
   const set = (patch) => onChange({ ...overrides, ...patch });
 
   const replByThemeId = (id) => replacements.find((r) => r.theme_asset_id === id);
+
+  // Stash a File under `key`, attaching a blob preview URL. Revokes any blob the
+  // same key previously held so re-picking a file doesn't leak object URLs.
+  const stashPending = (key, file) => {
+    const prev = pendingUploads[key];
+    if (prev?._previewUrl) URL.revokeObjectURL(prev._previewUrl);
+    file._previewUrl = URL.createObjectURL(file);
+    onPendingChange({ ...pendingUploads, [key]: file });
+  };
+  const dropPending = (key) => {
+    const prev = pendingUploads[key];
+    if (prev?._previewUrl) URL.revokeObjectURL(prev._previewUrl);
+    if (!(key in pendingUploads)) return;
+    const next = { ...pendingUploads };
+    delete next[key];
+    onPendingChange(next);
+  };
 
   // ── Panel A handlers ──
   const toggleHidden = (id) => {
@@ -96,20 +107,25 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
         : [...hidden, id],
     });
   };
-  const replaceThemeAsset = async (id, file) => {
+  // Defer: just stash the File (preview shown from blob). On Save the parent
+  // uploads it and writes the real URL into the matching replacement row.
+  const replaceThemeAsset = (id, file) => {
     if (!file || !id) return;
-    try {
-      const up = await uploadImage(file);
-      const next = replacements.filter((r) => r.theme_asset_id !== id);
-      next.push({ theme_asset_id: id, ...up });
-      set({ replacements: next });
-      toast.success("Replacement image set");
-    } catch (e) {
-      toast.error(e.message || "Upload error");
+    stashPending(`repl_${id}`, file);
+    // ensure a placeholder replacement row exists so Save knows to apply the URL
+    if (!replByThemeId(id)) {
+      set({
+        replacements: [
+          ...replacements,
+          { theme_asset_id: id, asset_url: "", asset_key: "", _pendingKey: `repl_${id}` },
+        ],
+      });
     }
   };
-  const clearReplacement = (id) =>
+  const clearReplacement = (id) => {
+    dropPending(`repl_${id}`);
     set({ replacements: replacements.filter((r) => r.theme_asset_id !== id) });
+  };
 
   // ── Panel B (extras) handlers ──
   const addExtra = () =>
@@ -117,6 +133,7 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
       extras: [
         ...extras,
         {
+          _localId: crypto.randomUUID(),
           asset_url: "",
           asset_key: "",
           section: "any",
@@ -132,15 +149,19 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
     });
   const updateExtra = (i, patch) =>
     set({ extras: extras.map((e, idx) => (idx === i ? { ...e, ...patch } : e)) });
-  const removeExtra = (i) => set({ extras: extras.filter((_, idx) => idx !== i) });
-  const uploadExtra = async (i, file) => {
+  const removeExtra = (i) => {
+    const row = extras[i];
+    if (row?._localId) dropPending(`extra_${row._localId}`);
+    set({ extras: extras.filter((_, idx) => idx !== i) });
+  };
+  // Defer: stash File under the row's stable _localId; preview is read at render
+  // time from the pending map (keyed by _localId), so no stale state read here.
+  const uploadExtra = (i, file) => {
     if (!file) return;
-    try {
-      const up = await uploadImage(file);
-      updateExtra(i, up);
-    } catch (e) {
-      toast.error(e.message || "Upload error");
-    }
+    const row = extras[i];
+    const localId = row._localId || crypto.randomUUID();
+    stashPending(`extra_${localId}`, file);
+    if (!row._localId) updateExtra(i, { _localId: localId });
   };
 
   return (
@@ -164,7 +185,13 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
               const id = a.id;
               const isHidden = id && hidden.includes(id);
               const repl = id ? replByThemeId(id) : null;
-              const shownUrl = repl ? repl.asset_url : a.asset_url;
+              // Deferred replace: blob preview from the pending File until Save
+              // uploads it and fills repl.asset_url.
+              const pendingPreview = id
+                ? pendingUploads[`repl_${id}`]?._previewUrl
+                : null;
+              const shownUrl = pendingPreview || (repl ? repl.asset_url : a.asset_url);
+              const isReplaced = !!pendingPreview || !!(repl && repl.asset_url);
               return (
                 <div
                   key={id || a.asset_url}
@@ -180,8 +207,10 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px] text-gray-500">
                       {a.section} · {a.position}/{a.align || "middle"} · {a.size}
-                      {repl && (
-                        <span className="ml-1 text-amber-600 font-medium">(replaced)</span>
+                      {isReplaced && (
+                        <span className="ml-1 text-amber-600 font-medium">
+                          {pendingPreview ? "(replaced — unsaved)" : "(replaced)"}
+                        </span>
                       )}
                       {isHidden && (
                         <span className="ml-1 text-red-500 font-medium">(hidden)</span>
@@ -244,11 +273,17 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
           <p className="text-xs text-gray-400 italic mb-2">কোনো extra floating নেই।</p>
         )}
         <div className="space-y-3">
-          {extras.map((row, i) => (
-            <div key={i} className="flex flex-wrap items-start gap-3 p-3 border rounded-lg bg-gray-50">
-              {row.asset_url ? (
+          {extras.map((row, i) => {
+            // Preview: blob from pending File (unsaved) wins, else saved URL.
+            const pendingPreview = row._localId
+              ? pendingUploads[`extra_${row._localId}`]?._previewUrl
+              : null;
+            const previewUrl = pendingPreview || row.asset_url;
+            return (
+            <div key={row._localId || i} className="flex flex-wrap items-start gap-3 p-3 border rounded-lg bg-gray-50">
+              {previewUrl ? (
                 <img
-                  src={row.asset_url}
+                  src={previewUrl}
                   alt=""
                   className={`w-16 h-16 object-contain rounded border bg-white ${ANIM_PREVIEW[row.animation_type] || ""}`}
                 />
@@ -289,7 +324,8 @@ export default function ProductFloatingTab({ themeAssets = [], value, onChange }
                 <FaTrash />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
         <button
           type="button"
