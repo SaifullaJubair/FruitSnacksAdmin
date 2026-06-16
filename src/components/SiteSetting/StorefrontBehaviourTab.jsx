@@ -42,6 +42,11 @@ const buildState = (d) => ({
   hide_out_of_stock_products: d?.hide_out_of_stock_products ?? false,
   enable_whatsapp_chat: d?.enable_whatsapp_chat ?? false,
   whatsapp_number: d?.whatsapp_number ?? "",
+  chat_messenger_show: d?.chat_messenger_show ?? false,
+  chat_messenger_page_id: d?.chat_messenger_page_id ?? "",
+  chat_livechat_show: d?.chat_livechat_show ?? false,
+  chat_livechat_embed_code: d?.chat_livechat_embed_code ?? "",
+  chat_widgets_position: d?.chat_widgets_position ?? "bottom-right",
   enable_reviews: d?.enable_reviews ?? true,
   auto_approve_reviews: d?.auto_approve_reviews ?? false,
   enable_seeded_reviews: d?.enable_seeded_reviews ?? true,
@@ -97,6 +102,14 @@ const StorefrontBehaviourTab = ({ refetch, getInitialCurrencyData: d }) => {
       toast.error("WhatsApp number is required when WhatsApp chat is enabled");
       return;
     }
+    if (state.chat_messenger_show && !state.chat_messenger_page_id?.trim()) {
+      toast.error("Messenger Page ID is required when Messenger chat is enabled");
+      return;
+    }
+    if (state.chat_livechat_show && !state.chat_livechat_embed_code?.trim()) {
+      toast.error("Embed code is required when Live Chat is enabled");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -117,6 +130,11 @@ const StorefrontBehaviourTab = ({ refetch, getInitialCurrencyData: d }) => {
           hide_out_of_stock_products: state.hide_out_of_stock_products,
           enable_whatsapp_chat: state.enable_whatsapp_chat,
           whatsapp_number: state.whatsapp_number ?? "",
+          chat_messenger_show: state.chat_messenger_show,
+          chat_messenger_page_id: state.chat_messenger_page_id ?? "",
+          chat_livechat_show: state.chat_livechat_show,
+          chat_livechat_embed_code: state.chat_livechat_embed_code ?? "",
+          chat_widgets_position: state.chat_widgets_position ?? "bottom-right",
           enable_reviews: state.enable_reviews,
           auto_approve_reviews: state.auto_approve_reviews,
           enable_seeded_reviews: state.enable_seeded_reviews,
@@ -322,6 +340,80 @@ const StorefrontBehaviourTab = ({ refetch, getInitialCurrencyData: d }) => {
                     placeholder="+8801XXXXXXXXX"
                     className="mt-1 w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                   />
+                </div>
+              )}
+              <ToggleRow
+                label="Enable Messenger Chat Widget"
+                help="ON = Floating Facebook Messenger button appears on storefront. Enter your Facebook Page ID below."
+                fieldKey="chat_messenger_show"
+                state={state}
+                set={set}
+                isEditing={isEditing}
+              />
+              {state.chat_messenger_show && (
+                <div className="pb-3">
+                  <label className="text-xs font-medium text-gray-600">
+                    Facebook Page ID
+                  </label>
+                  <input
+                    type="text"
+                    value={state.chat_messenger_page_id}
+                    onChange={(e) =>
+                      isEditing &&
+                      setState((p) => ({ ...p, chat_messenger_page_id: e.target.value }))
+                    }
+                    disabled={!isEditing}
+                    placeholder="e.g. 1234567890 (your Page's numeric ID)"
+                    className="mt-1 w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  />
+                </div>
+              )}
+              <ToggleRow
+                label="Enable Live Chat (Tawk.to / Crisp / etc.)"
+                help="ON = Paste your live-chat provider's embed script below. The chat box loads directly on your storefront."
+                fieldKey="chat_livechat_show"
+                state={state}
+                set={set}
+                isEditing={isEditing}
+              />
+              {state.chat_livechat_show && (
+                <div className="pb-3">
+                  <label className="text-xs font-medium text-gray-600">
+                    Live Chat Embed Code
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={state.chat_livechat_embed_code}
+                    onChange={(e) =>
+                      isEditing &&
+                      setState((p) => ({ ...p, chat_livechat_embed_code: e.target.value }))
+                    }
+                    disabled={!isEditing}
+                    placeholder="Paste the full <script>…</script> snippet from Tawk.to / Crisp / Tidio"
+                    className="mt-1 w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Get this from your provider's dashboard (e.g. Tawk.to → Administration → Chat Widget → Widget Code).
+                  </p>
+                </div>
+              )}
+              {(state.enable_whatsapp_chat || state.chat_messenger_show) && (
+                <div className="pb-3">
+                  <label className="text-xs font-medium text-gray-600">
+                    Chat Buttons Position
+                  </label>
+                  <select
+                    value={state.chat_widgets_position}
+                    onChange={(e) =>
+                      isEditing &&
+                      setState((p) => ({ ...p, chat_widgets_position: e.target.value }))
+                    }
+                    disabled={!isEditing}
+                    className="mt-1 block w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  >
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                  </select>
                 </div>
               )}
             </div>
