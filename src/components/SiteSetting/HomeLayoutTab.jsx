@@ -39,6 +39,10 @@ const SECTION_LABELS = {
   promo_banner: "Promo Banner",
   site_faq: "Site FAQ",
   newsletter: "Newsletter",
+  // Boutique preset (few-products storytelling home)
+  hero_spotlight: "Hero Spotlight (boutique)",
+  product_features: "Product Features (boutique)",
+  story_band: "Story Band (boutique)",
 };
 
 const L9_DEFAULTS = [
@@ -57,6 +61,10 @@ const L9_DEFAULTS = [
   { id: "promo_banner",        enabled: false, order: 13 },
   { id: "site_faq",            enabled: true,  order: 14 },
   { id: "newsletter",          enabled: true,  order: 15 },
+  // Boutique preset — disabled by default; mirrors backend HOME_SECTION_DEFAULTS.
+  { id: "hero_spotlight",      enabled: false, order: 16 },
+  { id: "product_features",    enabled: false, order: 17 },
+  { id: "story_band",          enabled: false, order: 18 },
 ];
 
 // Toggle component
