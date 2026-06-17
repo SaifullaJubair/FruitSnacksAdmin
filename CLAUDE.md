@@ -132,7 +132,7 @@ These map to backend `theme` and `faq_template` modules. See [FEATURE_PLAN.md](.
 - **`cookie-storage.js`** is unused (backend uses httpOnly cookies which JS can't read) — delete to prevent confusion
 - **Misspelled file `UpDateCategory.jsx`** — should be `Update`; some folders use the correct spelling already
 - **`console.log` left in production code** (e.g. `SideNavBar.jsx:67`) — configure Vite to drop them or remove manually
-- **Inconsistent route naming** — `/brand-category` (admin URL) vs `/brand` (backend) vs `BrandPage` (component); same with `/sub-category` (admin) vs `/sub_category` (backend)
-- **Many commented routes/menus** litter `Route.jsx` and `SideNavBar.jsx` while page files (`CancelOrderPage`, `ReturnOrderPage`, `SliderPage`, `SpecificationPage`, `ChildCategoryPage`, etc.) still exist — decide whether to implement or fully delete
+- **Inconsistent route naming** — `/brand-category` (admin URL) vs `/brand` (backend) vs `BrandPage` (component). (`/sub-category`, `/child-category`, `/specification-list` routes/pages were REMOVED — category is now a single nested-tree page.)
+- **Sidebar reorganized** into 8 collapsible groups (2026-06); Sub/Child Category + Specification pages gone (nested tree + attribute engine). Some commented routes may still linger in `Route.jsx`/`SideNavBar.jsx` — verify against current `Route.jsx` before relying on this note.
 - **`window.location.reload()` after login** breaks the SPA model — refactor to use AuthProvider re-fetch
 - **Permission flag drift** — adding a permission requires changes in 4 places (backend interface + model + route + admin permissionData.js + sidebar/page checks); easy to miss one
