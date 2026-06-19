@@ -47,7 +47,7 @@ const WarehousePage = () => {
 
   return (
     <>
-      {user?.role_id?.setting_show === true && (
+      {user?.role_id?.site_setting_update === true && (
         <div className="bg-white rounded-lg py-6 px-4 shadow">
           <div className="flex justify-between mt-6">
             <div>
@@ -58,7 +58,7 @@ const WarehousePage = () => {
               </p>
             </div>
 
-            {user?.role_id?.setting_update === true && (
+            {user?.role_id?.site_setting_update === true && (
               <div>
                 <button
                   className="h-[40px] rounded-[8px] py-[10px] px-[14px] bg-primaryColor hover:bg-blue-500 duration-200 text-white text-sm"

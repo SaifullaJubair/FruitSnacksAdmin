@@ -49,20 +49,20 @@ const permissionsData = [
     ],
   },
 
-  // {
-  //   Name: "Question Show And Update",
-  //   Type: [
-  //     {
-  //       type_name: "Question Update",
-  //       type_value: "question_update",
-  //     },
+  {
+    Name: "Question Show And Update",
+    Type: [
+      {
+        type_name: "Question Update",
+        type_value: "question_update",
+      },
 
-  //     {
-  //       type_name: "Question Show",
-  //       type_value: "question_show",
-  //     },
-  //   ],
-  // },
+      {
+        type_name: "Question Show",
+        type_value: "question_show",
+      },
+    ],
+  },
 
   {
     Name: "Order Show And Update",
@@ -206,49 +206,50 @@ const permissionsData = [
     ],
   },
 
-  // {
-  //   Name: "Offer Create And Update",
-  //   Type: [
-  //     {
-  //       type_name: "Offer Create",
-  //       type_value: "offer_create",
-  //     },
-  //     {
-  //       type_name: "Offer Update",
-  //       type_value: "offer_update",
-  //     },
-  //     {
-  //       type_name: "Offer Show",
-  //       type_value: "offer_show",
-  //     },
-  //     {
-  //       type_name: "Offer Delete",
-  //       type_value: "offer_delete",
-  //     },
-  //   ],
-  // },
+  // NOTE: offer_* flags also gate Flash Sale (flashsale.routes.ts uses offer_create/update/delete)
+  {
+    Name: "Offer Create And Update (also gates Flash Sale)",
+    Type: [
+      {
+        type_name: "Offer Create",
+        type_value: "offer_create",
+      },
+      {
+        type_name: "Offer Update",
+        type_value: "offer_update",
+      },
+      {
+        type_name: "Offer Show",
+        type_value: "offer_show",
+      },
+      {
+        type_name: "Offer Delete",
+        type_value: "offer_delete",
+      },
+    ],
+  },
 
-  // {
-  //   Name: "Campaign Create And Update",
-  //   Type: [
-  //     {
-  //       type_name: "Campaign Create",
-  //       type_value: "campaign_create",
-  //     },
-  //     {
-  //       type_name: "Campaign Update",
-  //       type_value: "campaign_update",
-  //     },
-  //     {
-  //       type_name: "Campaign Show",
-  //       type_value: "campaign_show",
-  //     },
-  //     {
-  //       type_name: "Campaign Delete",
-  //       type_value: "campaign_delete",
-  //     },
-  //   ],
-  // },
+  {
+    Name: "Campaign Create And Update",
+    Type: [
+      {
+        type_name: "Campaign Create",
+        type_value: "campaign_create",
+      },
+      {
+        type_name: "Campaign Update",
+        type_value: "campaign_update",
+      },
+      {
+        type_name: "Campaign Show",
+        type_value: "campaign_show",
+      },
+      {
+        type_name: "Campaign Delete",
+        type_value: "campaign_delete",
+      },
+    ],
+  },
 
   {
     Name: "User Create And Update",
@@ -338,27 +339,27 @@ const permissionsData = [
     ],
   },
 
-  // {
-  //   Name: "Slider Create And Update",
-  //   Type: [
-  //     {
-  //       type_name: "Slider Create",
-  //       type_value: "slider_create",
-  //     },
-  //     {
-  //       type_name: "Slider Update",
-  //       type_value: "slider_update",
-  //     },
-  //     {
-  //       type_name: "Slider Show",
-  //       type_value: "slider_show",
-  //     },
-  //     {
-  //       type_name: "Slider Delete",
-  //       type_value: "slider_delete",
-  //     },
-  //   ],
-  // },
+  {
+    Name: "Slider Create And Update",
+    Type: [
+      {
+        type_name: "Slider Create",
+        type_value: "slider_create",
+      },
+      {
+        type_name: "Slider Update",
+        type_value: "slider_update",
+      },
+      {
+        type_name: "Slider Show",
+        type_value: "slider_show",
+      },
+      {
+        type_name: "Slider Delete",
+        type_value: "slider_delete",
+      },
+    ],
+  },
 
   {
     Name: "Theme Create And Update",

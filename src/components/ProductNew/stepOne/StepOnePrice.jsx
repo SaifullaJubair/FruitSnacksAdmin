@@ -45,13 +45,11 @@ const StepOnePrice = ({ stepOneData, register, errors }) => {
         {/* Product Buying Price */}
         <div className="">
           <label htmlFor="product_buying_price" className="font-medium">
-            Product Buying Price<span className="text-red-500">*</span>
+            Product Buying Price
           </label>
           <input
             defaultValue={stepOneData?.product_buying_price}
-            {...register("product_buying_price", {
-              required: "Product Buying Price is required",
-            })}
+            {...register("product_buying_price")}
             id="product_buying_price"
             type="number"
             placeholder="Enter Product Buying Price"
