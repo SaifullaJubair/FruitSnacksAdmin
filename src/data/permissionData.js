@@ -162,6 +162,8 @@ const permissionsData = [
     ],
   },
 
+  // Specification module retired (replaced by the attribute engine) — flags
+  // stay in role schema for back-compat but are intentionally NOT grantable.
   // {
   //   Name: "Specification Create And Update",
   //   Type: [
