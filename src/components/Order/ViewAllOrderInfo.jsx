@@ -307,6 +307,21 @@ const AdminNotesCard = ({ order, refetch }) => {
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
+// Forward / terminal status options from the current status. MUST stay in sync
+// with ALLOWED_STATUS_TRANSITIONS in backend order.service.ts (the server is
+// the real guard; this just drives the dropdown UI).
+const NEXT_STATUS_OPTIONS = {
+  pending: ["on_hold", "confirmed", "cancel"],
+  on_hold: ["confirmed", "cancel"],
+  confirmed: ["processing", "cancel"],
+  processing: ["shipped", "cancel"],
+  shipped: ["delivered", "return"],
+  delivered: ["completed", "return"],
+  completed: [],
+  cancel: [],
+  return: [],
+};
+
 const ViewAllOrderInfo = () => {
   const { id } = useParams();
   const { user } = useContext(AuthContext);
@@ -377,15 +392,16 @@ const ViewAllOrderInfo = () => {
 
     const sendData = { _id: id, order_status: nextStatus };
 
-    // Don't let an order already handed to a courier be cancelled here — the
-    // courier copy would drift. Use the courier cancel/sync flow instead.
+    // Don't let an order already handed to a courier be cancelled OR returned
+    // here — the courier still has the parcel, and restocking now would drift
+    // inventory. Use the courier cancel/sync flow instead.
     const courierLocked =
       (order?.courier_type === "steadfast" && order?.steadfast_consignment_id) ||
       (order?.courier_type === "pathao" && order?.consignment_id);
-    if (nextStatus === "cancel" && courierLocked) {
+    if ((nextStatus === "cancel" || nextStatus === "return") && courierLocked) {
       Swal.fire(
-        "Cannot cancel here",
-        "This order is already with the courier. Cancel it from the courier (Steadfast/Pathao) flow first.",
+        "Cannot change status here",
+        `This order is already with the courier (${order?.courier_type}). Use the courier flow to cancel or handle the return.`,
         "warning",
       );
       return;
@@ -434,18 +450,6 @@ const ViewAllOrderInfo = () => {
     }
   };
 
-  // Forward / terminal options from the current status (mirrors the BE guard).
-  const NEXT_STATUS_OPTIONS = {
-    pending: ["on_hold", "confirmed", "cancel"],
-    on_hold: ["confirmed", "cancel"],
-    confirmed: ["processing", "cancel"],
-    processing: ["shipped", "cancel"],
-    shipped: ["delivered", "return"],
-    delivered: ["completed", "return"],
-    completed: [],
-    cancel: [],
-    return: [],
-  };
   const nextOptions = NEXT_STATUS_OPTIONS[order?.order_status] ?? [];
   const canUpdateStatus = user?.role_id?.order_update === true;
 
