@@ -8,9 +8,7 @@ import ColorAutoPreview from "./ColorAutoPreview";
 import { PALETTE_PRESETS } from "./palettePresets";
 import ThemeFloatingManager from "./ThemeFloatingManager";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
-
-// Storefront base URL for the live-preview iframe. Falls back to localhost.
-const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
+import { buildThemePreviewUrl } from "../../utils/frontendUrl";
 
 const FONT_OPTIONS = [
   // Bangla-first
@@ -38,6 +36,9 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  // CREATE-mode buffered floating images — uploaded after the theme is created
+  // (AB-3). Each entry: { localId, file, meta }.
+  const [pendingFloats, setPendingFloats] = useState([]);
 
   const {
     register,
@@ -93,7 +94,7 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
       heading_weight: watchedHeadingWeight || "",
       button_radius: watchedButtonRadius || "",
     });
-    return `${FRONTEND_URL}/theme-preview?${q.toString()}`;
+    return buildThemePreviewUrl(q); // null when storefront URL not configured
   };
   const [previewUrl, setPreviewUrl] = useState(buildPreviewUrl());
   useEffect(() => {
@@ -155,6 +156,40 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         toast.error(data?.message || "Save failed");
         setSubmitting(false);
         return;
+      }
+
+      // CREATE: upload any buffered floating images now that we have a theme _id.
+      if (mode === "create" && pendingFloats.length) {
+        const newId = data?.data?._id || data?.data?.id;
+        if (newId) {
+          let failed = 0;
+          for (const pf of pendingFloats) {
+            try {
+              const fd = new FormData();
+              fd.append("asset", pf.file);
+              Object.entries(pf.meta || {}).forEach(([k, v]) =>
+                fd.append(k, String(v)),
+              );
+              const fres = await fetch(
+                `${BASE_URL}/theme/${newId}/floating-asset`,
+                { method: "POST", credentials: "include", body: fd },
+              );
+              const fdata = await fres.json();
+              if (!fdata?.success) failed++;
+            } catch {
+              failed++;
+            }
+          }
+          if (failed) {
+            toast.warn(
+              `Theme created, কিন্তু ${failed}টি floating image upload হয়নি — edit করে আবার চেষ্টা করো।`,
+            );
+          }
+        } else {
+          toast.warn(
+            "Theme created, কিন্তু floating image upload হয়নি (theme id পাওয়া যায়নি) — edit করে যোগ করো।",
+          );
+        }
       }
 
       toast.success(mode === "create" ? "Theme created" : "Theme updated");
@@ -324,11 +359,9 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
         subtitle="এই theme যেসব product ব্যবহার করবে সবাই এই floating image পাবে। প্রতিটি product চাইলে নিজের Page Content → Floating tab থেকে hide / replace / extra যোগ করতে পারবে।"
       >
         {mode === "create" ? (
-          <p className="text-sm text-gray-500">
-            Floating image যোগ করতে আগে theme টা{" "}
-            <strong>create</strong> করো — তারপর edit করে এখানে global floating
-            image upload করতে পারবে।
-          </p>
+          <ThemeFloatingManager
+            onPendingChange={setPendingFloats}
+          />
         ) : (
           <ThemeFloatingManager
             themeId={initial?._id}
@@ -392,23 +425,40 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
               <p className="text-xs font-semibold text-gray-600 uppercase">
                 Live Preview
               </p>
-              <a
-                href={previewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blueColor-600"
-              >
-                <FaImage size={11} /> Full screen
-              </a>
+              {previewUrl && (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-blueColor-600"
+                >
+                  <FaImage size={11} /> Full screen
+                </a>
+              )}
             </div>
             <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
-              <iframe
-                key={previewUrl}
-                src={previewUrl}
-                title="Theme live preview"
-                className="w-full"
-                style={{ height: "calc(100vh - 7rem)", border: 0 }}
-              />
+              {previewUrl ? (
+                <iframe
+                  key={previewUrl}
+                  src={previewUrl}
+                  title="Theme live preview"
+                  className="w-full"
+                  style={{ height: "calc(100vh - 7rem)", border: 0 }}
+                />
+              ) : (
+                <div
+                  className="flex items-center justify-center p-6 bg-yellow-50 text-center"
+                  style={{ height: "calc(100vh - 7rem)" }}
+                >
+                  <p className="text-sm text-yellow-700">
+                    Preview unavailable — set{" "}
+                    <code className="bg-yellow-100 px-1 rounded">
+                      VITE_FRONTEND_URL
+                    </code>{" "}
+                    in the admin environment and rebuild.
+                  </p>
+                </div>
+              )}
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5">
               রং/font বদলালে ~১ সেকেন্ড পর preview আপডেট হবে (dummy product দিয়ে)।
@@ -419,14 +469,16 @@ const ThemeForm = ({ initial = null, mode = "create" }) => {
 
       {/* Sticky save bar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t shadow-lg px-4 py-3 flex items-center justify-end gap-3">
-        <a
-          href={previewUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="lg:hidden inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded"
-        >
-          <FaImage size={12} /> Preview
-        </a>
+        {previewUrl && (
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="lg:hidden inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded"
+          >
+            <FaImage size={12} /> Preview
+          </a>
+        )}
         <button
           type="submit"
           disabled={submitting}

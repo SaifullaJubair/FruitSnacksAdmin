@@ -16,6 +16,23 @@ export const PAGE_CONTENT_SECTIONS = [
     isComplete: ({ form }) => !!form?.theme_id,
   },
   {
+    id: "description",
+    label: "Description",
+    hint: "পণ্যের মূল বিবরণ (rich text)",
+    // Quill returns "<p><br></p>" for empty — strip tags before checking.
+    isComplete: ({ description }) =>
+      has(String(description || "").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ")),
+  },
+  {
+    id: "custom_spec",
+    label: "Custom Spec",
+    hint: "label/value spec rows",
+    isComplete: ({ customFields }) =>
+      (customFields || []).some(
+        (r) => (r?.label || "").trim() && (r?.value || "").trim(),
+      ),
+  },
+  {
     id: "hero",
     label: "Hero",
     hint: "ছবির পাশের badge, tagline, icon row",
