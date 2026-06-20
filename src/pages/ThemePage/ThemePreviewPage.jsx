@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FaArrowLeft, FaExternalLinkAlt } from "react-icons/fa";
 import { useGetThemeById } from "../../hooks/useGetTheme";
+import useGetProductsForPreview from "../../hooks/useGetProductsForPreview";
 import { LoaderOverlay } from "../../components/common/loader/LoderOverley";
 import { buildThemePreviewUrl } from "../../utils/frontendUrl";
 
 // Build the frontend /theme-preview URL from a saved theme's values, so the
 // admin sees the EXACT storefront PDP rendering (not a hand-rolled mock).
 // Returns null when the storefront URL isn't configured (see frontendUrl.js).
-const previewUrlFor = (theme) => {
+// Phase 2 — pass an optional product slug to preview the theme on a REAL product
+// (the FE preview ignores the product's own theme_id and uses these colors).
+const previewUrlFor = (theme, slug) => {
   const c = theme?.colors || {};
   const q = new URLSearchParams({
     primary: c.primary || "",
@@ -19,6 +23,7 @@ const previewUrlFor = (theme) => {
     heading_weight: theme?.typography?.heading_weight || "",
     button_radius: theme?.button_style?.border_radius || "",
   });
+  if (slug) q.set("slug", slug);
   return buildThemePreviewUrl(q);
 };
 
@@ -27,11 +32,16 @@ const ThemePreviewPage = () => {
   const { data, isLoading } = useGetThemeById(id);
   const theme = data?.data;
 
+  // Phase 2 — optional real-product preview. Empty = rich dummy product.
+  const [slug, setSlug] = useState("");
+  const { data: productsData } = useGetProductsForPreview("", 50);
+  const products = productsData?.data || [];
+
   if (isLoading) return <LoaderOverlay />;
   if (!theme)
     return <div className="p-4 text-center text-gray-500">Theme not found.</div>;
 
-  const url = previewUrlFor(theme);
+  const url = previewUrlFor(theme, slug);
 
   return (
     <div className="bg-gray-100 min-h-screen flex flex-col">
@@ -57,6 +67,20 @@ const ThemePreviewPage = () => {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          {/* Phase 2 — pick a real product to preview this theme on. */}
+          <select
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            className="text-sm border border-gray-300 rounded px-2 py-1 max-w-[200px]"
+            title="Preview this theme on a real product"
+          >
+            <option value="">Sample product (dummy)</option>
+            {products.map((p) => (
+              <option key={p._id} value={p.product_slug}>
+                {p.product_name}
+              </option>
+            ))}
+          </select>
           <Link
             to={`/theme/update/${id}`}
             className="text-sm text-gray-600 hover:text-blueColor-600"
@@ -82,6 +106,7 @@ const ThemePreviewPage = () => {
           silently loading localhost (AB-2). */}
       {url ? (
         <iframe
+          key={url}
           src={url}
           title={`Preview of ${theme.theme_name}`}
           className="flex-1 w-full bg-white"
