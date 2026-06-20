@@ -1062,7 +1062,7 @@ const ProductForm = ({ mode = "add", initialData = null, onSaved }) => {
     setKeywords(keywords.filter((it) => it.keyword !== k));
 
   // Validation
-  const validateSimpleNumeric = (form) => {
+  const validateSimpleNumeric = (form, publish) => {
     const price = parseFloat(form.product_price);
     const discount = parseFloat(form.product_discount_price);
     const qty = parseFloat(form.product_quantity);
@@ -1070,8 +1070,16 @@ const ProductForm = ({ mode = "add", initialData = null, onSaved }) => {
       toast.error("Product price must be greater than the discount price.");
       return false;
     }
-    if (Number.isNaN(qty) || qty < 0) {
-      toast.error("Product quantity is required and must be ≥ 0.");
+    // Stock is only required to PUBLISH. A draft can be saved without it
+    // (build the product now, set stock when it arrives). If a value IS
+    // entered on a draft it still must be valid (≥ 0).
+    if (publish) {
+      if (Number.isNaN(qty) || qty < 0) {
+        toast.error("Product quantity is required to publish and must be ≥ 0.");
+        return false;
+      }
+    } else if (!Number.isNaN(qty) && qty < 0) {
+      toast.error("Product quantity must be ≥ 0.");
       return false;
     }
     return true;
@@ -1406,7 +1414,7 @@ const ProductForm = ({ mode = "add", initialData = null, onSaved }) => {
         return;
       }
       if (!showProductVariation) {
-        if (!validateSimpleNumeric(form)) return;
+        if (!validateSimpleNumeric(form, publish)) return;
       } else {
         if (inputValueData.length === 0) {
           toast.error("Add at least one variation row (toggle a variation axis).");

@@ -11,7 +11,57 @@ const ViewAttributeValue = ({
   const isColorAttribute =
     attributesValue?.attribute_name?.toLowerCase() === "color" ||
     attributesValue?.attribute_slug === "color" ||
-    attributesValue?.attribute_type === "color";
+    attributesValue?.attribute_type === "color" ||
+    attributesValue?.display_type === "swatch";
+
+  const tracksWeight = attributesValue?.tracks_weight === true;
+
+  // Render the "Value / Preview" cell per attribute type so non-color
+  // attributes (weight etc.) actually show their data instead of a blank
+  // color swatch (AB-1). Order: color swatch → weight grams → raw code → slug.
+  const renderValueCell = (values) => {
+    if (isColorAttribute) {
+      return (
+        <div className="flex items-center justify-center gap-3">
+          <div className="relative group">
+            <div
+              className="w-6 h-6 rounded-full border border-gray-300 shadow-sm cursor-pointer transition hover:scale-110"
+              style={{ backgroundColor: values?.attribute_value_code }}
+              onClick={() => setPreviewColor(values?.attribute_value_code)}
+            ></div>
+            <div className="absolute left-1/2 top-[-70px] hidden group-hover:flex -translate-x-1/2 items-center justify-center z-50">
+              <div
+                className="w-14 h-14 rounded-xl border-2 border-white shadow-xl"
+                style={{ backgroundColor: values?.attribute_value_code }}
+              ></div>
+            </div>
+          </div>
+          <code className="bg-gray-100 px-2 py-1 rounded text-[10px]">
+            {values?.attribute_value_code || "—"}
+          </code>
+        </div>
+      );
+    }
+
+    if (tracksWeight || values?.weight_grams_value != null) {
+      return (
+        <span className="font-medium text-slate-700">
+          {values?.weight_grams_value != null
+            ? `${values.weight_grams_value} g`
+            : "—"}
+        </span>
+      );
+    }
+
+    // Generic fallback for any other attribute type (button / dropdown).
+    const fallback =
+      values?.attribute_value_code || values?.attribute_value_slug;
+    return (
+      <code className="bg-gray-100 px-2 py-1 rounded text-[10px]">
+        {fallback || "—"}
+      </code>
+    );
+  };
 
   return (
     <>
@@ -60,6 +110,20 @@ const ViewAttributeValue = ({
                 {attributesValue?.attribute_status}
               </span>
             </div>
+
+            <div className="font-bold">
+              Display Type:{" "}
+              <span className="font-medium text-slate-700 capitalize">
+                {attributesValue?.display_type || "button"}
+              </span>
+            </div>
+
+            {tracksWeight && (
+              <div className="font-bold">
+                Tracks Weight:{" "}
+                <span className="font-medium text-green-600">Yes</span>
+              </div>
+            )}
           </div>
 
           {/* Attribute Values Table */}
@@ -71,63 +135,58 @@ const ViewAttributeValue = ({
                 <thead>
                   <tr className="bg-gray-100 border-b">
                     <th className="p-3 border-r">Name</th>
-                    <th className="p-3 border-r">Value / Preview</th>
+                    <th className="p-3 border-r">Slug</th>
+                    <th className="p-3 border-r">
+                      {isColorAttribute
+                        ? "Color"
+                        : tracksWeight
+                          ? "Weight"
+                          : "Value"}
+                    </th>
                     <th className="p-3">Status</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {attributesValue?.attribute_values?.map((values) => (
-                    <tr key={values?._id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-3 border-r font-medium">
-                        {values?.attribute_value_name}
-                      </td>
-
-                      <td className="px-3 py-3 border-r">
-                        <div className="flex items-center justify-center gap-3">
-                          {/* Color Preview */}
-                          {isColorAttribute && (
-                            <div className="relative group">
-                              <div
-                                className="w-6 h-6 rounded-full border border-gray-300 shadow-sm cursor-pointer transition hover:scale-110"
-                                style={{
-                                  backgroundColor: values?.attribute_value_code,
-                                }}
-                                onClick={() =>
-                                  setPreviewColor(values?.attribute_value_code)
-                                }
-                              ></div>
-
-                              {/* Hover Big Preview (Desktop) */}
-                              <div className="absolute left-1/2 top-[-70px] hidden group-hover:flex -translate-x-1/2 items-center justify-center z-50">
-                                <div
-                                  className="w-14 h-14 rounded-xl border-2 border-white shadow-xl"
-                                  style={{
-                                    backgroundColor:
-                                      values?.attribute_value_code,
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-                          )}
-
-                          <code className="bg-gray-100 px-2 py-1 rounded text-[10px]">
-                            {values?.attribute_value_code}
-                          </code>
-                        </div>
-                      </td>
-
-                      <td
-                        className={`px-3 py-3 font-bold capitalize ${
-                          values?.attribute_value_status === "active"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
+                  {attributesValue?.attribute_values?.length ? (
+                    attributesValue.attribute_values.map((values) => (
+                      <tr
+                        key={values?._id}
+                        className="border-b hover:bg-gray-50"
                       >
-                        {values?.attribute_value_status}
+                        <td className="px-3 py-3 border-r font-medium">
+                          {values?.attribute_value_name}
+                        </td>
+
+                        <td className="px-3 py-3 border-r text-slate-500">
+                          {values?.attribute_value_slug || "—"}
+                        </td>
+
+                        <td className="px-3 py-3 border-r">
+                          {renderValueCell(values)}
+                        </td>
+
+                        <td
+                          className={`px-3 py-3 font-bold capitalize ${
+                            values?.attribute_value_status === "active"
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {values?.attribute_value_status}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-3 py-6 text-gray-400 italic"
+                      >
+                        No values added for this attribute.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

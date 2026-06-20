@@ -5,6 +5,7 @@ import { LoaderOverlay } from "../common/loader/LoderOverley";
 import { DateFormate } from "../../utils/DateFormate/DateFormate";
 import { useContext, useState } from "react";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2-optimized";
 import { FiRefreshCw, FiExternalLink, FiEdit2, FiX } from "react-icons/fi";
 import {
   FaTruck,
@@ -306,10 +307,26 @@ const AdminNotesCard = ({ order, refetch }) => {
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
+// Forward / terminal status options from the current status. MUST stay in sync
+// with ALLOWED_STATUS_TRANSITIONS in backend order.service.ts (the server is
+// the real guard; this just drives the dropdown UI).
+const NEXT_STATUS_OPTIONS = {
+  pending: ["on_hold", "confirmed", "cancel"],
+  on_hold: ["confirmed", "cancel"],
+  confirmed: ["processing", "cancel"],
+  processing: ["shipped", "cancel"],
+  shipped: ["delivered", "return"],
+  delivered: ["completed", "return"],
+  completed: [],
+  cancel: [],
+  return: [],
+};
+
 const ViewAllOrderInfo = () => {
   const { id } = useParams();
   const { user } = useContext(AuthContext);
   const [syncing, setSyncing] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false); // ✅ নতুন
   // Phase D Bug #3 — per-line print label modal target. `null` = closed.
   const [labelLine, setLabelLine] = useState(null);
@@ -367,6 +384,75 @@ const ViewAllOrderInfo = () => {
     }
   };
 
+  // A2.2 — advance the order status. Forward transitions just PATCH; cancel /
+  // return ask for a reason first. Server validates the transition (A2.3), so a
+  // bad jump is rejected even if the UI somehow offers it.
+  const handleStatusChange = async (nextStatus) => {
+    if (!nextStatus || nextStatus === order?.order_status) return;
+
+    const sendData = { _id: id, order_status: nextStatus };
+
+    // Don't let an order already handed to a courier be cancelled OR returned
+    // here — the courier still has the parcel, and restocking now would drift
+    // inventory. Use the courier cancel/sync flow instead.
+    const courierLocked =
+      (order?.courier_type === "steadfast" && order?.steadfast_consignment_id) ||
+      (order?.courier_type === "pathao" && order?.consignment_id);
+    if ((nextStatus === "cancel" || nextStatus === "return") && courierLocked) {
+      Swal.fire(
+        "Cannot change status here",
+        `This order is already with the courier (${order?.courier_type}). Use the courier flow to cancel or handle the return.`,
+        "warning",
+      );
+      return;
+    }
+
+    if (nextStatus === "cancel" || nextStatus === "return") {
+      const isCancel = nextStatus === "cancel";
+      const { value: reason, isDismissed } = await Swal.fire({
+        title: isCancel ? "Cancel order?" : "Mark as returned?",
+        input: "textarea",
+        inputLabel: isCancel
+          ? "Reason for cancellation (optional)"
+          : "Reason for return (optional)",
+        inputPlaceholder: isCancel
+          ? "e.g. customer requested / out of stock / fraud"
+          : "e.g. wrong item / damaged / customer changed mind",
+        showCancelButton: true,
+        confirmButtonText: isCancel ? "Confirm Cancel" : "Confirm Return",
+        confirmButtonColor: "#d33",
+      });
+      if (isDismissed) return;
+      if (reason) {
+        sendData[isCancel ? "cancel_reason" : "return_reason"] = reason;
+      }
+    }
+
+    try {
+      setStatusUpdating(true);
+      const res = await fetch(`${BASE_URL}/order`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(sendData),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        toast.success(`Status updated → ${nextStatus}`);
+        refetch();
+      } else {
+        throw new Error(data?.message || "Update failed");
+      }
+    } catch (err) {
+      toast.error(err.message || "Status update failed");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const nextOptions = NEXT_STATUS_OPTIONS[order?.order_status] ?? [];
+  const canUpdateStatus = user?.role_id?.order_update === true;
+
   return (
     <section className="max-w-6xl mx-auto space-y-4 pb-10">
       {/* Header */}
@@ -381,6 +467,27 @@ const ViewAllOrderInfo = () => {
           >
             {order?.order_status}
           </span>
+          {/* A2.2 — advance order status (forward + cancel/return). Hidden once
+              the order reaches a terminal state or for admins without
+              order_update. Server validates the transition (A2.3). */}
+          {canUpdateStatus && nextOptions.length > 0 && (
+            <select
+              value=""
+              disabled={statusUpdating}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="px-2 py-1 text-xs border border-gray-300 rounded-lg bg-white cursor-pointer disabled:opacity-50"
+              title="Advance order status"
+            >
+              <option value="" disabled>
+                {statusUpdating ? "Updating…" : "Change status →"}
+              </option>
+              {nextOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
           {order?.order_type && order?.order_type !== "regular" && (
             <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 capitalize">
               {order?.order_type}

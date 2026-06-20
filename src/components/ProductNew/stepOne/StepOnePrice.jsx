@@ -45,13 +45,11 @@ const StepOnePrice = ({ stepOneData, register, errors }) => {
         {/* Product Buying Price */}
         <div className="">
           <label htmlFor="product_buying_price" className="font-medium">
-            Product Buying Price<span className="text-red-500">*</span>
+            Product Buying Price
           </label>
           <input
             defaultValue={stepOneData?.product_buying_price}
-            {...register("product_buying_price", {
-              required: "Product Buying Price is required",
-            })}
+            {...register("product_buying_price")}
             id="product_buying_price"
             type="number"
             placeholder="Enter Product Buying Price"
@@ -64,16 +62,16 @@ const StepOnePrice = ({ stepOneData, register, errors }) => {
             </p>
           )}
         </div>
-        {/* Product Quantity */}
+        {/* Product Quantity — required only to PUBLISH (validated in
+            ProductForm.validateSimpleNumeric); a draft can be saved without it. */}
         <div className="">
           <label htmlFor="product_quantity" className="font-medium">
-            Product Quantity<span className="text-red-500">*</span>
+            Product Quantity{" "}
+            <span className="text-xs text-gray-400">(required to publish)</span>
           </label>
           <input
             defaultValue={stepOneData?.product_quantity}
-            {...register("product_quantity", {
-              required: "Product Quantity is required",
-            })}
+            {...register("product_quantity")}
             id="product_quantity"
             type="number"
             placeholder="Enter Product Quantity"

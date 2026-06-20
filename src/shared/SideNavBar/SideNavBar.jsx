@@ -464,7 +464,7 @@ const SideNavBar = () => {
           )}
 
           {/* ── Inventory ────────────────────────────────────────────────── */}
-          {(user?.role_id?.setting_show === true ||
+          {(user?.role_id?.site_setting_update === true ||
             user?.role_id?.supplier_show === true) && (
             <DropdownMenu
               label="Inventory"
@@ -472,7 +472,7 @@ const SideNavBar = () => {
               isOpen={activeDropdown === "inventory"}
               onClick={() => toggleDropdown("inventory")}
             >
-              {user?.role_id?.setting_show === true && (
+              {user?.role_id?.site_setting_update === true && (
                 <ChildMenuItem
                   to="/warehouse"
                   icon={Boxes}

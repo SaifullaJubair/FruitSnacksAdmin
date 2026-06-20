@@ -30,11 +30,11 @@ const PathaoOrderPage = () => {
     refetch,
   } = useQuery({
     queryKey: [
-      `/api/v1/order/dashboard?order_status=shipped&page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
+      `/api/v1/order/pathao?page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
     ],
     queryFn: async () => {
       const res = await fetch(
-        `${BASE_URL}/order/dashboard?order_status=shipped&page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
+        `${BASE_URL}/order/pathao?page=${page}&limit=${limit}&searchTerm=${searchTerm}`,
         {
           credentials: "include",
         }

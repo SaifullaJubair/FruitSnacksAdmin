@@ -126,7 +126,7 @@ const WarehouseTable = ({
                         </td>
                         <td className="whitespace-nowrap p-4">
                           <div className="flex items-center justify-center gap-3">
-                            {user?.role_id?.setting_update === true && (
+                            {user?.role_id?.site_setting_update === true && (
                               <button
                                 onClick={() => openUpdate(w)}
                                 className="text-blue-600 hover:text-blue-800"
@@ -135,7 +135,7 @@ const WarehouseTable = ({
                                 <FiEdit size={18} />
                               </button>
                             )}
-                            {user?.role_id?.setting_update === true && (
+                            {user?.role_id?.site_setting_update === true && (
                               <button
                                 onClick={() => handleDelete(w)}
                                 className="text-red-600 hover:text-red-800"

@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaPlus, FaTrash, FaListUl } from "react-icons/fa";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 import IconPicker from "../common/IconPicker/IconPicker";
+import CustomFieldsBlock from "../ProductNew/sections/CustomFieldsBlock";
 import { BASE_URL } from "../../utils/baseURL";
 import { useGetThemes } from "../../hooks/useGetTheme";
 import IconTextRepeater from "./IconTextRepeater";
@@ -78,6 +81,10 @@ const ProductPageContentForm = ({ product, refetch }) => {
   const [processSteps, setProcessSteps] = useState(product?.process_steps || []);
   const [useCases, setUseCases] = useState(product?.use_cases || []);
   const [faqs, setFaqs] = useState(product?.faqs || []);
+  // Description (rich text) + custom spec rows — also editable from the product
+  // basic-info form; same DB fields, last save wins (AB-5).
+  const [description, setDescription] = useState(product?.description || "");
+  const [customFields, setCustomFields] = useState(product?.custom_fields || []);
 
   // Free-form nutrition: a nutrient table (rows) + info tiles (with optional icon).
   const [nutritionRows, setNutritionRows] = useState(product?.nutrition?.rows || []);
@@ -115,6 +122,8 @@ const ProductPageContentForm = ({ product, refetch }) => {
     setFloatingImages(product?.floating_images || []);
     setFloatingOverrides(withLocalIds(product?.floating_overrides));
     setPendingFloatUploads({});
+    setDescription(product?.description || "");
+    setCustomFields(product?.custom_fields || []);
   }, [product]);
 
   // Generic uploader — pushes file to S3 then writes the URL + key into the
@@ -253,6 +262,11 @@ const ProductPageContentForm = ({ product, refetch }) => {
       const payload = {
         _id: product._id,
         theme_id: form.theme_id || null,
+        description,
+        // Drop rows missing label/value here too (backend also normalizes).
+        custom_fields: (customFields || []).filter(
+          (r) => (r?.label || "").trim() && (r?.value || "").trim(),
+        ),
         short_description: form.short_description,
         badge_text: form.badge_text,
         hero_corner_badge: form.hero_corner_badge,
@@ -343,6 +357,8 @@ const ProductPageContentForm = ({ product, refetch }) => {
     nutritionTiles,
     floatingImages,
     floatingOverrides,
+    description,
+    customFields,
     product,
   };
 
@@ -379,6 +395,39 @@ const ProductPageContentForm = ({ product, refetch }) => {
               </Link>{" "}
               — তারপর এখানে assign করো।
             </p>
+          </Card>
+        </TabPane>
+
+        <TabPane id="description" active={activeTab}>
+          <Card>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Product Description
+            </label>
+            <p className="text-xs text-gray-400 mb-2">
+              পণ্যের মূল বিবরণ (rich text)। এটা product edit form-এর Description-এর
+              সাথে একই — যেখান থেকেই শেষবার সেভ হবে সেটাই দেখাবে।
+            </p>
+            <ReactQuill
+              className="bg-white"
+              theme="snow"
+              value={description}
+              onChange={setDescription}
+              placeholder="Enter product description"
+            />
+          </Card>
+        </TabPane>
+
+        <TabPane id="custom_spec" active={activeTab}>
+          <Card>
+            <p className="text-xs text-gray-400 mb-3">
+              Advanced — Custom Spec rows (label / value / optional icon)। PDP-তে
+              বিবরণের পাশে spec টেবিল হিসেবে দেখায়। এটাও product edit form-এর
+              একই block — শেষ সেভ জেতে।
+            </p>
+            <CustomFieldsBlock
+              customFields={customFields}
+              setCustomFields={setCustomFields}
+            />
           </Card>
         </TabPane>
 
