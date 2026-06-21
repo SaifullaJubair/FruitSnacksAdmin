@@ -53,7 +53,6 @@ const ProductPageContentForm = ({ product, refetch }) => {
       badge_text: product?.badge_text || "",
       hero_corner_badge: product?.hero_corner_badge || "",
       video_title: product?.video_title || "",
-      benefits: (product?.benefits || []).join("\n"),
       og_title: product?.og_title || "",
       og_description: product?.og_description || "",
       og_image: product?.og_image || "",
@@ -79,6 +78,13 @@ const ProductPageContentForm = ({ product, refetch }) => {
 
   const [shortFeatures, setShortFeatures] = useState(product?.short_features || []);
   const [processSteps, setProcessSteps] = useState(product?.process_steps || []);
+  // benefits: now {text, icon_url?, icon_key?} rows (was a "\n" textarea).
+  // Back-compat: legacy string[] rows are mapped to {text} so old products load.
+  const [benefits, setBenefits] = useState(
+    (product?.benefits || []).map((b) =>
+      typeof b === "string" ? { text: b } : b,
+    ),
+  );
   const [useCases, setUseCases] = useState(product?.use_cases || []);
   const [faqs, setFaqs] = useState(product?.faqs || []);
   // Description (rich text) + custom spec rows — also editable from the product
@@ -271,10 +277,15 @@ const ProductPageContentForm = ({ product, refetch }) => {
         badge_text: form.badge_text,
         hero_corner_badge: form.hero_corner_badge,
         video_title: form.video_title,
-        benefits: (form.benefits || "")
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        // benefits: {text, icon_url?, icon_key?} rows; drop empty-text rows
+        // (backend also normalizes/filters).
+        benefits: (benefits || [])
+          .map((b) => ({
+            text: (b?.text || "").trim(),
+            icon_url: b?.icon_url || undefined,
+            icon_key: b?.icon_key || undefined,
+          }))
+          .filter((b) => b.text),
         short_features: shortFeatures,
         process_steps: processSteps,
         use_cases: useCases,
@@ -509,12 +520,12 @@ const ProductPageContentForm = ({ product, refetch }) => {
 
         <TabPane id="benefits" active={activeTab}>
           <Card>
-            <p className="text-xs text-gray-500 mb-2">প্রতি লাইনে একটি benefit লেখো।</p>
-            <textarea
-              {...register("benefits")}
-              rows={8}
-              className="form-input"
-              placeholder={"রোগ প্রতিরোধ ক্ষমতা বাড়ায়\nহজমে সাহায্য করে\nআয়রনে ভরপুর"}
+            <IconTextRepeater
+              value={benefits}
+              onChange={setBenefits}
+              label="Benefits (উপকারিতা)"
+              helper="প্রতিটি উপকারিতার জন্য টেক্সট + (ঐচ্ছিক) icon দাও। icon না দিলে ডিফল্ট টিক দেখাবে।"
+              max={10}
             />
 
             <SideImageField
