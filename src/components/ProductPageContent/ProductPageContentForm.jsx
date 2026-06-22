@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaPlus, FaTrash, FaListUl } from "react-icons/fa";
+import { FaPlus, FaTrash, FaListUl, FaArrowLeft } from "react-icons/fa";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import IconPicker from "../common/IconPicker/IconPicker";
@@ -10,10 +10,11 @@ import CustomFieldsBlock from "../ProductNew/sections/CustomFieldsBlock";
 import { BASE_URL } from "../../utils/baseURL";
 import { useGetThemes } from "../../hooks/useGetTheme";
 import IconTextRepeater from "./IconTextRepeater";
+import PasteTableButton from "./PasteTableButton";
 import FaqPickerModal from "./FaqPickerModal";
 import { buildProductPlaceholderContext } from "./faqPlaceholders";
 import VariationWeightEditor from "./VariationWeightEditor";
-import PageContentLayout from "./PageContentLayout";
+import PageContentLayout, { PageContentActions } from "./PageContentLayout";
 import ProductFloatingTab from "./ProductFloatingTab";
 import { PAGE_CONTENT_SECTIONS } from "./pageContentMeta";
 
@@ -36,7 +37,26 @@ const withLocalIds = (ov) => {
 const ProductPageContentForm = ({ product, refetch }) => {
   const [submitting, setSubmitting] = useState(false);
   const [faqPickerOpen, setFaqPickerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(PAGE_CONTENT_SECTIONS[0].id);
+
+  // Active tab is driven by the URL (?tab=hero) so a reload / back-button keeps
+  // the same section instead of snapping back to the first. Falls back to the
+  // first section when the param is missing or unknown.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+  const validTab = PAGE_CONTENT_SECTIONS.some((s) => s.id === tabFromUrl)
+    ? tabFromUrl
+    : PAGE_CONTENT_SECTIONS[0].id;
+  const activeTab = validTab;
+  const setActiveTab = (id) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", id);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   // Theme list for picker dropdown
   const { data: themesData } = useGetThemes({
@@ -53,6 +73,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
       badge_text: product?.badge_text || "",
       hero_corner_badge: product?.hero_corner_badge || "",
       video_title: product?.video_title || "",
+      video_link: product?.video_link || "",
       og_title: product?.og_title || "",
       og_description: product?.og_description || "",
       og_image: product?.og_image || "",
@@ -63,6 +84,11 @@ const ProductPageContentForm = ({ product, refetch }) => {
       use_cases_side_image_key: product?.use_cases_side_image_key || "",
       faq_side_image: product?.faq_side_image || "",
       faq_side_image_key: product?.faq_side_image_key || "",
+      // Side-image visibility toggles. Legacy products have no flag → default ON
+      // (mirrors the storefront `!== false` gate).
+      benefits_side_image_show: product?.benefits_side_image_show !== false,
+      use_cases_side_image_show: product?.use_cases_side_image_show !== false,
+      faq_side_image_show: product?.faq_side_image_show !== false,
       nutrition_per_serving: product?.nutrition?.per_serving || "",
     }),
     [product],
@@ -75,6 +101,21 @@ const ProductPageContentForm = ({ product, refetch }) => {
   useEffect(() => {
     reset(defaults);
   }, [defaults, reset]);
+
+  // The theme <select> options load async (useGetThemes). If reset() ran before
+  // the options existed, the native select snapped to empty and never re-synced
+  // even though the saved theme_id is valid. Re-apply the saved id once the
+  // options are present so the dropdown shows the real assigned theme. We set it
+  // unconditionally (not gated on watch()) so it survives a later reset().
+  useEffect(() => {
+    const savedId = product?.theme_id?._id || product?.theme_id || "";
+    if (!savedId || activeThemes.length === 0) return;
+    const inList = activeThemes.some((t) => String(t._id) === String(savedId));
+    if (inList) {
+      setValue("theme_id", String(savedId), { shouldDirty: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeThemes, product]);
 
   const [shortFeatures, setShortFeatures] = useState(product?.short_features || []);
   const [processSteps, setProcessSteps] = useState(product?.process_steps || []);
@@ -207,7 +248,10 @@ const ProductPageContentForm = ({ product, refetch }) => {
     ? selectedTheme.floating_assets
     : [];
 
-  const addFaq = () => setFaqs((prev) => [...prev, { question: "", answer: "" }]);
+  const addFaq = () =>
+    setFaqs((prev) =>
+      prev.length >= 12 ? prev : [...prev, { question: "", answer: "" }],
+    );
   const updateFaq = (i, patch) =>
     setFaqs((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
   const removeFaq = (i) => setFaqs((prev) => prev.filter((_, idx) => idx !== i));
@@ -277,6 +321,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
         badge_text: form.badge_text,
         hero_corner_badge: form.hero_corner_badge,
         video_title: form.video_title,
+        video_link: form.video_link,
         // benefits: {text, icon_url?, icon_key?} rows; drop empty-text rows
         // (backend also normalizes/filters).
         benefits: (benefits || [])
@@ -327,6 +372,9 @@ const ProductPageContentForm = ({ product, refetch }) => {
         use_cases_side_image_key: form.use_cases_side_image_key,
         faq_side_image: form.faq_side_image,
         faq_side_image_key: form.faq_side_image_key,
+        benefits_side_image_show: form.benefits_side_image_show,
+        use_cases_side_image_show: form.use_cases_side_image_show,
+        faq_side_image_show: form.faq_side_image_show,
       };
 
       const res = await fetch(`${BASE_URL}/product/page-content`, {
@@ -370,18 +418,53 @@ const ProductPageContentForm = ({ product, refetch }) => {
     floatingOverrides,
     description,
     customFields,
+    benefits,
     product,
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form
+      id="page-content-form"
+      onSubmit={handleSubmit(onSubmit)}
+      // Fill the page wrapper (which is now a full-height flex cell) and let the
+      // body scroll internally — no hardcoded viewport math needed.
+      className="flex flex-col h-full min-h-0"
+    >
+      {/* Sticky header: title + Back + Save/Open-live. The Save button submits
+          this form by id (it sits in the header, outside the scroll area), so
+          the admin never scrolls the whole page to save. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 shrink-0 mb-4">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-800 truncate">
+            Page Content: {product?.product_name}
+          </h1>
+          <p className="text-sm text-gray-500">
+            Theme, hero, benefits, FAQ, nutrition, OG meta এবং variation weight এখান থেকে edit করো।
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <PageContentActions
+            livePath={
+              product?.product_slug ? `/products/${product.product_slug}` : null
+            }
+            saving={submitting}
+            formId="page-content-form"
+          />
+          <Link
+            to="/product/product-list"
+            className="inline-flex items-center gap-2 px-3 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded text-sm"
+          >
+            <FaArrowLeft /> Back
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
       <PageContentLayout
         sections={PAGE_CONTENT_SECTIONS}
         ctx={completenessCtx}
         active={activeTab}
         onChange={setActiveTab}
-        livePath={product?.product_slug ? `/products/${product.product_slug}` : null}
-        saving={submitting}
       >
         {/* All sections stay mounted (just hidden) so RHF input state and
             unsaved changes are preserved when switching tabs. */}
@@ -393,6 +476,31 @@ const ProductPageContentForm = ({ product, refetch }) => {
             </label>
             <select {...register("theme_id")} className="form-input">
               <option value="">— Select theme —</option>
+              {/* If the product's saved theme isn't in the active list (it was
+                  deactivated, or the list is still loading), surface it as its
+                  own option so the dropdown shows the real assigned value
+                  instead of falling back to "Select theme". */}
+              {(() => {
+                const savedId =
+                  product?.theme_id?._id || product?.theme_id || "";
+                const inList = activeThemes.some(
+                  (t) => String(t._id) === String(savedId),
+                );
+                if (savedId && !inList) {
+                  const savedName =
+                    product?.theme_id?.theme_name || "Assigned theme";
+                  const savedFor = product?.theme_id?.theme_for
+                    ? ` (${product.theme_id.theme_for})`
+                    : "";
+                  return (
+                    <option value={savedId}>
+                      {savedName}
+                      {savedFor} — inactive
+                    </option>
+                  );
+                }
+                return null;
+              })()}
               {activeThemes.map((t) => (
                 <option key={t._id} value={t._id}>
                   {t.theme_name} ({t.theme_for})
@@ -449,32 +557,43 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 label="Badge Text"
                 hint="নাম/দামের পাশে ছোট badge"
               >
-                <input
-                  {...register("badge_text")}
-                  className="form-input"
-                  placeholder="প্রিমিয়াম কোয়ালিটি"
-                />
+                <div className="relative">
+                  <input
+                    {...register("badge_text")}
+                    className="form-input pr-8"
+                    placeholder="প্রিমিয়াম কোয়ালিটি"
+                    maxLength={20}
+                  />
+                  <CharCounter value={watch("badge_text")} max={20} />
+                </div>
               </FieldBlock>
               <FieldBlock
                 label="Hero Corner Badge"
                 hint="Hero ছবির কোণায় ভেসে থাকা badge"
               >
-                <input
-                  {...register("hero_corner_badge")}
-                  className="form-input"
-                  placeholder="নতুন / বেস্ট সেলার"
-                />
+                <div className="relative">
+                  <input
+                    {...register("hero_corner_badge")}
+                    className="form-input pr-8"
+                    placeholder="নতুন / বেস্ট সেলার"
+                    maxLength={20}
+                  />
+                  <CharCounter value={watch("hero_corner_badge")} max={20} />
+                </div>
               </FieldBlock>
               <FieldBlock
                 label="Short Description / Tagline"
                 hint="হিরো-র নিচে এক লাইনের পরিচিতি"
               >
-                <input
-                  {...register("short_description")}
-                  className="form-input"
-                  placeholder="স্বাস্থ্যকর স্ন্যাকস, প্রতিদিনের এনার্জি"
-                  maxLength={200}
-                />
+                <div className="relative">
+                  <input
+                    {...register("short_description")}
+                    className="form-input pr-10"
+                    placeholder="স্বাস্থ্যকর স্ন্যাকস, প্রতিদিনের এনার্জি"
+                    maxLength={160}
+                  />
+                  <CharCounter value={watch("short_description")} max={160} />
+                </div>
               </FieldBlock>
             </div>
 
@@ -485,6 +604,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 label="Short Features (hero icons row)"
                 helper="No Sugar, No Preservative, Rich in Fiber, Kids Friendly"
                 max={4}
+                maxLen={30}
               />
             </div>
           </Card>
@@ -503,6 +623,19 @@ const ProductPageContentForm = ({ product, refetch }) => {
               />
             </FieldBlock>
 
+            <div className="mt-4">
+              <FieldBlock
+                label="YouTube / Vimeo Link"
+                hint="ভিডিও লিংক পেস্ট করো — PDP-তে embed হয়ে দেখাবে। ফাইল আপলোড করতে product edit form ব্যবহার করো।"
+              >
+                <input
+                  {...register("video_link")}
+                  className="form-input"
+                  placeholder="https://www.youtube.com/watch?v=…"
+                />
+              </FieldBlock>
+            </div>
+
             <div className="mt-5">
               <IconTextRepeater
                 value={processSteps}
@@ -510,6 +643,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 label="Process Steps (how it's made)"
                 helper="তাজা ফল থেকে তৈরি / পানি বিয়োজন প্রসেস / পুষ্টিগুণ অক্ষুন্ন থাকে / পরীক্ষিত ও প্রাকৃতিক"
                 max={4}
+                maxLen={60}
               />
               <p className="text-xs text-amber-600 mt-2">
                 ⓘ Video না থাকলে এই section frontend-এ দেখাবে না (heading + steps সবই lukano)।
@@ -524,14 +658,19 @@ const ProductPageContentForm = ({ product, refetch }) => {
               value={benefits}
               onChange={setBenefits}
               label="Benefits (উপকারিতা)"
-              helper="প্রতিটি উপকারিতার জন্য টেক্সট + (ঐচ্ছিক) icon দাও। icon না দিলে ডিফল্ট টিক দেখাবে।"
-              max={10}
+              helper="প্রতিটি উপকারিতা ১-২ লাইনে রাখো — বিস্তারিত লেখা Description-এ দাও। icon না দিলে ডিফল্ট টিক দেখাবে।"
+              max={6}
+              maxLen={90}
             />
 
             <SideImageField
               label="Side Image (ডান পাশে যে ছবি দেখাবে)"
               hint="খালি রাখলে product-এর main image ব্যবহার হবে।"
               url={watch("benefits_side_image")}
+              showValue={watch("benefits_side_image_show")}
+              onToggle={(v) =>
+                setValue("benefits_side_image_show", v, { shouldDirty: true })
+              }
               onUpload={(file) =>
                 uploadToFields(
                   file,
@@ -556,12 +695,17 @@ const ProductPageContentForm = ({ product, refetch }) => {
               label="Use cases"
               helper="অফিস স্ন্যাকস / স্কুল টিফিন / জিম-পরবর্তী / ভ্রমণ"
               max={6}
+              maxLen={70}
             />
 
             <SideImageField
               label="Side Image (ডান পাশে যে ছবি দেখাবে)"
               hint="খালি রাখলে product-এর main image ব্যবহার হবে।"
               url={watch("use_cases_side_image")}
+              showValue={watch("use_cases_side_image_show")}
+              onToggle={(v) =>
+                setValue("use_cases_side_image_show", v, { shouldDirty: true })
+              }
               onUpload={(file) =>
                 uploadToFields(
                   file,
@@ -600,6 +744,9 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 helper="ক্যালরি / প্রোটিন / ফাইবার ... (label + value)"
                 value={nutritionRows}
                 onChange={setNutritionRows}
+                max={12}
+                labelLen={30}
+                valueLen={30}
               />
 
               <div className="space-y-2">
@@ -610,18 +757,34 @@ const ProductPageContentForm = ({ product, refetch }) => {
                       (icon + label + value)
                     </span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNutritionTiles((p) => [
-                        ...p,
-                        { icon_key: "", label: "", value: "" },
-                      ])
-                    }
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
-                  >
-                    <FaPlus /> Add
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <PasteTableButton
+                      onAppend={(rows) =>
+                        setNutritionTiles((p) => [
+                          ...p,
+                          ...rows.map((r) => ({ icon_key: "", ...r })),
+                        ])
+                      }
+                      onReplace={(rows) =>
+                        setNutritionTiles(
+                          rows.map((r) => ({ icon_key: "", ...r })),
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNutritionTiles((p) =>
+                          p.length >= 6
+                            ? p
+                            : [...p, { icon_key: "", label: "", value: "" }],
+                        )
+                      }
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
+                    >
+                      <FaPlus /> Add
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400 -mt-1">
                   উপাদান / শেলফ লাইফ / দেশ — ডান পাশের tile।
@@ -645,32 +808,40 @@ const ProductPageContentForm = ({ product, refetch }) => {
                         }
                       />
                       <div className="flex-1 space-y-1">
-                        <input
-                          type="text"
-                          value={t.label || ""}
-                          onChange={(e) =>
-                            setNutritionTiles((p) =>
-                              p.map((row, idx) =>
-                                idx === i ? { ...row, label: e.target.value } : row,
-                              ),
-                            )
-                          }
-                          placeholder="Label (যেমন: শেলফ লাইফ)"
-                          className="form-input w-full"
-                        />
-                        <input
-                          type="text"
-                          value={t.value || ""}
-                          onChange={(e) =>
-                            setNutritionTiles((p) =>
-                              p.map((row, idx) =>
-                                idx === i ? { ...row, value: e.target.value } : row,
-                              ),
-                            )
-                          }
-                          placeholder="Value (যেমন: ৬ মাস)"
-                          className="form-input w-full"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={t.label || ""}
+                            onChange={(e) =>
+                              setNutritionTiles((p) =>
+                                p.map((row, idx) =>
+                                  idx === i ? { ...row, label: e.target.value } : row,
+                                ),
+                              )
+                            }
+                            placeholder="Label (যেমন: শেলফ লাইফ)"
+                            maxLength={30}
+                            className="form-input w-full pr-7"
+                          />
+                          <CharCounter value={t.label} max={30} />
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={t.value || ""}
+                            onChange={(e) =>
+                              setNutritionTiles((p) =>
+                                p.map((row, idx) =>
+                                  idx === i ? { ...row, value: e.target.value } : row,
+                                ),
+                              )
+                            }
+                            placeholder="Value (যেমন: ৬ মাস)"
+                            maxLength={40}
+                            className="form-input w-full pr-7"
+                          />
+                          <CharCounter value={t.value} max={40} />
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -684,6 +855,35 @@ const ProductPageContentForm = ({ product, refetch }) => {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          </Card>
+        </TabPane>
+
+        <TabPane id="brand_promise" active={activeTab}>
+          <Card>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl shrink-0">🤝</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-800">
+                  আমাদের প্রতিশ্রুতি (Brand Promise)
+                </p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  এই section সব product-এর PDP-তে একই ভাবে দেখায় (পুষ্টি তথ্যের
+                  ডান পাশে) — তাই এটা একটা <strong>common / site-wide</strong> setting,
+                  per-product নয়। এখান থেকে edit হয় না; নিচের বাটনে গিয়ে একবার সেট
+                  করলে সব product-এ প্রযোজ্য হবে।
+                </p>
+                <Link
+                  to="/trust-point"
+                  className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blueColor-600 text-white rounded text-sm font-semibold hover:bg-blueColor-700"
+                >
+                  Brand Promise সম্পাদনা করো →
+                </Link>
+                <p className="text-[11px] text-amber-600 mt-3">
+                  ⓘ unsaved Page Content পরিবর্তন থাকলে আগে Save করে নিও — অন্য পেজে
+                  গেলে হারিয়ে যেতে পারে।
+                </p>
               </div>
             </div>
           </Card>
@@ -709,19 +909,27 @@ const ProductPageContentForm = ({ product, refetch }) => {
               )}
               {faqs.map((f, i) => (
                 <div key={i} className="p-2 bg-white border rounded space-y-2">
-                  <input
-                    value={f.question}
-                    onChange={(e) => updateFaq(i, { question: e.target.value })}
-                    placeholder="Question"
-                    className="form-input"
-                  />
-                  <textarea
-                    value={f.answer}
-                    onChange={(e) => updateFaq(i, { answer: e.target.value })}
-                    placeholder="Answer"
-                    rows={2}
-                    className="form-input"
-                  />
+                  <div className="relative">
+                    <input
+                      value={f.question}
+                      onChange={(e) => updateFaq(i, { question: e.target.value })}
+                      placeholder="Question"
+                      maxLength={120}
+                      className="form-input pr-10"
+                    />
+                    <CharCounter value={f.question} max={120} />
+                  </div>
+                  <div>
+                    <textarea
+                      value={f.answer}
+                      onChange={(e) => updateFaq(i, { answer: e.target.value })}
+                      placeholder="Answer"
+                      rows={2}
+                      maxLength={400}
+                      className="form-input"
+                    />
+                    <CharCounter value={f.answer} max={400} block />
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeFaq(i)}
@@ -744,6 +952,10 @@ const ProductPageContentForm = ({ product, refetch }) => {
               label="Side Image (FAQ-এর ডান পাশে যে ছবি দেখাবে)"
               hint="খালি রাখলে product-এর first other image / main image ব্যবহার হবে।"
               url={watch("faq_side_image")}
+              showValue={watch("faq_side_image_show")}
+              onToggle={(v) =>
+                setValue("faq_side_image_show", v, { shouldDirty: true })
+              }
               onUpload={(file) =>
                 uploadToFields(
                   file,
@@ -826,6 +1038,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
           </Card>
         </TabPane>
       </PageContentLayout>
+      </div>
 
       <FaqPickerModal
         open={faqPickerOpen}
@@ -863,13 +1076,74 @@ const FieldBlock = ({ label, hint, children }) => (
   </div>
 );
 
+// Remaining-characters countdown (160 → 159 → …). Turns amber in the last 5.
+// Place inside a relative-positioned wrapper, or pass `block` for under-field.
+const CharCounter = ({ value, max, block = false }) => {
+  if (!max) return null;
+  const left = max - (value || "").length;
+  const warn = left <= 5;
+  if (block) {
+    return (
+      <span
+        className={`block text-right text-[10px] mt-0.5 tabular-nums ${
+          warn ? "text-amber-500 font-semibold" : "text-gray-300"
+        }`}
+      >
+        {left}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none tabular-nums ${
+        warn ? "text-amber-500 font-semibold" : "text-gray-300"
+      }`}
+    >
+      {left}
+    </span>
+  );
+};
+
 // Side-accent image uploader (used in Benefits + Use Cases tabs). Shows the
 // current image with a thumbnail, lets admin replace or clear it; on clear the
 // storefront falls back to product.main_image.
-const SideImageField = ({ label, hint, url, onUpload, onClear }) => (
+const SideImageField = ({
+  label,
+  hint,
+  url,
+  onUpload,
+  onClear,
+  showValue,
+  onToggle,
+}) => {
+  // `showValue` undefined (legacy product, no flag saved) is treated as ON, to
+  // mirror the storefront `!== false` gate. When OFF, no image (incl. the
+  // main_image fallback) renders on the PDP.
+  const isOn = showValue !== false;
+  return (
   <div className="mt-5 pt-5 border-t border-gray-100">
+    {onToggle && (
+      <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={isOn}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="h-4 w-4"
+        />
+        <span className="text-xs font-medium">
+          PDP-তে এই section-এ পাশের ছবি দেখাও
+        </span>
+      </label>
+    )}
     <label className="block text-xs font-medium mb-1">{label}</label>
-    <div className="flex items-start gap-3">
+    {onToggle && !isOn && (
+      <p className="text-[11px] text-amber-600 mb-1">
+        ছবি বন্ধ — PDP-তে এই section-এ কোনো পাশের ছবি দেখাবে না (main image fallback সহ)।
+      </p>
+    )}
+    <div
+      className={`flex items-start gap-3 ${isOn ? "" : "opacity-50 pointer-events-none"}`}
+    >
       {url ? (
         <img
           src={url}
@@ -903,26 +1177,51 @@ const SideImageField = ({ label, hint, url, onUpload, onClear }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // Simple label+value repeater (no icon). Used for the nutrient table rows.
-const LabelValueRepeater = ({ title, helper, value = [], onChange }) => {
-  const add = () => onChange([...value, { label: "", value: "" }]);
+// max caps the row count; labelLen/valueLen cap each field so a pasted
+// paragraph can't blow out the PDP table.
+const LabelValueRepeater = ({
+  title,
+  helper,
+  value = [],
+  onChange,
+  max = 0,
+  labelLen = 0,
+  valueLen = 0,
+}) => {
+  const add = () => {
+    if (max && value.length >= max) {
+      toast.info(`Max ${max} rows allowed`);
+      return;
+    }
+    onChange([...value, { label: "", value: "" }]);
+  };
   const update = (i, patch) =>
     onChange(value.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   const remove = (i) => onChange(value.filter((_, idx) => idx !== i));
+  // Honour the row cap on paste too (trim overflow rows).
+  const capRows = (rows) => (max ? rows.slice(0, max) : rows);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <label className="text-sm font-semibold text-gray-700">{title}</label>
-        <button
-          type="button"
-          onClick={add}
-          className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
-        >
-          <FaPlus /> Add
-        </button>
+        <div className="flex items-center gap-2">
+          <PasteTableButton
+            onAppend={(rows) => onChange(capRows([...value, ...rows]))}
+            onReplace={(rows) => onChange(capRows(rows))}
+          />
+          <button
+            type="button"
+            onClick={add}
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
+          >
+            <FaPlus /> Add
+          </button>
+        </div>
       </div>
       {helper && <p className="text-xs text-gray-400 -mt-1">{helper}</p>}
       {value.length === 0 ? (
@@ -930,20 +1229,28 @@ const LabelValueRepeater = ({ title, helper, value = [], onChange }) => {
       ) : (
         value.map((row, i) => (
           <div key={i} className="flex items-center gap-2 p-2 bg-white border rounded">
-            <input
-              type="text"
-              value={row.label || ""}
-              onChange={(e) => update(i, { label: e.target.value })}
-              placeholder="Label (যেমন: ক্যালরি)"
-              className="form-input flex-1"
-            />
-            <input
-              type="text"
-              value={row.value || ""}
-              onChange={(e) => update(i, { value: e.target.value })}
-              placeholder="Value (যেমন: ৩১০ kcal)"
-              className="form-input flex-1"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={row.label || ""}
+                onChange={(e) => update(i, { label: e.target.value })}
+                placeholder="Label (যেমন: ক্যালরি)"
+                maxLength={labelLen || undefined}
+                className="form-input w-full pr-7"
+              />
+              <CharCounter value={row.label} max={labelLen} />
+            </div>
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={row.value || ""}
+                onChange={(e) => update(i, { value: e.target.value })}
+                placeholder="Value (যেমন: ৩১০ kcal)"
+                maxLength={valueLen || undefined}
+                className="form-input w-full pr-7"
+              />
+              <CharCounter value={row.value} max={valueLen} />
+            </div>
             <button
               type="button"
               onClick={() => remove(i)}

@@ -71,36 +71,31 @@ const SettingPage = () => {
   }, [tab, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-xl p-6 mb-6"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl">
-              <IoSettingsOutline className="text-white text-3xl" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                Settings
-              </h1>
-              <p className="text-gray-500 mt-1">
-                Manage your application configuration
-              </p>
-            </div>
+    <div className="h-full min-h-0 flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 px-4 pb-4">
+      <div className="max-w-7xl mx-auto w-full flex flex-col flex-1 min-h-0">
+        {/* Header hidden — the sidebar makes it clear this is Settings, so we
+            reclaim the vertical space. Re-enable if a page title is wanted.
+        <div className="flex items-center gap-3 shrink-0 mb-4">
+          <div className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg">
+            <IoSettingsOutline className="text-white text-xl" />
           </div>
-        </motion.div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">Settings</h1>
+            <p className="text-xs text-gray-500">
+              Manage your application configuration
+            </p>
+          </div>
+        </div>
+        */}
 
-        {/* Two-column: grouped left nav + content */}
-        <div className="flex flex-col lg:flex-row gap-6">
+        {/* Two-column: grouped left nav + content. flex-1 + min-h-0 so the two
+            columns fill the remaining height and each scrolls internally. */}
+        <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
           {/* Left sub-nav */}
           <motion.aside
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:w-64 lg:shrink-0 bg-white rounded-2xl shadow-xl p-4 h-fit lg:sticky lg:top-6"
+            className="lg:w-64 lg:shrink-0 bg-white rounded-2xl shadow-xl p-4 lg:h-full lg:min-h-0 lg:overflow-y-auto"
           >
             <nav className="space-y-4">
               {visibleGroups.map((g) => (
@@ -135,7 +130,7 @@ const SettingPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="flex-1 min-w-0 bg-white rounded-2xl shadow-xl overflow-hidden"
+            className="flex-1 min-w-0 min-h-0 bg-white rounded-2xl shadow-xl overflow-y-auto"
           >
             <SettingS />
           </motion.div>

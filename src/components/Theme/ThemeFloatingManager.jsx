@@ -340,16 +340,9 @@ export default function ThemeFloatingManager({
                         className="w-full"
                       />
                     </Lbl>
-                    <Lbl t="Mobile">
-                      <label className="flex items-center gap-2 text-sm text-gray-600 mt-2">
-                        <input
-                          type="checkbox"
-                          checked={!row.meta.hide_on_mobile}
-                          onChange={(e) => setRowMeta(row.localId, "hide_on_mobile", !e.target.checked)}
-                        />
-                        Show on mobile
-                      </label>
-                    </Lbl>
+                    {/* "Show on mobile" removed — floats are md+ only (they
+                        overlap / hide behind the stacked product image on small
+                        screens). Decorative-only, so nothing is lost. */}
                   </div>
                   <button
                     type="button"

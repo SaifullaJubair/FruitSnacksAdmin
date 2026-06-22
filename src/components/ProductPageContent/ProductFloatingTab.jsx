@@ -307,14 +307,29 @@ export default function ProductFloatingTab({
                   <Sel label="Speed" value={row.animation_speed} opts={SPEEDS} onChange={(v) => updateExtra(i, { animation_speed: v })} />
                   <Sel label="Size" value={row.size} opts={SIZES} onChange={(v) => updateExtra(i, { size: v })} />
                 </div>
-                <label className="flex items-center gap-2 text-[11px] text-gray-500">
-                  <input
-                    type="checkbox"
-                    checked={!row.hide_on_mobile}
-                    onChange={(e) => updateExtra(i, { hide_on_mobile: !e.target.checked })}
-                  />
-                  Show on mobile
-                </label>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  {/* "Show on mobile" removed — hero/section floats are md+ only
+                      (they overlap or hide behind the stacked product image on
+                      small screens). Decorative-only, so nothing is lost. */}
+                  {/* Opacity — same control as the theme floating manager so
+                      per-product extras can be faded just like theme floats. */}
+                  <label className="flex items-center gap-2 text-[11px] text-gray-500 min-w-[160px]">
+                    <span className="whitespace-nowrap">
+                      Opacity ({typeof row.opacity === "number" ? row.opacity : 1})
+                    </span>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.1"
+                      value={typeof row.opacity === "number" ? row.opacity : 1}
+                      onChange={(e) =>
+                        updateExtra(i, { opacity: Number(e.target.value) })
+                      }
+                      className="flex-1"
+                    />
+                  </label>
+                </div>
               </div>
               <button
                 type="button"

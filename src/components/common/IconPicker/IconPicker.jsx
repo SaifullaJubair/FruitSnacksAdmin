@@ -6,6 +6,11 @@ import {
   searchIcons,
   findIcon,
 } from "../../../lib/icons/registry";
+import {
+  searchCatalog,
+  CATALOG_COUNT,
+  CATALOG_CATEGORIES,
+} from "../../../lib/icons/iconCatalog";
 import DynamicIcon from "../../../lib/icons/DynamicIcon";
 
 /**
@@ -25,12 +30,26 @@ export default function IconPicker({ value, onChange, label, uploadUrl }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  // Separate category for the full catalog so switching modes doesn't clash
+  // with the curated chips.
+  const [catCategory, setCatCategory] = useState("all");
+  // "all" = full lucide + fa6 catalog (~3.6k), browse by category OR search —
+  // this is the default so the picker opens onto the big set. "featured" is the
+  // curated quick-pick list (toggle to it for the familiar ~92).
+  const [browseAll, setBrowseAll] = useState(true);
 
   const current = value ? findIcon(value) : null;
-  const results = useMemo(
-    () => searchIcons(query, category),
-    [query, category],
-  );
+
+  const results = useMemo(() => {
+    if (browseAll) {
+      // Browse by category or search; both are capped inside searchCatalog.
+      // No query AND "all" category → show the first chunk so the grid isn't
+      // empty when the modal opens in browse-all.
+      return searchCatalog(query, catCategory, 400);
+    }
+    // Featured curated set, filtered by chip + query.
+    return searchIcons(query, category);
+  }, [query, category, catCategory, browseAll]);
 
   // close on ESC
   useEffect(() => {
@@ -105,7 +124,9 @@ export default function IconPicker({ value, onChange, label, uploadUrl }) {
               <div>
                 <h3 className="text-base font-bold text-gray-800">Pick an icon</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {ICON_REGISTRY.length} curated icons · search by name or use case
+                  {browseAll
+                    ? `${CATALOG_COUNT.toLocaleString()} icons (Lucide + Font Awesome) · type to search`
+                    : `${ICON_REGISTRY.length} featured · or browse all ${CATALOG_COUNT.toLocaleString()}`}
                 </p>
               </div>
               <button
@@ -129,33 +150,74 @@ export default function IconPicker({ value, onChange, label, uploadUrl }) {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search: gym, office, leaf, truck, kids…"
+                  placeholder={
+                    browseAll
+                      ? "Search all icons: heart, arrow, camera, wifi, car…"
+                      : "Search: gym, office, leaf, truck, kids…"
+                  }
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                   autoFocus
                 />
               </div>
-              <div className="flex flex-wrap gap-1.5">
+
+              {/* Featured ⇄ Browse-all toggle */}
+              <div className="flex items-center gap-1.5">
                 <CategoryChip
-                  active={category === "all"}
-                  onClick={() => setCategory("all")}
-                  label="All"
+                  active={!browseAll}
+                  onClick={() => setBrowseAll(false)}
+                  label="⭐ Featured"
                 />
-                {ICON_CATEGORIES.map((c) => (
-                  <CategoryChip
-                    key={c.key}
-                    active={category === c.key}
-                    onClick={() => setCategory(c.key)}
-                    label={c.label}
-                  />
-                ))}
+                <CategoryChip
+                  active={browseAll}
+                  onClick={() => setBrowseAll(true)}
+                  label={`🗂 All ${CATALOG_COUNT.toLocaleString()}`}
+                />
               </div>
+
+              {/* Curated category chips — Featured mode */}
+              {!browseAll && (
+                <div className="flex flex-wrap gap-1.5">
+                  <CategoryChip
+                    active={category === "all"}
+                    onClick={() => setCategory("all")}
+                    label="All"
+                  />
+                  {ICON_CATEGORIES.map((c) => (
+                    <CategoryChip
+                      key={c.key}
+                      active={category === c.key}
+                      onClick={() => setCategory(c.key)}
+                      label={c.label}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Full-catalog category chips — Browse-all mode (with counts) */}
+              {browseAll && (
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  <CategoryChip
+                    active={catCategory === "all"}
+                    onClick={() => setCatCategory("all")}
+                    label={`All ${CATALOG_COUNT.toLocaleString()}`}
+                  />
+                  {CATALOG_CATEGORIES.map((c) => (
+                    <CategoryChip
+                      key={c.key}
+                      active={catCategory === c.key}
+                      onClick={() => setCatCategory(c.key)}
+                      label={`${c.label} (${c.count})`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Grid */}
             <div className="flex-1 overflow-y-auto p-4">
               {results.length === 0 ? (
                 <div className="text-center py-12 text-sm text-gray-500">
-                  No icon matches &quot;{query}&quot;. Try another keyword.
+                  No icon matches &quot;{query}&quot;. Try another keyword or category.
                 </div>
               ) : (
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
@@ -192,8 +254,15 @@ export default function IconPicker({ value, onChange, label, uploadUrl }) {
             </div>
 
             {/* Footer note */}
-            <div className="px-5 py-3 border-t bg-gray-50 text-[11px] text-gray-500">
-              Can&apos;t find what you need? Use the file-upload field next to this picker to upload a custom SVG/PNG.
+            <div className="px-5 py-3 border-t bg-gray-50 text-[11px] text-gray-500 flex items-center justify-between gap-3">
+              <span>
+                {browseAll && results.length >= 400
+                  ? "Showing first 400 — pick a category or search to narrow it down."
+                  : "Can't find it? Use the file-upload field beside this picker for a custom SVG/PNG."}
+              </span>
+              {results.length > 0 && (
+                <span className="shrink-0 text-gray-400">{results.length} shown</span>
+              )}
             </div>
           </div>
         </div>

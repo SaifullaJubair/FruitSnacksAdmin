@@ -8,12 +8,25 @@
 
 const has = (v) => typeof v === "string" && v.trim().length > 0;
 
+// Section order follows the PDP top-to-bottom flow so the sidebar reads the
+// same way the page renders: Theme (global) → Hero → Description → Spec →
+// Video → Benefits → Use Cases → Nutrition → FAQs → Floating → Variations → OG.
 export const PAGE_CONTENT_SECTIONS = [
   {
     id: "theme",
     label: "Theme",
     hint: "পুরো PDP-র রং/ফন্ট",
     isComplete: ({ form }) => !!form?.theme_id,
+  },
+  {
+    id: "hero",
+    label: "Hero",
+    hint: "ছবির পাশের badge, tagline, icon row",
+    isComplete: ({ form, shortFeatures }) =>
+      has(form?.short_description) ||
+      has(form?.badge_text) ||
+      has(form?.hero_corner_badge) ||
+      (shortFeatures?.length || 0) > 0,
   },
   {
     id: "description",
@@ -33,16 +46,6 @@ export const PAGE_CONTENT_SECTIONS = [
       ),
   },
   {
-    id: "hero",
-    label: "Hero",
-    hint: "ছবির পাশের badge, tagline, icon row",
-    isComplete: ({ form, shortFeatures }) =>
-      has(form?.short_description) ||
-      has(form?.badge_text) ||
-      has(form?.hero_corner_badge) ||
-      (shortFeatures?.length || 0) > 0,
-  },
-  {
     id: "video",
     label: "Video",
     hint: "Video heading + process steps",
@@ -55,8 +58,13 @@ export const PAGE_CONTENT_SECTIONS = [
     id: "benefits",
     label: "Benefits",
     hint: "উপকারিতা checklist",
-    isComplete: ({ form }) =>
-      (form?.benefits || "").split("\n").some((s) => s.trim().length > 0),
+    // benefits is now an array of { text, icon_url?, icon_key? } (was a
+    // "\n"-joined textarea). Count any row with non-empty text. Back-compat:
+    // legacy string rows still count.
+    isComplete: ({ benefits }) =>
+      (benefits || []).some((b) =>
+        typeof b === "string" ? b.trim().length > 0 : has(b?.text),
+      ),
   },
   {
     id: "use_cases",
@@ -70,6 +78,14 @@ export const PAGE_CONTENT_SECTIONS = [
     hint: "পুষ্টি table + info tiles",
     isComplete: ({ nutritionRows, nutritionTiles }) =>
       (nutritionRows?.length || 0) > 0 || (nutritionTiles?.length || 0) > 0,
+  },
+  {
+    id: "brand_promise",
+    label: "Brand Promise",
+    hint: "আমাদের প্রতিশ্রুতি (সব product-এ common)",
+    // Site-wide module (trustPoint), edited on its own /trust-point page — this
+    // tab is just an info + shortcut. Always neutral (no per-product complete).
+    isComplete: () => false,
   },
   {
     id: "faqs",

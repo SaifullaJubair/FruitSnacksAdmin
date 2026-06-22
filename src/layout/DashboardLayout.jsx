@@ -39,8 +39,10 @@ const DashboardLayout = () => {
       </div>
       {/* ------ mobile menu ------ end */}
 
-      {/* Main content */}
-      <div className='flex-1 flex flex-col sticky overflow-x-auto overflow-y-scroll'>
+      {/* Main content. overflow-y-auto (not -scroll) so the scrollbar gutter +
+          arrows only appear when content actually overflows, instead of a
+          permanent empty track on every page. */}
+      <div className='flex-1 flex flex-col sticky overflow-x-auto overflow-y-auto'>
         <header className=' bg-[#FFFFFF]'>
           <DashBoardNavbar
             isSidebarOpen={isSidebarOpen}
@@ -50,10 +52,14 @@ const DashboardLayout = () => {
           />
         </header>
 
-        {/* Main content area */}
-        <div className='min-h-screen'>
-          {' '}
-          <div className='py-4  md:px-6 px-2.5 bg-gray-50'>
+        {/* Main content area. `flex-1 min-h-0` (instead of min-h-screen) lets it
+            fill the leftover height under the navbar WITHOUT adding the navbar's
+            height on top — min-h-screen forced (100vh + navbar) and produced a
+            permanent ~navbar-tall outer scroll on every page. Pages that want a
+            self-contained scroll (e.g. Page Content editor) can now size to
+            h-full; short pages just sit at natural height. */}
+        <div className='flex-1 min-h-0 flex flex-col'>
+          <div className='flex-1 min-h-0 py-4 md:px-6 px-2.5 bg-gray-50'>
             <Outlet />
           </div>
         </div>

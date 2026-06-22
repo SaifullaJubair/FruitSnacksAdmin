@@ -13,7 +13,9 @@ import IconPicker from "../common/IconPicker/IconPicker";
 //   2. File upload — custom SVG/PNG (saved as icon_url)
 // icon_url (custom upload) takes priority over icon_key at render time, so
 // uploading clears any picked key and vice-versa to avoid ambiguity.
-const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper }) => {
+// maxLen — optional per-row character cap on the text input (0 = no cap). Keeps
+// PDP cards from breaking when an admin pastes a paragraph into a one-line item.
+const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper, maxLen = 0 }) => {
   const [uploading, setUploading] = useState(false);
 
   const addRow = () => {
@@ -122,13 +124,27 @@ const IconTextRepeater = ({ value = [], onChange, label, max = 4, helper }) => {
               </button>
             )}
 
-            <input
-              type="text"
-              value={row.text}
-              onChange={(e) => updateRow(i, { text: e.target.value })}
-              placeholder="Text"
-              className="form-input flex-1"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={row.text}
+                onChange={(e) => updateRow(i, { text: e.target.value })}
+                placeholder="Text"
+                maxLength={maxLen || undefined}
+                className="form-input w-full"
+              />
+              {maxLen > 0 && (
+                <span
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none tabular-nums ${
+                    maxLen - (row.text || "").length <= 5
+                      ? "text-amber-500 font-semibold"
+                      : "text-gray-300"
+                  }`}
+                >
+                  {maxLen - (row.text || "").length}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => removeRow(i)}

@@ -1,5 +1,6 @@
 import { FaPlus, FaTrash } from "react-icons/fa";
 import IconPicker from "../../common/IconPicker/IconPicker";
+import PasteTableButton from "../../ProductPageContent/PasteTableButton";
 
 // Free-form spec rows for the PDP (label + value + optional icon).
 // Icon is picked via the curated IconPicker (saves an icon_key string like
@@ -8,8 +9,31 @@ import IconPicker from "../../common/IconPicker/IconPicker";
 
 const EMPTY = { label: "", value: "", icon_key: "" };
 
+const MAX_ROWS = 12;
+const LABEL_LEN = 30;
+const VALUE_LEN = 60;
+
+// Remaining-chars countdown (amber in last 5). Sits in a relative wrapper.
+const Counter = ({ value, max }) => {
+  if (!max) return null;
+  const left = max - (value || "").length;
+  return (
+    <span
+      className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none tabular-nums ${
+        left <= 5 ? "text-amber-500 font-semibold" : "text-gray-300"
+      }`}
+    >
+      {left}
+    </span>
+  );
+};
+
 const CustomFieldsBlock = ({ customFields, setCustomFields }) => {
-  const add = () => setCustomFields([...(customFields || []), { ...EMPTY }]);
+  const capRows = (rows) => rows.slice(0, MAX_ROWS);
+  const add = () => {
+    if ((customFields || []).length >= MAX_ROWS) return;
+    setCustomFields([...(customFields || []), { ...EMPTY }]);
+  };
   const update = (i, k, v) =>
     setCustomFields(
       (customFields || []).map((r, idx) => (idx === i ? { ...r, [k]: v } : r)),
@@ -26,13 +50,28 @@ const CustomFieldsBlock = ({ customFields, setCustomFields }) => {
             Free-form rows shown on the PDP beyond the attribute spec table.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={add}
-          className="px-3 py-1.5 text-xs bg-primaryColor text-white rounded-lg hover:bg-blue-500 flex items-center gap-1.5"
-        >
-          <FaPlus size={10} /> Add row
-        </button>
+        <div className="flex items-center gap-2">
+          <PasteTableButton
+            onAppend={(rows) =>
+              setCustomFields(
+                capRows([
+                  ...(customFields || []),
+                  ...rows.map((r) => ({ ...EMPTY, ...r })),
+                ]),
+              )
+            }
+            onReplace={(rows) =>
+              setCustomFields(capRows(rows.map((r) => ({ ...EMPTY, ...r }))))
+            }
+          />
+          <button
+            type="button"
+            onClick={add}
+            className="px-3 py-1.5 text-xs bg-primaryColor text-white rounded-lg hover:bg-blue-500 flex items-center gap-1.5"
+          >
+            <FaPlus size={10} /> Add row
+          </button>
+        </div>
       </div>
 
       {(!customFields || customFields.length === 0) && (
@@ -49,25 +88,33 @@ const CustomFieldsBlock = ({ customFields, setCustomFields }) => {
               <label className="text-[11px] font-medium text-gray-600 mb-1 block">
                 Label
               </label>
-              <input
-                type="text"
-                value={r.label}
-                onChange={(e) => update(i, "label", e.target.value)}
-                placeholder="e.g. Origin"
-                className="w-full p-2 border border-gray-300 rounded text-sm"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={r.label}
+                  onChange={(e) => update(i, "label", e.target.value)}
+                  placeholder="e.g. Origin"
+                  maxLength={LABEL_LEN}
+                  className="w-full p-2 pr-7 border border-gray-300 rounded text-sm"
+                />
+                <Counter value={r.label} max={LABEL_LEN} />
+              </div>
             </div>
             <div className="col-span-5">
               <label className="text-[11px] font-medium text-gray-600 mb-1 block">
                 Value
               </label>
-              <input
-                type="text"
-                value={r.value}
-                onChange={(e) => update(i, "value", e.target.value)}
-                placeholder="e.g. Rajshahi"
-                className="w-full p-2 border border-gray-300 rounded text-sm"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={r.value}
+                  onChange={(e) => update(i, "value", e.target.value)}
+                  placeholder="e.g. Rajshahi"
+                  maxLength={VALUE_LEN}
+                  className="w-full p-2 pr-7 border border-gray-300 rounded text-sm"
+                />
+                <Counter value={r.value} max={VALUE_LEN} />
+              </div>
             </div>
             <div className="col-span-2">
               <label className="text-[11px] font-medium text-gray-600 mb-1 block">

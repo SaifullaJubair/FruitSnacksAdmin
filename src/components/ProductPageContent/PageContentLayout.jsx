@@ -3,9 +3,10 @@ import { FaCheck, FaCircle, FaSave, FaExternalLinkAlt, FaBars } from "react-icon
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 
 // Shell for the Page Content editor: left vertical tabs (with completeness
-// dots), main area showing only the active section, and a sticky bottom save
-// bar with an "Open live page" link. On mobile (<md) the sidebar collapses
-// into a dropdown so the form has full width.
+// dots) and a main area showing only the active section. The whole editor fits
+// the viewport — the sidebar and a sticky header stay put while ONLY the active
+// section body scrolls, so the admin never has to scroll the entire page to
+// reach the Save button (that now lives in the page header).
 //
 // Props:
 //   sections     — array from pageContentMeta.js, with `isComplete(ctx)`
@@ -14,18 +15,19 @@ import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
 //   onChange(id) — switch active section
 //   livePath     — e.g. `/products/<slug>` (used by the open-live link)
 //   saving       — boolean
-//   onSave       — click handler
-//   children     — the section bodies. The caller is responsible for keeping
-//                  every section mounted (use a `hidden` className on inactive
-//                  ones) so react-hook-form / local state survives tab switches.
+//   formId       — id of the <form> these actions submit (Save lives outside it)
+//   children     — the section bodies. The caller keeps every section mounted
+//                  (use a `hidden` className on inactive ones) so react-hook-form
+//                  / local state survives tab switches.
+//
+// The Save + Open-live actions are rendered by the PAGE header now (see
+// ProductPageContentEditPage). This component exposes <PageContentActions/> for
+// that, and only lays out the sidebar + scrollable content here.
 const PageContentLayout = ({
   sections,
   ctx,
   active,
   onChange,
-  livePath,
-  saving,
-  onSave,
   children,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -60,80 +62,76 @@ const PageContentLayout = ({
   };
 
   return (
-    <div className="relative">
-      <div className="md:grid md:grid-cols-[220px_1fr] md:gap-5">
-        {/* Mobile: section picker bar */}
-        <div className="md:hidden mb-3">
-          <button
-            type="button"
-            onClick={() => setMobileOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-white border rounded-md text-sm font-medium text-gray-700"
-          >
-            <span className="flex items-center gap-2">
-              <FaBars size={12} /> {activeMeta?.label}
-            </span>
-            <span className="text-xs text-gray-400">
-              {activeIdx + 1} / {sections.length}
-            </span>
-          </button>
-          {mobileOpen && (
-            <div className="mt-2 p-2 bg-white border rounded-md space-y-1">
-              {sections.map((s, i) => (
-                <Tab key={s.id} s={s} idx={i} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Desktop: sticky sidebar */}
-        <aside className="hidden md:block">
-          <div className="sticky top-4 p-2 bg-white border rounded-lg space-y-1">
+    <div className="md:grid md:grid-cols-[220px_1fr] md:gap-5 md:h-full md:min-h-0">
+      {/* Mobile: section picker bar */}
+      <div className="md:hidden mb-3">
+        <button
+          type="button"
+          onClick={() => setMobileOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2 bg-white border rounded-md text-sm font-medium text-gray-700"
+        >
+          <span className="flex items-center gap-2">
+            <FaBars size={12} /> {activeMeta?.label}
+          </span>
+          <span className="text-xs text-gray-400">
+            {activeIdx + 1} / {sections.length}
+          </span>
+        </button>
+        {mobileOpen && (
+          <div className="mt-2 p-2 bg-white border rounded-md space-y-1 max-h-[50vh] overflow-y-auto">
             {sections.map((s, i) => (
               <Tab key={s.id} s={s} idx={i} />
             ))}
           </div>
-        </aside>
-
-        {/* Active section content (we render only the active node, but the
-            caller keeps all sub-section state in the parent form to avoid
-            losing react-hook-form/local state on tab switch). */}
-        <main className="min-w-0 pb-20">
-          {activeMeta && (
-            <div className="mb-3">
-              <h2 className="text-lg font-bold text-gray-800">{activeMeta.label}</h2>
-              {activeMeta.hint && (
-                <p className="text-xs text-gray-500">{activeMeta.hint}</p>
-              )}
-            </div>
-          )}
-          {children}
-        </main>
-      </div>
-
-      {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[260px] z-30 bg-white border-t shadow-lg px-4 py-3 flex items-center justify-end gap-3">
-        {livePath && (
-          <a
-            href={livePath}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-blueColor-700 hover:bg-gray-50 rounded"
-            title="Open the live product page in a new tab"
-          >
-            <FaExternalLinkAlt size={11} /> Open live page
-          </a>
         )}
-        <button
-          type="submit"
-          disabled={saving}
-          onClick={onSave}
-          className="inline-flex items-center gap-2 px-5 py-2 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 disabled:opacity-60 text-sm font-semibold"
-        >
-          {saving ? <MiniSpinner /> : <FaSave />} Save Page Content
-        </button>
       </div>
+
+      {/* Desktop: sidebar — own scroll, fills the grid cell height. */}
+      <aside className="hidden md:block md:h-full md:min-h-0">
+        <div className="h-full overflow-y-auto p-2 bg-white border rounded-lg space-y-1">
+          {sections.map((s, i) => (
+            <Tab key={s.id} s={s} idx={i} />
+          ))}
+        </div>
+      </aside>
+
+      {/* Active section content — its OWN scroll area so the page itself
+          doesn't scroll. Each section card already renders its own heading, so
+          we don't repeat activeMeta.label here (that was a duplicate header). */}
+      <main className="min-w-0 md:h-full md:overflow-y-auto pr-1">
+        {children}
+      </main>
     </div>
   );
 };
+
+// Save + Open-live actions, rendered in the page header (beside "Back to list").
+// Save submits the editor form by id, so it works even though it sits outside
+// the <form>.
+export function PageContentActions({ livePath, saving, formId }) {
+  return (
+    <div className="flex items-center gap-2">
+      {livePath && (
+        <a
+          href={livePath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-blueColor-700 hover:bg-gray-100 rounded"
+          title="Open the live product page in a new tab"
+        >
+          <FaExternalLinkAlt size={11} /> Open live page
+        </a>
+      )}
+      <button
+        type="submit"
+        form={formId}
+        disabled={saving}
+        className="inline-flex items-center gap-2 px-5 py-2 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 disabled:opacity-60 text-sm font-semibold"
+      >
+        {saving ? <MiniSpinner /> : <FaSave />} Save Page Content
+      </button>
+    </div>
+  );
+}
 
 export default PageContentLayout;
