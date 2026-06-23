@@ -73,6 +73,15 @@ export const PAGE_CONTENT_SECTIONS = [
     isComplete: ({ useCases }) => (useCases?.length || 0) > 0,
   },
   {
+    id: "size_guide",
+    label: "Size Guide",
+    hint: "সাইজ চার্ট / ফিট গাইড (যেকোনো niche)",
+    // Complete when the grid has at least one row, or an add-product size_chart
+    // image exists (that image renders on the PDP too).
+    isComplete: ({ sizeGuideRows, product }) =>
+      (sizeGuideRows?.length || 0) > 0 || has(product?.size_chart),
+  },
+  {
     id: "nutrition",
     label: "Nutrition",
     hint: "পুষ্টি table + info tiles",

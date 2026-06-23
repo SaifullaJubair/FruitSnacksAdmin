@@ -16,6 +16,7 @@ import { buildProductPlaceholderContext } from "./faqPlaceholders";
 import VariationWeightEditor from "./VariationWeightEditor";
 import PageContentLayout, { PageContentActions } from "./PageContentLayout";
 import ProductFloatingTab from "./ProductFloatingTab";
+import SizeGuideEditor from "./SizeGuideEditor";
 import { PAGE_CONTENT_SECTIONS } from "./pageContentMeta";
 
 const EMPTY_OVERRIDES = { hidden_ids: [], replacements: [], extras: [] };
@@ -89,6 +90,8 @@ const ProductPageContentForm = ({ product, refetch }) => {
       benefits_side_image_show: product?.benefits_side_image_show !== false,
       use_cases_side_image_show: product?.use_cases_side_image_show !== false,
       faq_side_image_show: product?.faq_side_image_show !== false,
+      size_guide_title: product?.size_guide_title || "",
+      size_guide_note: product?.size_guide_note || "",
       nutrition_per_serving: product?.nutrition?.per_serving || "",
     }),
     [product],
@@ -137,6 +140,16 @@ const ProductPageContentForm = ({ product, refetch }) => {
   const [nutritionRows, setNutritionRows] = useState(product?.nutrition?.rows || []);
   const [nutritionTiles, setNutritionTiles] = useState(
     product?.nutrition?.info_tiles || [],
+  );
+  // Size guide grid — dynamic columns (admin-defined headers) + rows of cells
+  // aligned to those columns. Niche-agnostic: shoes use EU/UK/CM, shirts use
+  // chest/waist/length, etc. Kept as local state (not RHF fields) like the other
+  // repeaters, then folded into the page-content payload on submit.
+  const [sizeGuideColumns, setSizeGuideColumns] = useState(
+    product?.size_guide_columns || [],
+  );
+  const [sizeGuideRows, setSizeGuideRows] = useState(
+    product?.size_guide_rows || [],
   );
   const [floatingImages, setFloatingImages] = useState(product?.floating_images || []);
   // Section-anchored override layer over the assigned theme's floating assets.
@@ -375,6 +388,13 @@ const ProductPageContentForm = ({ product, refetch }) => {
         benefits_side_image_show: form.benefits_side_image_show,
         use_cases_side_image_show: form.use_cases_side_image_show,
         faq_side_image_show: form.faq_side_image_show,
+        size_guide_title: form.size_guide_title,
+        size_guide_note: form.size_guide_note,
+        // Send columns first so the backend can pad rows to the column count.
+        size_guide_columns: sizeGuideColumns.map((c) => String(c ?? "").trim()),
+        size_guide_rows: sizeGuideRows.map((r) =>
+          (Array.isArray(r) ? r : []).map((c) => String(c ?? "").trim()),
+        ),
       };
 
       const res = await fetch(`${BASE_URL}/product/page-content`, {
@@ -414,6 +434,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
     faqs,
     nutritionRows,
     nutritionTiles,
+    sizeGuideRows,
     floatingImages,
     floatingOverrides,
     description,
@@ -719,6 +740,49 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 setValue("use_cases_side_image_key", "", { shouldDirty: true });
               }}
             />
+          </Card>
+        </TabPane>
+
+        <TabPane id="size_guide" active={activeTab}>
+          <Card>
+            <p className="text-xs text-gray-500 mb-3">
+              সাইজ চার্ট / ফিট গাইড — যেকোনো niche-এ (জুতা / জামা / আংটি …)। কলামের
+              নাম নিজে দিন, ChatGPT/Excel থেকে টেবিল পেস্টও করতে পারেন। খালি রাখলে
+              PDP-তে দেখাবে না। (Add Product-এ আপলোড করা size-chart ছবিটিও PDP-তে
+              আলাদাভাবে দেখায়।)
+            </p>
+            <div className="mb-4 max-w-sm">
+              <FieldBlock label="Title" hint="section heading (যেমন: সাইজ চার্ট / Fit Guide)">
+                <input
+                  {...register("size_guide_title")}
+                  className="form-input"
+                  placeholder="যেমন: সাইজ চার্ট"
+                />
+              </FieldBlock>
+            </div>
+
+            <SizeGuideEditor
+              columns={sizeGuideColumns}
+              rows={sizeGuideRows}
+              onChange={({ columns, rows }) => {
+                setSizeGuideColumns(columns);
+                setSizeGuideRows(rows);
+              }}
+            />
+
+            <div className="mt-5 max-w-xl">
+              <FieldBlock
+                label="মাপ নির্দেশিকা (note)"
+                hint="কীভাবে মাপবেন — table-এর নিচে দেখাবে (optional)"
+              >
+                <textarea
+                  {...register("size_guide_note")}
+                  rows={2}
+                  className="form-input"
+                  placeholder="যেমন: পা মাটিতে রেখে গোড়ালি থেকে বুড়ো আঙুল পর্যন্ত মাপুন (CM-এ)"
+                />
+              </FieldBlock>
+            </div>
           </Card>
         </TabPane>
 
