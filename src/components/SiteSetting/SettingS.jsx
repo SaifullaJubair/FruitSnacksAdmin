@@ -32,11 +32,16 @@ const SettingS = () => {
     refetch: authRefetch,
   } = useQuery({
     queryKey: ["authentication"],
+    // /authentication is now gated behind setting_secrets_update (it returns the
+    // SMS credentials). Staff without that permission get 403 — return null so
+    // only the Phone Credential tab is empty, instead of blocking the whole
+    // Settings page in the loader. No retry on the 403.
+    retry: false,
     queryFn: async () => {
       const res = await fetch(`${BASE_URL}/authentication`, {
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Authentication fetch failed");
+      if (!res.ok) return null;
       return res.json();
     },
   });
