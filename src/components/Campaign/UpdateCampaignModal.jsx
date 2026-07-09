@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 
 import { RiImageAddFill } from "react-icons/ri";
 import { RxCross1 } from "react-icons/rx";
-import ReactQuill from "react-quill-new";
+import RichTextEditor from "../common/RichTextEditor/RichTextEditor";
 
 import NoDataFound from "../../shared/NoDataFound/NoDataFound";
 import { GoEye } from "react-icons/go";
@@ -11,7 +11,6 @@ import UpdateVariation from "./CampaignDescription/UpdateVariationDes/UpdateVari
 import { toast } from "react-toastify";
 import { BASE_URL } from "../../utils/baseURL";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
-// import 'react-quill-new/dist/quill.snow.css'
 
 const UpdateCampaignModal = ({
   setShowCampaignUpdateModal,
@@ -293,11 +292,7 @@ const UpdateCampaignModal = ({
                   Campaign Description
                 </label>
 
-                <ReactQuill
-                  className="h-56 mb-12"
-                  id="campaign_description"
-                  defaultValue={getCampaignUpdateData?.campaign_description}
-                  theme="snow"
+                <RichTextEditor
                   value={description}
                   onChange={setDescription}
                   placeholder="Enter Campaign Description"

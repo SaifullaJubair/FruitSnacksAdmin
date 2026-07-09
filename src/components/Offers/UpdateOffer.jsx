@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 
 import { RiImageAddFill } from "react-icons/ri";
 import { RxCross1 } from "react-icons/rx";
-import ReactQuill from "react-quill-new";
+import RichTextEditor from "../common/RichTextEditor/RichTextEditor";
 import Pagination from "../common/pagination/Pagination";
 import NoDataFound from "../../shared/NoDataFound/NoDataFound";
 import { GoEye } from "react-icons/go";
@@ -12,7 +12,6 @@ import UpdateVariationDetails from "./VariationDesCription/UpdateVariationDetail
 import { toast } from "react-toastify";
 import { BASE_URL } from "../../utils/baseURL";
 import MiniSpinner from "../../shared/MiniSpinner/MiniSpinner";
-// import 'react-quill-new/dist/quill.snow.css'
 
 const UpdateOffer = ({
   setShowOfferUpdateModal,
@@ -267,12 +266,7 @@ const UpdateOffer = ({
                   Offer Description
                 </label>
 
-                <ReactQuill
-                  className="h-56 mb-12"
-                  id="offer_description"
-                  defaultValue={offerUpdateData?.offer_description}
-                  required
-                  theme="snow"
+                <RichTextEditor
                   value={description}
                   onChange={setDescription}
                   placeholder="Enter Offer Description"

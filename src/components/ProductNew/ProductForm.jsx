@@ -4,8 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import Select from "react-select";
-import ReactQuill from "react-quill-new";
-import "react-quill-new/dist/quill.snow.css";
+import RichTextEditor from "../common/RichTextEditor/RichTextEditor";
 import { MdCancel } from "react-icons/md";
 import {
   RiImageAddLine,
@@ -678,8 +677,9 @@ const ProductForm = ({ mode = "add", initialData = null, onSaved }) => {
       if (!snap) return false;
       const f = snap.form || {};
       if ((f.product_name || "").trim()) return true;
-      // Strip HTML + nbsp before checking — Quill returns "<p><br></p>" for
-      // an empty editor which would otherwise count as meaningful.
+      // Strip HTML + nbsp before checking — a rich-text editor returns markup
+      // like "<p></p>" for an empty body, which would otherwise count as
+      // meaningful.
       if (
         (snap.description || "")
           .replace(/<[^>]*>/g, "")
@@ -1711,9 +1711,8 @@ const ProductForm = ({ mode = "add", initialData = null, onSaved }) => {
           <label className="font-medium text-gray-800">
             Description<span className="text-red-500">*</span>
           </label>
-          <ReactQuill
-            className="mt-2 bg-white"
-            theme="snow"
+          <RichTextEditor
+            className="mt-2"
             value={description}
             onChange={setDescription}
             placeholder="Enter product description"
