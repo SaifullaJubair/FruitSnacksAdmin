@@ -101,11 +101,17 @@ const PrintLabel = ({ line, onClose }) => {
         @media print {
           body * { visibility: hidden; }
           #print-label, #print-label * { visibility: visible; }
+
+          /* Pinned to the page origin. The ancestors are still laid out (only
+             invisible), so 'absolute' would resolve against whichever of them
+             is positioned — the modal overlay — instead of the page. 'fixed'
+             resolves against the page box. Width is intrinsic rather than
+             100%, which would inherit the app shell's width. */
           #print-label {
-            position: absolute;
+            position: fixed;
             left: 0;
             top: 0;
-            width: 100%;
+            width: max-content;
             margin: 0;
             padding: 0;
             background: #fff;
