@@ -112,12 +112,20 @@ const PrintLabel = ({ line, onClose }) => {
             left: 0;
             top: 0;
             width: max-content;
+            /* The p-4 is preview padding. On a 40mm sticker it costs 8.5mm of
+               the 32mm content box, which is what pushed the barcode off the
+               sheet. */
             margin: 0;
-            padding: 0;
+            padding: 0 !important;
             background: #fff;
           }
+          /* No border on the sticker itself — it's a preview affordance, and a
+             printed hairline just wastes the tiny margin. */
+          #print-label > div {
+            border: 0 !important;
+          }
           .no-print { display: none !important; }
-          @page { margin: 4mm; size: 60mm 40mm; }
+          @page { margin: 3mm; size: 60mm 40mm; }
         }
       `}</style>
 
@@ -171,12 +179,16 @@ const PrintLabel = ({ line, onClose }) => {
               </p>
             )}
             {barcodeImage ? (
+              // The number is baked INTO the image: the backend renders it with
+              // bwip-js `includetext: true` (helpers/code.images.ts). Don't
+              // repeat it below — that duplicate was what overflowed the 40mm
+              // page and got sliced in half.
               <img
                 src={barcodeImage}
-                alt="Barcode"
+                alt={`Barcode ${barcode || ""}`}
                 crossOrigin="anonymous"
                 className="mx-auto mt-1"
-                style={{ height: "16mm", objectFit: "contain" }}
+                style={{ height: "13mm", objectFit: "contain" }}
               />
             ) : genState === "error" ? (
               <p
@@ -200,14 +212,6 @@ const PrintLabel = ({ line, onClose }) => {
                 No barcode
               </p>
             ) : null}
-            {barcodeImage && barcode && (
-              <p
-                className="font-mono text-gray-700"
-                style={{ fontSize: "8pt", letterSpacing: "0.5px" }}
-              >
-                {barcode}
-              </p>
-            )}
           </div>
           {genState === "error" && (
             <p
