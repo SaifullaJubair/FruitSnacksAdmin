@@ -69,23 +69,20 @@
   outline: none !important;
 }
 
-/* POS receipt print — hide everything except the receipt.
+/* Print: hide anything the app renders OUTSIDE #root (stray portals, injected
+ * widgets). Each printable view isolates itself from there — see PrintLabel,
+ * PrintableInvoice and POSReceipt, which all use the same
+ * `body * { visibility: hidden }` + `#target { visibility: visible }` idiom.
  *
- * `body > *` used to include `#root`, which is where the whole app (and every
- * printable thing in it) lives. display:none removes a subtree from layout
- * entirely, and no descendant rule — not `visibility: visible`, not even
- * `display: block !important` on the target — can bring a child of a
- * display:none ancestor back. So this silently blanked the printed page for
- * the POS receipt, the order invoice, and the barcode label alike; each of
- * them tries to isolate itself with `body * { visibility: hidden }` +
- * `#target { visibility: visible }`, which is the right technique but can't
- * survive an erased ancestor.
- *
- * Exclude #root so the app subtree stays laid out. Anything the app renders
- * outside #root (portals, injected widgets) is still hidden, and each printer
- * keeps isolating itself via its own visibility rules.
+ * This rule used to be `body > * { display: none !important }`. #root is a
+ * direct child of <body>, so that erased the whole app from the printed
+ * layout. display:none removes a subtree outright — no descendant rule can
+ * undo it, not `visibility: visible`, not even `display: block !important` on
+ * the target. Every printer here came out as a blank sheet, including the POS
+ * receipt this rule was written for.
  */
 @media print {
-  body > *:not(#root) { display: none !important; }
-  .receipt-print { display: block !important; }
+  body > *:not(#root) {
+    display: none !important;
+  }
 }
