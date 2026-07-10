@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2-optimized";
-import { FiEdit } from "react-icons/fi";
+import { FiEdit, FiPrinter } from "react-icons/fi";
 import { MdDeleteForever } from "react-icons/md";
 import { BsStarFill, BsStar } from "react-icons/bs";
 
@@ -21,6 +21,7 @@ import ProductPriceModal from "../../../components/ProductList/ProductPriceModal
 import ProductStockModal from "../../../components/ProductList/ProductStockModal";
 import ProductVariationsModal from "../../../components/ProductList/ProductVariationsModal";
 import ProductAnalyticsSeedModal from "../../../components/ProductList/ProductAnalyticsSeedModal";
+import PrintLabel from "../../../components/common/printLabel/PrintLabel";
 
 // A2 (2026-06-04) — operational product list dashboard.
 // Backed by /product/dashboard-rich which returns each row pre-annotated with
@@ -82,6 +83,10 @@ const ProductListTablePage = () => {
 
   // Modal state — only one open at a time, single source of truth.
   const [modal, setModal] = useState(null); // { type, product }
+  // Sticker label for a SIMPLE product, printed straight from the list. A
+  // variation product's barcodes live on its variations, so its print button
+  // opens the variations modal, which prints per row.
+  const [labelLine, setLabelLine] = useState(null);
   // Per-row toggle in-flight guard (Set of product _ids currently in PATCH).
   // Prevents rapid-click double-fire where the 2nd click reads stale cached
   // status and sends the wrong target value.
@@ -114,9 +119,12 @@ const ProductListTablePage = () => {
   } = useQuery({
     queryKey: [`/api/v1/product/dashboard-rich?${queryStr}`],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/product/dashboard-rich?${queryStr}`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${BASE_URL}/product/dashboard-rich?${queryStr}`,
+        {
+          credentials: "include",
+        },
+      );
       return res.json();
     },
   });
@@ -324,10 +332,10 @@ const ProductListTablePage = () => {
           }}
           options={[
             { value: "", label: "All" },
-            ...((categoryData?.data || []).map((c) => ({
+            ...(categoryData?.data || []).map((c) => ({
               value: c._id,
               label: c.category_name,
-            }))),
+            })),
           ]}
         />
         <FilterSelect
@@ -580,7 +588,9 @@ const ProductListTablePage = () => {
                           {p.sold_count || 0} / {p.view_count || 0}
                         </button>
                       ) : (
-                        <>{p.sold_count || 0} / {p.view_count || 0}</>
+                        <>
+                          {p.sold_count || 0} / {p.view_count || 0}
+                        </>
                       )}
                     </td>
                     <td
@@ -610,6 +620,42 @@ const ProductListTablePage = () => {
                           >
                             PG
                           </Link>
+                        )}
+                        {/* Sticker label. A variation product's barcodes live
+                            on its variations, so send the admin there to pick
+                            which one to print; a simple product prints straight
+                            from its own barcode. Until now the only way to
+                            print a label was from an order — you could label
+                            what you'd sold, never what was in the warehouse.
+                            Gated on product_update because printing may have to
+                            render the barcode image first, and that endpoint
+                            requires it. */}
+                        {user?.role_id?.product_update && (
+                          <button
+                            type="button"
+                            disabled={!isVariation && !p.barcode}
+                            onClick={() =>
+                              isVariation
+                                ? openModal("variations", p)
+                                : setLabelLine({
+                                    product_id: p._id,
+                                    product_name: p.product_name,
+                                    product_sku: p.product_sku,
+                                    barcode: p.barcode,
+                                    barcode_image: p.barcode_image,
+                                  })
+                            }
+                            title={
+                              isVariation
+                                ? "Print label — pick a variation"
+                                : p.barcode
+                                  ? "Print sticker label"
+                                  : "No barcode on this product"
+                            }
+                            className="text-blue-500 hover:text-blue-700 disabled:opacity-30 disabled:hover:text-blue-500"
+                          >
+                            <FiPrinter size={16} />
+                          </button>
                         )}
                         {user?.role_id?.product_delete && (
                           <MdDeleteForever
@@ -682,6 +728,10 @@ const ProductListTablePage = () => {
           onClose={closeModal}
           onSaved={refetch}
         />
+      )}
+
+      {labelLine && (
+        <PrintLabel line={labelLine} onClose={() => setLabelLine(null)} />
       )}
     </div>
   );
