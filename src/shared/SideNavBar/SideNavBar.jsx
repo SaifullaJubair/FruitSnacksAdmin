@@ -30,7 +30,6 @@ import {
   Tag,
   Ticket,
   Image as ImageIcon,
-  GalleryHorizontal,
   // customers children
   User,
   Heart,
@@ -240,8 +239,7 @@ const SideNavBar = () => {
           {(user?.role_id?.offer_show === true ||
             user?.role_id?.campaign_show === true ||
             user?.role_id?.coupon_show === true ||
-            user?.role_id?.banner_show === true ||
-            user?.role_id?.slider_show === true) && (
+            user?.role_id?.banner_show === true) && (
             <DropdownMenu
               label="Marketing"
               icon={Megaphone}
@@ -314,20 +312,20 @@ const SideNavBar = () => {
                   isActive={isActive("/banner")}
                 />
               )}
-              {user?.role_id?.slider_show === true && (
-                <ChildMenuItem
-                  to="/slider"
-                  icon={GalleryHorizontal}
-                  label="Slider"
-                  isActive={isActive("/slider")}
-                />
-              )}
+              {/* Slider retired: SliderAd is not rendered anywhere on the
+                  storefront, so the admin screen edited content nobody could see.
+                  Route and API stay for now; the menu entry and its permission
+                  checkboxes are gone. */}
             </DropdownMenu>
           )}
 
           {/* ── Customers ────────────────────────────────────────────────── */}
-          {(user?.role_id?.customer_show === true ||
-            user?.role_id?.user_show === true ||
+          {/* The Customer page reads and writes /user, which the backend guards with
+              user_show. It used to be gated here on a separate customer_show flag
+              that nothing on the server enforced — so the menu could appear for
+              someone whose API calls then 401'd, and stay hidden from someone who
+              actually had access. Gate on the flag that decides the outcome. */}
+          {(user?.role_id?.user_show === true ||
             user?.role_id?.review_show === true ||
             user?.role_id?.review_seed_bulk === true ||
             user?.role_id?.review_seed_manual === true ||
@@ -338,7 +336,7 @@ const SideNavBar = () => {
               isOpen={activeDropdown === "customers"}
               onClick={() => toggleDropdown("customers")}
             >
-              {user?.role_id?.customer_show === true && (
+              {user?.role_id?.user_show === true && (
                 <ChildMenuItem
                   to="/customer"
                   icon={User}
