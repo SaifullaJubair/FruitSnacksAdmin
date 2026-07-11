@@ -7,9 +7,11 @@ import RichTextEditor from "../common/RichTextEditor/RichTextEditor";
 import IconPicker from "../common/IconPicker/IconPicker";
 import CustomFieldsBlock from "../ProductNew/sections/CustomFieldsBlock";
 import { BASE_URL } from "../../utils/baseURL";
+import { getFrontendUrl } from "../../utils/frontendUrl";
 import { useGetThemes } from "../../hooks/useGetTheme";
 import IconTextRepeater from "./IconTextRepeater";
 import PasteTableButton from "./PasteTableButton";
+import ExampleButton from "./ExampleButton";
 import FaqPickerModal from "./FaqPickerModal";
 import { buildProductPlaceholderContext } from "./faqPlaceholders";
 import VariationWeightEditor from "./VariationWeightEditor";
@@ -18,6 +20,16 @@ import PageContentLayout, { PageContentActions } from "./PageContentLayout";
 import ProductFloatingTab from "./ProductFloatingTab";
 import SizeGuideEditor from "./SizeGuideEditor";
 import { PAGE_CONTENT_SECTIONS } from "./pageContentMeta";
+import {
+  shortFeaturesExample,
+  processStepsExample,
+  benefitsExample,
+  useCasesExample,
+  customSpecExample,
+  sizeGuideExample,
+  specRowsExample,
+  infoTilesExample,
+} from "./sectionExamples";
 
 const EMPTY_OVERRIDES = { hidden_ids: [], replacements: [], extras: [] };
 
@@ -563,22 +575,29 @@ const ProductPageContentForm = ({ product, refetch }) => {
             Page Content: {product?.product_name}
           </h1>
           <p className="text-sm text-gray-500">
-            Theme, hero, benefits, FAQ, nutrition, OG meta এবং variation weight এখান থেকে edit করো।
+            Theme, hero, benefits, FAQ, product details, OG meta এবং variation weight এখান থেকে edit করো।
           </p>
         </div>
         <div className="flex items-center gap-2">
           <PageContentActions
+            // Absolute storefront URL, not "/products/slug" — a relative href
+            // resolves against the ADMIN host, so the link opened
+            // the ADMIN host and 404'd. getFrontendUrl()
+            // returns null on a deployed admin with no VITE_FRONTEND_URL set,
+            // and the button hides rather than sending the admin to a dead page.
             livePath={
-              product?.product_slug ? `/products/${product.product_slug}` : null
+              product?.product_slug && getFrontendUrl()
+                ? `${getFrontendUrl()}/products/${product.product_slug}`
+                : null
             }
             saving={submitting}
             formId="page-content-form"
           />
           <Link
             to="/product/product-list"
-            className="inline-flex items-center gap-2 px-3 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded text-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
           >
-            <FaArrowLeft /> Back
+            <FaArrowLeft size={11} /> Back
           </Link>
         </div>
       </div>
@@ -668,6 +687,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
             <CustomFieldsBlock
               customFields={customFields}
               setCustomFields={setCustomFields}
+              example={customSpecExample(product?.product_name)}
             />
           </Card>
         </TabPane>
@@ -677,7 +697,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
             <div className="grid md:grid-cols-3 gap-4">
               <FieldBlock
                 label="Badge Text"
-                hint="নাম/দামের পাশে ছোট badge"
+                hint="product নামের ঠিক উপরে ছোট pill badge"
               >
                 <div className="relative">
                   <input
@@ -727,6 +747,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 helper="No Sugar, No Preservative, Rich in Fiber, Kids Friendly"
                 max={4}
                 maxLen={30}
+                example={shortFeaturesExample(product?.product_name)}
               />
             </div>
           </Card>
@@ -766,6 +787,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 helper="তাজা ফল থেকে তৈরি / পানি বিয়োজন প্রসেস / পুষ্টিগুণ অক্ষুন্ন থাকে / পরীক্ষিত ও প্রাকৃতিক"
                 max={4}
                 maxLen={60}
+                example={processStepsExample(product?.product_name)}
               />
               <p className="text-xs text-amber-600 mt-2">
                 ⓘ Video না থাকলে এই section frontend-এ দেখাবে না (heading + steps সবই lukano)।
@@ -779,10 +801,11 @@ const ProductPageContentForm = ({ product, refetch }) => {
             <IconTextRepeater
               value={benefits}
               onChange={setBenefits}
-              label="Benefits (উপকারিতা)"
+              label="Benefits"
               helper="প্রতিটি উপকারিতা ১-২ লাইনে রাখো — বিস্তারিত লেখা Description-এ দাও। icon না দিলে ডিফল্ট টিক দেখাবে।"
               max={6}
               maxLen={90}
+              example={benefitsExample(product?.product_name)}
             />
 
             <SideImageField
@@ -814,10 +837,11 @@ const ProductPageContentForm = ({ product, refetch }) => {
             <IconTextRepeater
               value={useCases}
               onChange={setUseCases}
-              label="Use cases"
+              label="Use Cases"
               helper="অফিস স্ন্যাকস / স্কুল টিফিন / জিম-পরবর্তী / ভ্রমণ"
               max={6}
               maxLen={70}
+              example={useCasesExample(product?.product_name)}
             />
 
             <SideImageField
@@ -847,17 +871,20 @@ const ProductPageContentForm = ({ product, refetch }) => {
         <TabPane id="size_guide" active={activeTab}>
           <Card>
             <p className="text-xs text-gray-500 mb-3">
-              সাইজ চার্ট / ফিট গাইড — যেকোনো niche-এ (জুতা / জামা / আংটি …)। কলামের
-              নাম নিজে দিন, ChatGPT/Excel থেকে টেবিল পেস্টও করতে পারেন। খালি রাখলে
-              PDP-তে দেখাবে না। (Add Product-এ আপলোড করা size-chart ছবিটিও PDP-তে
-              আলাদাভাবে দেখায়।)
+              Size chart / fit guide. Name the columns yourself, or paste a table
+              from ChatGPT / Excel. Leave it empty and the section is hidden on
+              the PDP. (A size-chart image uploaded on Add Product renders on the
+              PDP separately.)
             </p>
             <div className="mb-4 max-w-sm">
-              <FieldBlock label="Title" hint="section heading (যেমন: সাইজ চার্ট / Fit Guide)">
+              <FieldBlock
+                label="Title"
+                hint="section heading (যেমন: প্যাক সাইজ / Size Guide)"
+              >
                 <input
                   {...register("size_guide_title")}
                   className="form-input"
-                  placeholder="যেমন: সাইজ চার্ট"
+                  placeholder="যেমন: প্যাক সাইজ"
                 />
               </FieldBlock>
             </div>
@@ -869,18 +896,19 @@ const ProductPageContentForm = ({ product, refetch }) => {
                 setSizeGuideColumns(columns);
                 setSizeGuideRows(rows);
               }}
+              example={sizeGuideExample(product?.product_name)}
             />
 
             <div className="mt-5 max-w-xl">
               <FieldBlock
-                label="মাপ নির্দেশিকা (note)"
-                hint="কীভাবে মাপবেন — table-এর নিচে দেখাবে (optional)"
+                label="নোট"
+                hint="table-এর নিচে দেখাবে (optional)"
               >
                 <textarea
                   {...register("size_guide_note")}
                   rows={2}
                   className="form-input"
-                  placeholder="যেমন: পা মাটিতে রেখে গোড়ালি থেকে বুড়ো আঙুল পর্যন্ত মাপুন (CM-এ)"
+                  placeholder="যেমন: ২৫০g প্যাকে ৮-১০ জনের পরিবেশন।"
                 />
               </FieldBlock>
             </div>
@@ -890,54 +918,76 @@ const ProductPageContentForm = ({ product, refetch }) => {
         <TabPane id="nutrition" active={activeTab}>
           <Card>
             <p className="text-xs text-gray-500 mb-3">
-              পুষ্টি টেবিল + ইনফো টাইল — যা খুশি label/value যোগ করো। দুটোই খালি থাকলে
-              section দেখাবে না।
+              পুষ্টি টেবিল + ইনফো টাইল — যা খুশি label/value যোগ করো (ক্যালরি,
+              প্রোটিন, ফাইবার…)। দুটোই খালি থাকলে section দেখাবে না।
             </p>
             <div className="mb-5 max-w-sm">
-              <FieldBlock label="Per Serving" hint="heading-এর পাশে দেখাবে (e.g. প্রতি ১০০g)">
+              <FieldBlock
+                label="Section Heading"
+                hint="খালি রাখলে “Product Details” দেখাবে (যেমন: পুষ্টি তথ্য)"
+              >
                 <input
                   {...register("nutrition_per_serving")}
                   className="form-input"
-                  placeholder="যেমন: প্রতি ১০০g"
+                  placeholder="যেমন: পুষ্টি তথ্য"
                 />
               </FieldBlock>
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6">
               <LabelValueRepeater
-                title="Nutrient Rows (টেবিল)"
-                helper="ক্যালরি / প্রোটিন / ফাইবার ... (label + value)"
+                title="Spec Rows"
+                helper="ক্যালরি / প্রোটিন / ফাইবার … (label + value)"
                 value={nutritionRows}
                 onChange={setNutritionRows}
                 max={12}
                 labelLen={30}
                 valueLen={30}
+                example={specRowsExample(product?.product_name)}
               />
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-semibold text-gray-700">
                     Info Tiles{" "}
-                    <span className="text-xs font-normal text-gray-400">
-                      (icon + label + value)
+                    <span
+                      className={`text-xs font-normal ${
+                        nutritionTiles.length >= 6
+                          ? "text-amber-600 font-medium"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      ({nutritionTiles.length}/6)
                     </span>
                   </label>
                   <div className="flex items-center gap-2">
+                    <ExampleButton
+                      title="Info Tiles"
+                      prompt={infoTilesExample(product?.product_name).prompt}
+                      sample={infoTilesExample(product?.product_name).sample}
+                      note={infoTilesExample(product?.product_name).note}
+                    />
+                    {/* The 6-tile cap is enforced on paste too — it used to be
+                        checked only in the Add button, so pasting a longer table
+                        walked straight past it. */}
                     <PasteTableButton
                       onAppend={(rows) =>
-                        setNutritionTiles((p) => [
-                          ...p,
-                          ...rows.map((r) => ({ icon_key: "", ...r })),
-                        ])
+                        setNutritionTiles((p) =>
+                          [
+                            ...p,
+                            ...rows.map((r) => ({ icon_key: "", ...r })),
+                          ].slice(0, 6),
+                        )
                       }
                       onReplace={(rows) =>
                         setNutritionTiles(
-                          rows.map((r) => ({ icon_key: "", ...r })),
+                          rows.slice(0, 6).map((r) => ({ icon_key: "", ...r })),
                         )
                       }
                     />
                     <button
                       type="button"
+                      disabled={nutritionTiles.length >= 6}
                       onClick={() =>
                         setNutritionTiles((p) =>
                           p.length >= 6
@@ -945,7 +995,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                             : [...p, { icon_key: "", label: "", value: "" }],
                         )
                       }
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <FaPlus /> Add
                     </button>
@@ -955,7 +1005,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                   উপাদান / শেলফ লাইফ / দেশ — ডান পাশের tile।
                 </p>
                 {nutritionTiles.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">কিছু যোগ করা হয়নি।</p>
+                  <p className="text-xs text-gray-400 italic">Nothing added yet.</p>
                 ) : (
                   nutritionTiles.map((t, i) => (
                     <div
@@ -1034,7 +1084,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
                   আমাদের প্রতিশ্রুতি (Brand Promise)
                 </p>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  এই section সব product-এর PDP-তে একই ভাবে দেখায় (পুষ্টি তথ্যের
+                  এই section সব product-এর PDP-তে একই ভাবে দেখায় (Product Details-এর
                   ডান পাশে) — তাই এটা একটা <strong>common / site-wide</strong> setting,
                   per-product নয়। এখান থেকে edit হয় না; নিচের বাটনে গিয়ে একবার সেট
                   করলে সব product-এ প্রযোজ্য হবে।
@@ -1107,7 +1157,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
               <button
                 type="button"
                 onClick={addFaq}
-                className="inline-flex items-center gap-2 text-xs px-3 py-1.5 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-blueColor-600 text-white rounded hover:bg-blueColor-700"
               >
                 <FaPlus /> Add FAQ manually
               </button>
@@ -1140,7 +1190,7 @@ const ProductPageContentForm = ({ product, refetch }) => {
         <TabPane id="floating" active={activeTab}>
           <Card>
             <p className="text-xs text-gray-500 mb-3">
-              Floating fruit ছবি এখন <strong>section অনুযায়ী</strong> বসে। theme থেকে
+              Floating ছবি এখন <strong>section অনুযায়ী</strong> বসে। theme থেকে
               আসা global floating গুলো এখানে hide / replace করা যায়, আর এই product-এর
               জন্য বাড়তি floating যোগ করা যায়।
             </p>
@@ -1360,6 +1410,8 @@ const LabelValueRepeater = ({
   max = 0,
   labelLen = 0,
   valueLen = 0,
+  // { prompt, sample[], note } — shows the "Example" button beside Paste / Add.
+  example,
 }) => {
   const add = () => {
     if (max && value.length >= max) {
@@ -1377,8 +1429,29 @@ const LabelValueRepeater = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-semibold text-gray-700">{title}</label>
+        <label className="text-sm font-semibold text-gray-700">
+          {title}
+          {max > 0 && (
+            <span
+              className={`ml-1 text-xs font-normal ${
+                value.length >= max
+                  ? "text-amber-600 font-medium"
+                  : "text-gray-400"
+              }`}
+            >
+              ({value.length}/{max})
+            </span>
+          )}
+        </label>
         <div className="flex items-center gap-2">
+          {example && (
+            <ExampleButton
+              title={title}
+              prompt={example.prompt}
+              sample={example.sample}
+              note={example.note}
+            />
+          )}
           <PasteTableButton
             onAppend={(rows) => onChange(capRows([...value, ...rows]))}
             onReplace={(rows) => onChange(capRows(rows))}
@@ -1386,7 +1459,8 @@ const LabelValueRepeater = ({
           <button
             type="button"
             onClick={add}
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
+            disabled={max > 0 && value.length >= max}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-blueColor-600 text-white rounded hover:bg-blueColor-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <FaPlus /> Add
           </button>
@@ -1394,7 +1468,7 @@ const LabelValueRepeater = ({
       </div>
       {helper && <p className="text-xs text-gray-400 -mt-1">{helper}</p>}
       {value.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">কিছু যোগ করা হয়নি।</p>
+        <p className="text-xs text-gray-400 italic">Nothing added yet.</p>
       ) : (
         value.map((row, i) => (
           <div key={i} className="flex items-center gap-2 p-2 bg-white border rounded">

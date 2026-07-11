@@ -23,7 +23,8 @@ const SECTIONS = [
   { v: "order", label: "Order form" },
   { v: "benefits", label: "Benefits" },
   { v: "use_cases", label: "Use cases" },
-  { v: "nutrition", label: "Nutrition" },
+  // `v` is the stored section id — schema, don't rename. Label only.
+  { v: "nutrition", label: "Trust / Details" },
   { v: "reviews", label: "Reviews" },
   { v: "faq", label: "FAQ" },
 ];
@@ -345,9 +346,9 @@ export default function ProductFloatingTab({
         <button
           type="button"
           onClick={addExtra}
-          className="mt-3 inline-flex items-center gap-2 text-xs px-3 py-2 bg-blueColor-50 text-blueColor-600 rounded hover:bg-blueColor-100"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-blueColor-600 text-white rounded hover:bg-blueColor-700"
         >
-          <FaPlus /> Add extra floating
+          <FaPlus size={10} /> Add extra floating
         </button>
       </div>
     </div>
