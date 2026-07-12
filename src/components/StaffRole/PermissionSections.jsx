@@ -61,17 +61,27 @@ const PermissionSections = ({ register, watchAllFields, setValue }) => {
 
             <div className="p-3 space-y-3">
               {groups.map((group) => (
-                <div key={group.Name}>
-                  <p className="text-sm font-medium text-gray-600 mb-1.5">
+                <div key={`${section}-${group.Name}`}>
+                  <p className="text-sm font-medium text-gray-600">
                     {group.Name}
                   </p>
+                  {group.hint && (
+                    <p className="text-xs text-gray-400 mb-1.5">{group.hint}</p>
+                  )}
+                  {!group.hint && <div className="mb-1.5" />}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     {group.Type.map((permission) => {
                       const isChecked = watchAllFields[permission.type_value];
+                      // A flag can appear in two sections (site_setting_update
+                      // opens both Site Settings and Warehouses), so the DOM id
+                      // is scoped to the section. react-hook-form registers both
+                      // under the same field name, which is what we want: tick
+                      // one and the other follows, because they ARE one flag.
+                      const domId = `${section}-${permission.type_value}`;
                       return (
                         <label
-                          key={permission.type_value}
-                          htmlFor={permission.type_value}
+                          key={domId}
+                          htmlFor={domId}
                           className={`flex items-center border shadow-sm cursor-pointer p-2 rounded transition-colors ${
                             isChecked
                               ? "bg-green-500 text-white border-green-500"
@@ -80,7 +90,7 @@ const PermissionSections = ({ register, watchAllFields, setValue }) => {
                         >
                           <input
                             type="checkbox"
-                            id={permission.type_value}
+                            id={domId}
                             {...register(permission.type_value)}
                             className="mr-2 outline-primaryVariant-600 shrink-0"
                           />

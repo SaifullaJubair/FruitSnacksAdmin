@@ -71,7 +71,8 @@ const permissionsData = [
   // order_show also opens Steadfast / Pathao / Fraud Check / Abandoned Carts.
   {
     section: "Orders",
-    Name: "Orders (incl. courier, fraud check, abandoned carts)",
+    Name: "Orders",
+    hint: "Order Show also opens Steadfast, Pathao, Fraud Check and Abandoned Carts.",
     Type: [
       { type_name: "Order Show", type_value: "order_show" },
       { type_name: "Order Update", type_value: "order_update" },
@@ -83,6 +84,10 @@ const permissionsData = [
   {
     section: "Marketing",
     Name: "Offer & Flash Sale",
+    // Flash Sale is its own sidebar entry but has no flags of its own — its
+    // routes are guarded by offer_create / offer_update / offer_delete. Say so,
+    // or the checkbox list looks like it forgot a page.
+    hint: "Flash Sale is covered by these — it has no separate permission.",
     Type: [
       { type_name: "Offer Show", type_value: "offer_show" },
       { type_name: "Offer Create", type_value: "offer_create" },
@@ -130,7 +135,8 @@ const permissionsData = [
   // customer_* flags are gone and the page now gates on the same flags it obeys.
   {
     section: "Customers",
-    Name: "Customers & Staff Users (also opens Wishlists, Loyalty, Wallet)",
+    Name: "Customers & Staff Users",
+    hint: "User Show also opens Wishlists, Loyalty Points, Wallet, and the Staff list.",
     Type: [
       { type_name: "User Show", type_value: "user_show" },
       { type_name: "User Create", type_value: "user_create" },
@@ -217,11 +223,25 @@ const permissionsData = [
       { type_name: "Supplier Delete", type_value: "supplier_delete" },
     ],
   },
+  {
+    // Warehouses sits under Inventory in the sidebar but its routes are guarded
+    // by site_setting_update, the same flag as Site Settings. Listing it here as
+    // well as under Settings is deliberate — the checkbox is the same one either
+    // way, and someone granting "inventory access" should see that this page
+    // comes with the settings flag rather than find it missing.
+    section: "Inventory",
+    Name: "Warehouses",
+    hint: "Shares the Site Settings permission — ticking it here also grants Site Settings.",
+    Type: [
+      { type_name: "Update Site Setting", type_value: "site_setting_update" },
+    ],
+  },
 
   // ── Settings ───────────────────────────────────────────────────────────────
   {
     section: "Settings",
-    Name: "Site Settings (also opens Warehouses)",
+    Name: "Site Settings",
+    hint: "Also opens Warehouses (Inventory).",
     Type: [
       { type_name: "Update Site Setting", type_value: "site_setting_update" },
       // Separate from site_setting_update so a general admin cannot rotate CAPI
