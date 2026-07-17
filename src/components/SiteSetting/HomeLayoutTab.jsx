@@ -93,18 +93,7 @@ const SortableRow = ({ section, onToggle, onConfigChange, flatConfig }) => {
   return (
     <div ref={setNodeRef} style={style} className="border border-gray-200 rounded-lg mb-2 bg-white">
       <div className="flex items-center gap-3 p-3">
-      {/* ── Topbar Settings — HIDDEN, nothing reads these ──────────────────
-          All four fields save to the settings doc and the tab says "Saved",
-          but the storefront never reads any of them (grep: 0 hits each). The
-          only component that used them, TopNavbar, is commented out of
-          (frontend)/layout.js. The bar that actually renders in that slot is
-          <AnnouncementBar>, driven by `announcement_bar` — edit it on the
-          Announcement Bar tab.
-
-          Hidden rather than deleted: re-mounting TopNavbar would bring them
-          back. If that never happens, delete these fields and this block.
-
-{/* drag handle */}
+        {/* drag handle */}
         <button {...attributes} {...listeners} className="cursor-grab text-gray-400 hover:text-gray-600">
           <MdDragIndicator className="text-2xl" />
         </button>
@@ -309,7 +298,12 @@ const HomeLayoutTab = ({ refetch, getInitialCurrencyData }) => {
   const [flatConfig, setFlatConfig] = useState({});
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  // const [topbarOpen, setTopbarOpen] = useState(false); // Topbar card hidden - see below
+  // Topbar card intentionally removed: topbar_show/topbar_announcement_text/
+  // topbar_show_track_order/topbar_show_hotline still save to the settings
+  // doc, but nothing on the storefront reads them (grep: 0 hits each) — the
+  // only component that did, TopNavbar, is commented out of (frontend)/layout.js.
+  // The bar that actually renders in that slot is <AnnouncementBar>, driven
+  // by `announcement_bar` — edit it on the Announcement Bar tab instead.
   const [navOpen, setNavOpen] = useState(false);
   const [heroOpen, setHeroOpen] = useState(false);
   const [footerOpen, setFooterOpen] = useState(false);
@@ -472,15 +466,6 @@ const HomeLayoutTab = ({ refetch, getInitialCurrencyData }) => {
           You have unsaved changes.
         </div>
       )}
-
-      {/* ── Topbar Settings ── */}
-      <SectionCard title="Topbar" open={topbarOpen} setOpen={setTopbarOpen}>
-        <FlatToggle fieldKey="topbar_show" label="Show topbar" />
-        <FlatText fieldKey="topbar_announcement_text" label="Announcement text" placeholder="Free delivery on orders above ৳500" />
-        <FlatToggle fieldKey="topbar_show_track_order" label="Show Track Order link" />
-        <FlatToggle fieldKey="topbar_show_hotline" label="Show Hotline number" />
-      </SectionCard>
-      ─────────────────────────────────────────────────────────────────────── */}
 
       {/* ── Navbar Settings ── */}
       <SectionCard title="Navbar" open={navOpen} setOpen={setNavOpen}>
