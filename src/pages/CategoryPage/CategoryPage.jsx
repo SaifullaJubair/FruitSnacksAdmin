@@ -10,14 +10,18 @@ function CategoryPage() {
   const { user } = useContext(AuthContext);
 
   // Fetch the full nested category tree (root nodes with nested children).
+  // `includeInactive` is required here: without it the endpoint hides
+  // in-active categories, so switching one off made it vanish from this very
+  // list — along with the toggle needed to switch it back on. The storefront
+  // keeps the default (active-only) behaviour.
   const {
     data: treeRes = {},
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: [`/api/v1/category/tree`],
+    queryKey: [`/api/v1/category/tree`, "includeInactive"],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/category/tree`, {
+      const res = await fetch(`${BASE_URL}/category/tree?includeInactive=true`, {
         credentials: "include",
       });
       if (!res.ok) {
