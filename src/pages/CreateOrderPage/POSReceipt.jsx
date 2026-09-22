@@ -8,6 +8,7 @@ const POSReceipt = forwardRef(
       delivery,
       discount,
       shippingCost,
+      vatAmount = 0,
       grandTotal,
       invoiceId,
       shopName,
@@ -121,6 +122,12 @@ const POSReceipt = forwardRef(
               <div className="flex justify-between">
                 <span>Discount</span>
                 <span>-৳{discount.toLocaleString()}</span>
+              </div>
+            )}
+            {vatAmount > 0 && (
+              <div className="flex justify-between">
+                <span>VAT</span>
+                <span>৳{vatAmount.toLocaleString()}</span>
               </div>
             )}
             <div className="flex justify-between font-bold border-t border-black pt-1 mt-1">
