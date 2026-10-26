@@ -87,21 +87,6 @@ function resolveCustomerDivDistrict(customer) {
   return { divId: "", distId: "" };
 }
 
-// Map a saved customer onto a geo division NAME (e.g. "Dhaka"). Existing User
-// docs only carry the legacy free-text `user_division` / `user_district`, and
-// those two fields are known to hold each other's values on older records —
-// resolveCustomerDivDistrict already tries both directions against the local
-// government division/district data. This just takes that division id and
-// reads its name, which is then matched against the geo tree's division list
-// (async, in selectCustomer below — this function stays a pure sync helper).
-// Returning null just means the cashier picks the division manually; it is
-// never a hard failure.
-function resolveCustomerDivisionName(customer) {
-  const { divId } = resolveCustomerDivDistrict(customer);
-  if (!divId) return null;
-  return divisions.find((d) => d.id === divId)?.name || null;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 const CreateOrderPage = () => {
   const { user } = useContext(AuthContext);
@@ -138,13 +123,15 @@ const CreateOrderPage = () => {
   // Division/District now mirror the storefront checkout's geo picker (see
   // docs/_ai/GEO_LOCATION_SELF_HOSTED_PLAN.md) instead of Pathao's live
   // city/zone list — same reasoning as the storefront migration: the POS
-  // must not depend on Pathao's API being up to take a sale. `divisionId`
-  // drives the shipping charge (Dhaka vs outside, by NAME match — same rule
-  // as order.recompute.ts/the storefront, not a numeric Pathao id anymore).
-  // `districtId`/`upazilaId` feed the courier booking only, so they stay
-  // optional, same as the old zoneId.
+  // must not depend on Pathao's API being up to take a sale. No Division
+  // dropdown (owner decision, 2026-10-27, mirrors the storefront picker) —
+  // `selectedDivisionName` is DERIVED from the picked district's own
+  // `division_name_en` (attached server-side, see geo.services.ts
+  // findAllDistrictsServices) and still drives the shipping charge (Dhaka
+  // vs outside, by NAME match — same rule as order.recompute.ts/the
+  // storefront, not a numeric Pathao id). District AND Upazila are now both
+  // REQUIRED for a delivery order.
   const [deliveryType, setDeliveryType] = useState("delivery");
-  const [selectedDivisionId, setSelectedDivisionId] = useState("");
   const [selectedDivisionName, setSelectedDivisionName] = useState("");
   const [selectedDistrictId, setSelectedDistrictId] = useState("");
   const [selectedUpazilaId, setSelectedUpazilaId] = useState("");
@@ -210,38 +197,25 @@ const CreateOrderPage = () => {
   });
   const setting = settingData?.data?.[0] || {};
 
-  // ── Geo tree: Division → District → Upazila ──────────────────────
+  // ── Geo tree: District (flat, all 64, no Division step) → Upazila ──
   // Our own collection (see docs/_ai/GEO_LOCATION_SELF_HOSTED_PLAN.md), not
   // Pathao's live API — the POS must not depend on Pathao's uptime to take a
-  // sale. District/Upazila are only needed for courier booking, never for
-  // the price, so a failure downgrades to "book the courier later" instead
-  // of blocking the sale with a customer standing at the counter.
-  const { data: divisionsResp, isLoading: divisionsGeoLoading } = useQuery({
-    queryKey: ["pos-geo-divisions"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/geo/children`, { credentials: "include" });
-      return res.json();
-    },
-    staleTime: 300_000,
-  });
-  const geoDivisions = divisionsResp?.data || [];
-
+  // sale. Upazila is only needed for courier booking, never for the price,
+  // so a failure downgrades to "book the courier later" instead of
+  // blocking the sale with a customer standing at the counter.
   const {
     data: districtsResp,
     isLoading: districtsGeoLoading,
     isError: districtsGeoError,
     refetch: refetchDistricts,
   } = useQuery({
-    queryKey: ["pos-geo-districts", selectedDivisionId],
+    queryKey: ["pos-geo-districts"],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/geo/children?parent=${selectedDivisionId}`, {
-        credentials: "include",
-      });
+      const res = await fetch(`${BASE_URL}/geo/districts`, { credentials: "include" });
       const json = await res.json();
       if (!Array.isArray(json?.data)) throw new Error("District lookup failed");
       return json;
     },
-    enabled: deliveryType === "delivery" && !!selectedDivisionId,
     retry: 1,
     staleTime: 300_000,
   });
@@ -286,16 +260,14 @@ const CreateOrderPage = () => {
   const totalPages = Math.ceil(totalProducts / perPage);
   const categories = useMemo(() => (categoryData?.data || []).filter((c) => !c.parent_id), [categoryData]);
   const brands = useMemo(() => brandData?.data || [], [brandData]);
-  const selectedDivision = useMemo(
-    () => geoDivisions.find((d) => String(d._id) === String(selectedDivisionId)) || null,
-    [geoDivisions, selectedDivisionId],
-  );
   // Name match, same rule as order.recompute.ts's recomputeShippingCost and
-  // the storefront checkout — NOT a numeric Pathao id anymore. This is what
+  // the storefront checkout — NOT a numeric Pathao id. selectedDivisionName
+  // is DERIVED from the picked district's own division_name_en (see the
+  // district <select>'s onChange below), not picked directly. This is what
   // keeps the POS preview provably in sync with what the server actually
   // charges after the geo migration.
   const isInsideDhaka =
-    String(selectedDivision?.name_en || "").trim().toLowerCase() === "dhaka";
+    String(selectedDivisionName || "").trim().toLowerCase() === "dhaka";
 
   // ── Totals ───────────────────────────────────────────────────────
   // Everything below mirrors the server's recompute (order.recompute.ts) so
@@ -319,7 +291,7 @@ const CreateOrderPage = () => {
   const shippingCost = useMemo(() => {
     if (deliveryType === "pickup") return 0;
     if (lines.length === 0) return 0;
-    if (!selectedDivisionId) return 0;
+    if (!selectedDistrictId) return 0;
 
     const zoneCharge = isInsideDhaka
       ? Number(setting.inside_dhaka_shipping_charge) || 0
@@ -365,14 +337,14 @@ const CreateOrderPage = () => {
       }
     }
     return total;
-  }, [deliveryType, lines, selectedDivisionId, isInsideDhaka, setting]);
+  }, [deliveryType, lines, selectedDistrictId, isInsideDhaka, setting]);
 
   const freeDeliveryApplied =
     deliveryType === "delivery" &&
     setting.free_delivery_enabled === true &&
     shippingCost === 0 &&
     lines.length > 0 &&
-    !!selectedDivisionId;
+    !!selectedDistrictId;
 
   // VAT — per line, on the post-discount amount, matching the server. The
   // discount is apportioned across lines by value so a line's tax follows what
@@ -456,26 +428,28 @@ const CreateOrderPage = () => {
     setShowCustomerDrop(false);
     // Auto-fill address
     if (c.user_address) setBillingAddress(c.user_address);
-    // Saved customers predate the geo division picker, so this is
+    // Saved customers predate the geo district picker, so this is
     // best-effort: no match just leaves the dropdown empty for the cashier
-    // to fill in. Matched against the already-loaded divisions list (the
-    // root-level geo query runs unconditionally, see above) rather than a
-    // second fetch.
-    const divName = resolveCustomerDivisionName(c);
-    const matchedDivision = divName
-      ? geoDivisions.find(
-          (d) =>
+    // to fill in. Matched against the already-loaded districts list (runs
+    // unconditionally, see above) rather than a second fetch. District, not
+    // Division — there's no Division dropdown any more.
+    const { distId } = resolveCustomerDivDistrict(c);
+    const matchedDistrict = distId
+      ? geoDistricts.find((d) => {
+          const localDist = districts.find((ld) => ld.id === distId);
+          return (
+            localDist &&
             String(d.name_en || "").trim().toLowerCase() ===
-            divName.trim().toLowerCase(),
-        )
+              String(localDist.name || "").trim().toLowerCase()
+          );
+        })
       : null;
-    if (matchedDivision) {
-      setSelectedDivisionId(String(matchedDivision._id));
-      setSelectedDivisionName(matchedDivision.name_en);
-      setSelectedDistrictId("");
+    if (matchedDistrict) {
+      setSelectedDistrictId(String(matchedDistrict._id));
+      setSelectedDivisionName(matchedDistrict.division_name_en || "");
       setSelectedUpazilaId("");
     }
-  }, [geoDivisions]);
+  }, [geoDistricts]);
 
   const handlePrint = useCallback(() => {
     if (lines.length === 0) { toast.error("Add products before printing."); return; }
@@ -489,7 +463,8 @@ const CreateOrderPage = () => {
     const customerPhone = isWalkIn ? walkInPhone : selectedCustomer?.user_phone;
     if (!customerPhone?.trim()) { toast.error("Customer phone is required."); return; }
     if (deliveryType === "delivery" && !billingAddress.trim()) { toast.error("Delivery address is required."); return; }
-    if (deliveryType === "delivery" && !selectedDivisionId) { toast.error("Please select a division."); return; }
+    if (deliveryType === "delivery" && !selectedDistrictId) { toast.error("Please select a district."); return; }
+    if (deliveryType === "delivery" && !selectedUpazilaId) { toast.error("Please select an area."); return; }
 
     const districtName = geoDistricts.find((d) => String(d._id) === String(selectedDistrictId))?.name_en;
     const upazilaName = geoUpazilas.find((u) => String(u._id) === String(selectedUpazilaId))?.name_en;
@@ -501,9 +476,9 @@ const CreateOrderPage = () => {
       customer_phone: customerPhone,
       billing_country: "Bangladesh",
       // billing_state MUST hold the division name: the server derives the
-      // shipping zone from it (order.recompute.ts) by matching "dhaka". These
-      // two were previously swapped here, which is why the server's own
-      // recompute had to be overridden for POS orders.
+      // shipping zone from it (order.recompute.ts) by matching "dhaka".
+      // selectedDivisionName is DERIVED from the picked district, not
+      // picked directly — no Division field any more.
       billing_state: selectedDivisionName || "",
       billing_city: upazilaName || districtName || selectedDivisionName || "",
       billing_address: deliveryType === "pickup" ? "Pickup" : billingAddress,
@@ -515,15 +490,13 @@ const CreateOrderPage = () => {
             : `Outside Dhaka, ${setting.outside_dhaka_shipping_days || 0} Days`,
       shipping_cost: shippingCost,
       delivery_type: deliveryType,
-      // Geo tree ids — resolved server-side into a Pathao city_id/zone_id at
-      // dispatch time (see docs/_ai/GEO_LOCATION_SELF_HOSTED_PLAN.md Phase 5).
-      // District/upazila stay optional: if the cashier didn't pick one (or
-      // the geo lookup failed), the order is still taken and the location
-      // can be refined later from the order detail page.
-      ...(deliveryType === "delivery" && selectedDivisionId
+      // Geo tree ids — resolved server-side into billing_state/billing_city
+      // AND a Pathao city_id/zone_id at dispatch time (see
+      // docs/_ai/GEO_LOCATION_SELF_HOSTED_PLAN.md Phase 5). No Division id —
+      // the backend derives it from geo_district_id's own ancestry.
+      ...(deliveryType === "delivery" && selectedDistrictId
         ? {
-            geo_division_id: selectedDivisionId,
-            ...(selectedDistrictId ? { geo_district_id: selectedDistrictId } : {}),
+            geo_district_id: selectedDistrictId,
             ...(selectedUpazilaId ? { geo_upazila_id: selectedUpazilaId } : {}),
           }
         : {}),
@@ -981,25 +954,19 @@ const CreateOrderPage = () => {
               </div>
               {deliveryType === "delivery" && (
                 <div className="space-y-2">
-                  <select value={selectedDivisionId}
+                  {/* No Division dropdown — selectedDivisionName is derived
+                      from the picked district's own division_name_en below. */}
+                  <select value={selectedDistrictId}
                     onChange={(e) => {
-                      const div = geoDivisions.find((d) => String(d._id) === e.target.value);
-                      setSelectedDivisionId(e.target.value);
-                      setSelectedDivisionName(div?.name_en || "");
-                      setSelectedDistrictId("");
+                      const d = geoDistricts.find((x) => String(x._id) === e.target.value);
+                      setSelectedDistrictId(e.target.value);
+                      setSelectedDivisionName(d?.division_name_en || "");
                       setSelectedUpazilaId("");
                     }}
-                    disabled={divisionsGeoLoading}
+                    disabled={districtsGeoLoading || districtsGeoError}
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white">
-                    <option value="">Select Division *</option>
-                    {geoDivisions.map((d) => <option key={d._id} value={d._id}>{d.name_en}</option>)}
-                  </select>
-                  <select value={selectedDistrictId}
-                    onChange={(e) => { setSelectedDistrictId(e.target.value); setSelectedUpazilaId(""); }}
-                    disabled={!selectedDivisionId || districtsGeoLoading || districtsGeoError}
-                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white disabled:opacity-50">
                     <option value="">
-                      {districtsGeoLoading ? "Loading districts…" : districtsGeoError ? "Districts unavailable" : "Select District (for courier)"}
+                      {districtsGeoLoading ? "Loading districts…" : districtsGeoError ? "Districts unavailable" : "Select District *"}
                     </option>
                     {geoDistricts.map((d) => <option key={d._id} value={d._id}>{d.name_en}</option>)}
                   </select>
@@ -1008,7 +975,7 @@ const CreateOrderPage = () => {
                     disabled={!selectedDistrictId || upazilasGeoLoading}
                     className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blueColor-500 bg-white disabled:opacity-50">
                     <option value="">
-                      {upazilasGeoLoading ? "Loading areas…" : "Select Area (optional)"}
+                      {upazilasGeoLoading ? "Loading areas…" : "Select Area *"}
                     </option>
                     {geoUpazilas.map((u) => <option key={u._id} value={u._id}>{u.name_en}</option>)}
                   </select>
@@ -1023,7 +990,7 @@ const CreateOrderPage = () => {
                         className="underline shrink-0 hover:text-amber-900">Retry</button>
                     </div>
                   )}
-                  {selectedDivisionId && (
+                  {selectedDistrictId && (
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${isInsideDhaka ? "bg-green-50 text-green-700 border border-green-200" : "bg-orange-50 text-orange-700 border border-orange-200"}`}>
                       <span>{isInsideDhaka ? "✓" : "→"}</span>
                       <span>
